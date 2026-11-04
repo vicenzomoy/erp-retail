@@ -4,6 +4,7 @@ import InventoryLayout from '@/Layouts/InventoryLayout';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
 import OdooBadge from '@/Components/Odoo/OdooBadge';
+import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
 import {
     ArrowLeft,
     CheckCircle2,
@@ -17,7 +18,7 @@ import {
     MapPin,
 } from 'lucide-react';
 
-export default function Show({ transfer, stockMoves = [] }) {
+export default function Show({ transfer, stockMoves = [], relatedDocs = [], auditLogs = [] }) {
     const isDone = transfer.status === 'done';
 
     const { data, setData, post, processing, errors } = useForm({
@@ -318,6 +319,14 @@ export default function Show({ transfer, stockMoves = [] }) {
                     </div>
                 )}
             </div>
+
+            {/* Odoo Form Footer: Related Docs | Log Notes | Audit / History */}
+            <OdooFormFooter
+                documentType="internal_transfer"
+                documentId={transfer.id}
+                relatedDocs={relatedDocs}
+                auditLogs={auditLogs}
+            />
         </InventoryLayout>
     );
 }

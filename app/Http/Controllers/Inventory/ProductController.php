@@ -125,6 +125,51 @@ class ProductController extends Controller
             ->limit(10)
             ->get();
 
+        // Related Docs
+        $relatedDocs = [
+            [
+                'type' => 'Vendor Pemasok',
+                'id' => $product->default_vendor,
+                'title' => "Vendor Utama: {$product->vendor?->name}",
+                'status' => 'active',
+                'info' => "Default Supplier untuk pengadaan {$product->variant_sku}",
+            ],
+            [
+                'type' => 'Laporan Perkiraan Stok (ATP)',
+                'id' => $product->variant_sku,
+                'title' => 'Monitoring Ketersediaan ATP',
+                'status' => 'available',
+                'url' => route('inventory.reporting.forecast'),
+                'info' => "On Hand: {$totalOnHand} | Reserved: {$totalReserved} | Available: {$totalAvailable}",
+            ],
+            [
+                'type' => 'Buku Mutasi Stok (Ledger)',
+                'id' => $product->variant_sku,
+                'title' => 'Riwayat Mutasi & Kartu Stok',
+                'status' => 'recorded',
+                'url' => route('inventory.reporting.moves', ['sku' => $product->variant_sku]),
+                'info' => "Seluruh transaksi masuk, keluar, dan transfer SKU {$product->variant_sku}",
+            ],
+        ];
+
+        // Audit Logs & Chatter Notes
+        $auditLogs = AuditLog::where('document_type', 'product')
+            ->where('document_id', $product->variant_sku)
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(fn ($log) => [
+                'id' => $log->id,
+                'action' => $log->action,
+                'status' => $log->status,
+                'actor_username' => $log->actor_username,
+                'actor_role' => $log->actor_role,
+                'notes' => $log->notes,
+                'old_value' => $log->old_value,
+                'new_value' => $log->new_value,
+                'created_at' => $log->created_at?->format('d/m/Y H:i:s'),
+                'time_ago' => $log->created_at?->diffForHumans(),
+            ]);
+
         return Inertia::render('Inventory/Products/Show', [
             'product' => [
                 'variant_sku' => $product->variant_sku,
@@ -151,6 +196,8 @@ class ProductController extends Controller
                 'to' => $m->location_to,
                 'qty' => (float) $m->qty_done,
             ]),
+            'relatedDocs' => $relatedDocs,
+            'auditLogs' => $auditLogs,
         ]);
     }
 

@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\InternalTransfer;
 use App\Models\InternalTransferLine;
 use App\Models\Master\Product;
 use App\Models\Master\WarehouseLocation;
+use App\Models\StockLedger;
 use App\Models\StockMove;
 use App\Services\Inventory\InternalTransferService;
 use App\Services\Inventory\StockService;
@@ -118,6 +120,64 @@ class InternalTransferController extends Controller
             ];
         });
 
+        // Related Docs
+        $relatedDocs = [];
+
+        if ($transfer->location_from) {
+            $relatedDocs[] = [
+                'type' => 'Lokasi Asal',
+                'id' => $transfer->location_from,
+                'title' => "Gudang Pengirim ({$transfer->fromLocation?->location_name})",
+                'status' => 'ready',
+                'url' => route('inventory.products.stock-by-location'),
+                'info' => "Sumber mutasi pengeluaran stok fisik",
+            ];
+        }
+
+        if ($transfer->location_to) {
+            $relatedDocs[] = [
+                'type' => 'Lokasi Tujuan',
+                'id' => $transfer->location_to,
+                'title' => "Gudang Penerima ({$transfer->toLocation?->location_name})",
+                'status' => 'ready',
+                'url' => route('inventory.products.stock-by-location'),
+                'info' => "Tujuan mutasi penambahan stok fisik",
+            ];
+        }
+
+        $ledgerCount = StockLedger::where('source_document_type', 'internal_transfer')
+            ->where('source_document_id', $transfer->id)
+            ->count();
+
+        if ($ledgerCount > 0) {
+            $relatedDocs[] = [
+                'type' => 'Buku Mutasi Stok (Ledger)',
+                'id' => $transfer->id,
+                'title' => "Buku Mutasi Stok {$transfer->id}",
+                'status' => 'done',
+                'url' => route('inventory.reporting.moves', ['move_type' => 'transfer_in']),
+                'info' => "{$ledgerCount} baris mutasi stok (Keluar dari {$transfer->location_from} & Masuk ke {$transfer->location_to})",
+            ];
+        }
+
+        // Audit Logs & Chatter Notes
+        $auditLogs = AuditLog::where('document_type', 'internal_transfer')
+            ->where('document_id', $transfer->id)
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(fn ($log) => [
+                'id' => $log->id,
+                'action' => $log->action,
+                'status' => $log->status,
+                'actor_username' => $log->actor_username,
+                'actor_role' => $log->actor_role,
+                'notes' => $log->notes,
+                'old_value' => $log->old_value,
+                'new_value' => $log->new_value,
+                'created_at' => $log->created_at?->format('d/m/Y H:i:s'),
+                'time_ago' => $log->created_at?->diffForHumans(),
+            ]);
+
         return Inertia::render('Inventory/Transfers/Show', [
             'transfer' => [
                 'id' => $transfer->id,
@@ -143,6 +203,8 @@ class InternalTransferController extends Controller
                     'total_value' => (float) $m->total_value,
                 ];
             }),
+            'relatedDocs' => $relatedDocs,
+            'auditLogs' => $auditLogs,
         ]);
     }
 

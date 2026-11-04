@@ -4,6 +4,7 @@ import InventoryLayout from '@/Layouts/InventoryLayout';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
 import OdooBadge from '@/Components/Odoo/OdooBadge';
+import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
 import {
     ArrowLeft,
     CheckCircle2,
@@ -17,7 +18,7 @@ import {
     ShieldCheck,
 } from 'lucide-react';
 
-export default function Show({ receipt, stockMoves = [] }) {
+export default function Show({ receipt, stockMoves = [], relatedDocs = [], auditLogs = [] }) {
     const isValidated = receipt.status === 'validated';
 
     const { data, setData, post, processing, errors } = useForm({
@@ -372,6 +373,14 @@ export default function Show({ receipt, stockMoves = [] }) {
                     </div>
                 )}
             </div>
+
+            {/* Odoo Form Footer: Related Docs | Log Notes | Audit / History */}
+            <OdooFormFooter
+                documentType="receipt"
+                documentId={receipt.id}
+                relatedDocs={relatedDocs}
+                auditLogs={auditLogs}
+            />
         </InventoryLayout>
     );
 }

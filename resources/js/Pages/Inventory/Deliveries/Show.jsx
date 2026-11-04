@@ -4,6 +4,7 @@ import InventoryLayout from '@/Layouts/InventoryLayout';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
 import OdooBadge from '@/Components/Odoo/OdooBadge';
+import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
 import {
     ArrowLeft,
     CheckCircle2,
@@ -17,7 +18,13 @@ import {
     DollarSign,
 } from 'lucide-react';
 
-export default function Show({ delivery, backorders = [], stockMoves = [] }) {
+export default function Show({
+    delivery,
+    backorders = [],
+    stockMoves = [],
+    relatedDocs = [],
+    auditLogs = [],
+}) {
     // Form for partial or full delivery validation
     const { data, setData, post, processing, errors } = useForm({
         lines: delivery.lines.map((l) => ({
@@ -360,6 +367,14 @@ export default function Show({ delivery, backorders = [], stockMoves = [] }) {
                     </div>
                 )}
             </div>
+
+            {/* Odoo Form Footer: Related Docs | Log Notes | Audit / History */}
+            <OdooFormFooter
+                documentType="delivery_order"
+                documentId={delivery.id}
+                relatedDocs={relatedDocs}
+                auditLogs={auditLogs}
+            />
         </InventoryLayout>
     );
 }

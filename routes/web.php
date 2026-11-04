@@ -3,6 +3,7 @@
 use App\Http\Controllers\Inventory\DeliveryOrderController;
 use App\Http\Controllers\Inventory\InternalTransferController;
 use App\Http\Controllers\Inventory\InventoryOverviewController;
+use App\Http\Controllers\Inventory\LogNoteController;
 use App\Http\Controllers\Inventory\ProductController;
 use App\Http\Controllers\Inventory\ReceiptController;
 use App\Http\Controllers\Inventory\StockReportingController;
@@ -39,22 +40,34 @@ Route::middleware('auth')->group(function () {
         Route::get('/deliveries', [DeliveryOrderController::class, 'index'])->name('deliveries.index');
         Route::get('/deliveries/create', [DeliveryOrderController::class, 'create'])->name('deliveries.create');
         Route::post('/deliveries', [DeliveryOrderController::class, 'store'])->name('deliveries.store');
-        Route::get('/deliveries/{id}', [DeliveryOrderController::class, 'show'])->name('deliveries.show');
-        Route::post('/deliveries/{id}/validate', [DeliveryOrderController::class, 'validateOrder'])->name('deliveries.validate');
+        Route::post('/deliveries/{id}/validate', [DeliveryOrderController::class, 'validateOrder'])
+            ->where('id', '.+')
+            ->name('deliveries.validate');
+        Route::get('/deliveries/{id}', [DeliveryOrderController::class, 'show'])
+            ->where('id', '.+')
+            ->name('deliveries.show');
 
         // Operations: Receipts (F-13 / S-11, T-21, T-22)
         Route::get('/receipts', [ReceiptController::class, 'index'])->name('receipts.index');
         Route::get('/receipts/create', [ReceiptController::class, 'create'])->name('receipts.create');
         Route::post('/receipts', [ReceiptController::class, 'store'])->name('receipts.store');
-        Route::get('/receipts/{id}', [ReceiptController::class, 'show'])->name('receipts.show');
-        Route::post('/receipts/{id}/validate', [ReceiptController::class, 'validateReceipt'])->name('receipts.validate');
+        Route::post('/receipts/{id}/validate', [ReceiptController::class, 'validateReceipt'])
+            ->where('id', '.+')
+            ->name('receipts.validate');
+        Route::get('/receipts/{id}', [ReceiptController::class, 'show'])
+            ->where('id', '.+')
+            ->name('receipts.show');
 
         // Operations: Internal Transfers (F-20 / S-18, T-35, T-36)
         Route::get('/transfers', [InternalTransferController::class, 'index'])->name('transfers.index');
         Route::get('/transfers/create', [InternalTransferController::class, 'create'])->name('transfers.create');
         Route::post('/transfers', [InternalTransferController::class, 'store'])->name('transfers.store');
-        Route::get('/transfers/{id}', [InternalTransferController::class, 'show'])->name('transfers.show');
-        Route::post('/transfers/{id}/validate', [InternalTransferController::class, 'validateTransfer'])->name('transfers.validate');
+        Route::post('/transfers/{id}/validate', [InternalTransferController::class, 'validateTransfer'])
+            ->where('id', '.+')
+            ->name('transfers.validate');
+        Route::get('/transfers/{id}', [InternalTransferController::class, 'show'])
+            ->where('id', '.+')
+            ->name('transfers.show');
 
         // Products & SKU Variants (F-04 / S-04, T-07, T-08)
         Route::get('/products', [ProductController::class, 'index'])->name('products.index');
@@ -65,11 +78,14 @@ Route::middleware('auth')->group(function () {
         // Reporting: Stock Forecast / ATP (F-08 / S-07, T-13, T-14)
         Route::get('/reporting/forecast', [StockReportingController::class, 'stockForecast'])->name('reporting.forecast');
         Route::post('/reporting/forecast/reserve', [StockReportingController::class, 'reserveStock'])->name('reporting.reserve');
-        Route::delete('/reporting/forecast/reserve/{id}', [StockReportingController::class, 'releaseReservation'])->name('reporting.release-reservation');
+        Route::match(['post', 'delete'], '/reporting/forecast/reserve/{id}', [StockReportingController::class, 'releaseReservation'])->name('reporting.release-reservation');
         Route::get('/reporting/moves', [StockReportingController::class, 'stockMoves'])->name('reporting.moves');
 
         // Configuration: Locations & Warehouses
         Route::get('/configuration/locations', [WarehouseLocationController::class, 'index'])->name('configuration.locations');
+
+        // Log Notes / Chatter Footer (Odoo Pattern)
+        Route::post('/log-notes', [LogNoteController::class, 'store'])->name('log-notes.store');
     });
 });
 

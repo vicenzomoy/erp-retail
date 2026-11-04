@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
+use App\Models\JournalEntry;
 use App\Models\Master\Product;
 use App\Models\Master\WarehouseLocation;
 use App\Models\SalesOrder;
@@ -130,6 +132,73 @@ class DeliveryOrderController extends Controller
             ];
         });
 
+        // Related Docs (Odoo Linked Documents)
+        $relatedDocs = [];
+
+        if ($do->sales_order_id) {
+            $relatedDocs[] = [
+                'type' => 'Sales Order',
+                'id' => $do->sales_order_id,
+                'title' => "Pesanan Penjualan {$do->sales_order_id}",
+                'status' => $do->salesOrder?->status ?? 'confirmed',
+                'info' => "Pelanggan: {$do->salesOrder?->customer?->name}",
+            ];
+        }
+
+        if ($do->parent_delivery_id) {
+            $relatedDocs[] = [
+                'type' => 'Pengiriman Induk',
+                'id' => $do->parent_delivery_id,
+                'title' => "Delivery Order Induk {$do->parent_delivery_id}",
+                'status' => 'done',
+                'url' => route('inventory.deliveries.show', $do->parent_delivery_id),
+                'info' => 'Pengiriman awal sebelum timbul pecahan backorder',
+            ];
+        }
+
+        foreach ($do->backorders as $bo) {
+            $relatedDocs[] = [
+                'type' => 'Backorder',
+                'id' => $bo->id,
+                'title' => "Backorder Pengiriman {$bo->id}",
+                'status' => $bo->status,
+                'url' => route('inventory.deliveries.show', $bo->id),
+                'info' => 'Pengiriman sisa kuantitas barang yang belum dikirim',
+            ];
+        }
+
+        $cogsJournal = JournalEntry::where('source_document_type', 'delivery_order')
+            ->where('source_document_id', $do->id)
+            ->first();
+
+        if ($cogsJournal) {
+            $relatedDocs[] = [
+                'type' => 'Jurnal Akuntansi (HPP)',
+                'id' => $cogsJournal->entry_no,
+                'title' => "Jurnal Pengakuan HPP {$cogsJournal->entry_no}",
+                'status' => $cogsJournal->status,
+                'info' => 'Debit 5000 / Kredit 1200: Rp ' . number_format($cogsJournal->total_debit, 0, ',', '.'),
+            ];
+        }
+
+        // Audit Logs & Chatter Notes
+        $auditLogs = AuditLog::where('document_type', 'delivery_order')
+            ->where('document_id', $do->id)
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(fn ($log) => [
+                'id' => $log->id,
+                'action' => $log->action,
+                'status' => $log->status,
+                'actor_username' => $log->actor_username,
+                'actor_role' => $log->actor_role,
+                'notes' => $log->notes,
+                'old_value' => $log->old_value,
+                'new_value' => $log->new_value,
+                'created_at' => $log->created_at?->format('d/m/Y H:i:s'),
+                'time_ago' => $log->created_at?->diffForHumans(),
+            ]);
+
         return Inertia::render('Inventory/Deliveries/Show', [
             'delivery' => [
                 'id' => $do->id,
@@ -160,6 +229,8 @@ class DeliveryOrderController extends Controller
                     'journal_entry_no' => $m->journalEntry?->entry_no,
                 ];
             }),
+            'relatedDocs' => $relatedDocs,
+            'auditLogs' => $auditLogs,
         ]);
     }
 
@@ -221,6 +292,17 @@ class DeliveryOrderController extends Controller
                 'qty_done' => 0,
             ]);
         }
+
+        AuditLog::record(
+            action: 'CREATE_DELIVERY_ORDER',
+            status: 'SUCCESS',
+            actorUserId: $request->user()->id,
+            actorUsername: $request->user()->name,
+            actorRole: $request->user()->role_id ?? 'warehouse',
+            documentType: 'delivery_order',
+            documentId: $do->id,
+            notes: "Delivery Order {$do->id} berhasil dibuat untuk Sales Order {$do->sales_order_id}"
+        );
 
         return redirect()->route('inventory.deliveries.show', $do->id)
             ->with('success', "Delivery Order {$do->id} berhasil dibuat.");

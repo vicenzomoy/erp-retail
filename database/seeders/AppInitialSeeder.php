@@ -2,8 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Models\AuditLog;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
+use App\Models\InternalTransfer;
+use App\Models\InternalTransferLine;
 use App\Models\Master\Product;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
@@ -361,6 +364,34 @@ class AppInitialSeeder extends Seeder
                 'qty_done' => 2,
                 'cogs_per_unit' => 88000,
                 'cogs_total' => 176000,
+            ]
+        );
+
+        // Audit log for WH/OUT/0001
+        AuditLog::firstOrCreate(
+            ['document_type' => 'delivery_order', 'document_id' => 'WH/OUT/0001'],
+            [
+                'action' => 'CREATE_DELIVERY_ORDER',
+                'status' => 'SUCCESS',
+                'actor_user_id' => $warehouseUser->id,
+                'actor_username' => $warehouseUser->name,
+                'actor_role' => 'warehouse',
+                'notes' => 'Pengiriman barang SO-0001 siap diproses di gudang utama WH-PKU',
+                'created_at' => now(),
+            ]
+        );
+
+        // Audit log for WH/IN/0001
+        AuditLog::firstOrCreate(
+            ['document_type' => 'receipt', 'document_id' => 'WH/IN/0001'],
+            [
+                'action' => 'CREATE_RECEIPT',
+                'status' => 'SUCCESS',
+                'actor_user_id' => $warehouseUser->id,
+                'actor_username' => $warehouseUser->name,
+                'actor_role' => 'warehouse',
+                'notes' => 'Penerimaan barang PO0008 dari vendor V03 siap dilakukan inspeksi QC',
+                'created_at' => now(),
             ]
         );
     }

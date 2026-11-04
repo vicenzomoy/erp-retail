@@ -62,6 +62,23 @@ class InternalTransferService
                 ]);
             }
 
+            AuditLog::record(
+                action: 'CREATE_INTERNAL_TRANSFER',
+                status: 'SUCCESS',
+                actorUserId: $actorId,
+                actorUsername: $actor?->name ?? 'system',
+                actorRole: $actor?->role_id ?? 'warehouse',
+                documentType: 'internal_transfer',
+                documentId: $transfer->id,
+                notes: "Transfer internal {$transfer->id} berhasil dibuat dari {$locationFrom} ke {$locationTo}",
+                newValue: [
+                    'id' => $transfer->id,
+                    'location_from' => $locationFrom,
+                    'location_to' => $locationTo,
+                    'lines_count' => count($items),
+                ]
+            );
+
             return $transfer;
         });
     }

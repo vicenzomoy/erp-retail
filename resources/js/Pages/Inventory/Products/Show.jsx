@@ -3,6 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import InventoryLayout from '@/Layouts/InventoryLayout';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
 import OdooBadge from '@/Components/Odoo/OdooBadge';
+import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
 import {
     ArrowLeft,
     Package,
@@ -18,7 +19,7 @@ import {
     Truck,
 } from 'lucide-react';
 
-export default function Show({ product, locationStock = [], recentMoves = [] }) {
+export default function Show({ product, locationStock = [], recentMoves = [], relatedDocs = [], auditLogs = [] }) {
     const [activeTab, setActiveTab] = useState('stock'); // 'stock' | 'attributes' | 'moves'
     const [isEditing, setIsEditing] = useState(false);
 
@@ -439,6 +440,13 @@ export default function Show({ product, locationStock = [], recentMoves = [] }) 
                     </div>
                 )}
             </div>
+
+            <OdooFormFooter
+                documentType="product"
+                documentId={product.variant_sku}
+                relatedDocs={relatedDocs}
+                auditLogs={auditLogs}
+            />
         </InventoryLayout>
     );
 }

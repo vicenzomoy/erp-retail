@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
+use App\Models\JournalEntry;
 use App\Models\Master\Product;
 use App\Models\Master\WarehouseLocation;
 use App\Models\PurchaseOrder;
@@ -121,6 +123,51 @@ class ReceiptController extends Controller
             ];
         });
 
+        // Related Docs
+        $relatedDocs = [];
+
+        if ($receipt->purchase_order_id) {
+            $relatedDocs[] = [
+                'type' => 'Purchase Order',
+                'id' => $receipt->purchase_order_id,
+                'title' => "Pesanan Pembelian {$receipt->purchase_order_id}",
+                'status' => $receipt->purchaseOrder?->status ?? 'confirmed',
+                'info' => "Vendor: {$receipt->purchaseOrder?->vendor?->name}",
+            ];
+        }
+
+        $grirJournal = JournalEntry::where('source_document_type', 'receipt')
+            ->where('source_document_id', $receipt->id)
+            ->first();
+
+        if ($grirJournal) {
+            $relatedDocs[] = [
+                'type' => 'Jurnal Akuntansi (GRIR)',
+                'id' => $grirJournal->entry_no,
+                'title' => "Jurnal Persediaan Diterima {$grirJournal->entry_no}",
+                'status' => $grirJournal->status,
+                'info' => 'Debit 1200 / Kredit 1400: Rp ' . number_format($grirJournal->total_debit, 0, ',', '.'),
+            ];
+        }
+
+        // Audit Logs & Chatter Notes
+        $auditLogs = AuditLog::where('document_type', 'receipt')
+            ->where('document_id', $receipt->id)
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(fn ($log) => [
+                'id' => $log->id,
+                'action' => $log->action,
+                'status' => $log->status,
+                'actor_username' => $log->actor_username,
+                'actor_role' => $log->actor_role,
+                'notes' => $log->notes,
+                'old_value' => $log->old_value,
+                'new_value' => $log->new_value,
+                'created_at' => $log->created_at?->format('d/m/Y H:i:s'),
+                'time_ago' => $log->created_at?->diffForHumans(),
+            ]);
+
         return Inertia::render('Inventory/Receipts/Show', [
             'receipt' => [
                 'id' => $receipt->id,
@@ -147,6 +194,8 @@ class ReceiptController extends Controller
                     'journal_entry_no' => $m->journalEntry?->entry_no,
                 ];
             }),
+            'relatedDocs' => $relatedDocs,
+            'auditLogs' => $auditLogs,
         ]);
     }
 
@@ -215,6 +264,17 @@ class ReceiptController extends Controller
                 'accepted_value' => bcmul((string) $l['qty_expected'], (string) $cost, 2),
             ]);
         }
+
+        AuditLog::record(
+            action: 'CREATE_RECEIPT',
+            status: 'SUCCESS',
+            actorUserId: $request->user()->id,
+            actorUsername: $request->user()->name,
+            actorRole: $request->user()->role_id ?? 'warehouse',
+            documentType: 'receipt',
+            documentId: $receipt->id,
+            notes: "Penerimaan barang {$receipt->id} berhasil dibuat untuk Purchase Order {$receipt->purchase_order_id}"
+        );
 
         return redirect()->route('inventory.receipts.show', $receipt->id)
             ->with('success', "Receipt {$receipt->id} berhasil dibuat.");
