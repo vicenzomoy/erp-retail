@@ -8,6 +8,7 @@ use App\Http\Controllers\Inventory\ProductController;
 use App\Http\Controllers\Inventory\ReceiptController;
 use App\Http\Controllers\Inventory\StockReportingController;
 use App\Http\Controllers\Inventory\WarehouseLocationController;
+use App\Http\Controllers\Pos\PosController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -86,6 +87,35 @@ Route::middleware('auth')->group(function () {
 
         // Log Notes / Chatter Footer (Odoo Pattern)
         Route::post('/log-notes', [LogNoteController::class, 'store'])->name('log-notes.store');
+    });
+
+    // ==========================================
+    // POINT OF SALE MODULE ROUTES (F-17, F-18, S-15, S-16)
+    // ==========================================
+    Route::prefix('pos')->name('pos.')->group(function () {
+        // Overview Dashboard
+        Route::get('/', [PosController::class, 'overview'])->name('overview');
+
+        // Session Management
+        Route::get('/sessions', [PosController::class, 'sessionsIndex'])->name('sessions.index');
+        Route::post('/sessions/open', [PosController::class, 'sessionOpen'])->name('sessions.open');
+        Route::get('/sessions/{id}', [PosController::class, 'sessionShow'])
+            ->where('id', '.+')
+            ->name('sessions.show');
+        Route::post('/sessions/{id}/close', [PosController::class, 'sessionClose'])
+            ->where('id', '.+')
+            ->name('sessions.close');
+
+        // Orders / Checkout
+        Route::get('/orders', [PosController::class, 'ordersIndex'])->name('orders.index');
+        Route::get('/orders/create', [PosController::class, 'checkoutCreate'])->name('orders.create');
+        Route::post('/orders', [PosController::class, 'checkoutStore'])->name('orders.store');
+        Route::get('/orders/{id}', [PosController::class, 'orderShow'])
+            ->where('id', '.+')
+            ->name('orders.show');
+
+        // Reporting
+        Route::get('/reporting/daily-summary', [PosController::class, 'dailySummary'])->name('reporting.daily-summary');
     });
 });
 

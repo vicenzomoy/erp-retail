@@ -58,7 +58,7 @@ export default function OdooAppSwitcherModal({ isOpen, onClose }) {
         {
             name: 'Point of Sale',
             desc: 'Kasir Retail Omnichannel',
-            href: '#',
+            href: route('pos.overview'),
             icon: Store,
             color: 'bg-rose-600 text-white',
             active: false,
