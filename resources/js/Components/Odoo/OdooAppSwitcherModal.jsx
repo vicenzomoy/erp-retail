@@ -26,7 +26,7 @@ export default function OdooAppSwitcherModal({ isOpen, onClose }) {
         {
             name: 'Sales',
             desc: 'Penjualan & Penawaran',
-            href: '#',
+            href: route('sales.overview'),
             icon: ShoppingCart,
             color: 'bg-indigo-600 text-white',
             active: false,
@@ -117,11 +117,10 @@ export default function OdooAppSwitcherModal({ isOpen, onClose }) {
                                 key={app.name}
                                 href={app.href}
                                 onClick={onClose}
-                                className={`flex flex-col items-center justify-center rounded-xl p-4 text-center transition-all border ${
-                                    app.active
+                                className={`flex flex-col items-center justify-center rounded-xl p-4 text-center transition-all border ${app.active
                                         ? 'border-emerald-300 bg-emerald-50/50 shadow-xs ring-2 ring-emerald-500/20'
                                         : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50 hover:shadow-xs'
-                                }`}
+                                    }`}
                             >
                                 <div
                                     className={`flex h-12 w-12 items-center justify-center rounded-xl ${app.color} shadow-sm mb-2.5`}

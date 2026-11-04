@@ -10,6 +10,9 @@ use App\Http\Controllers\Inventory\StockReportingController;
 use App\Http\Controllers\Inventory\WarehouseLocationController;
 use App\Http\Controllers\Pos\PosController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Sales\SalesCustomerController;
+use App\Http\Controllers\Sales\SalesOrderController;
+use App\Http\Controllers\Sales\SalesOverviewController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -116,6 +119,34 @@ Route::middleware('auth')->group(function () {
 
         // Reporting
         Route::get('/reporting/daily-summary', [PosController::class, 'dailySummary'])->name('reporting.daily-summary');
+    });
+
+
+    // ==========================================
+    // SALES MODULE ROUTES (F-06, F-07, F-11)
+    // ==========================================
+    Route::prefix('sales')->name('sales.')->group(function () {
+        // Overview
+        Route::get('/', [SalesOverviewController::class, 'index'])->name('overview');
+
+        // Reporting: Order History
+        Route::get('/reporting/orders', [SalesOrderController::class, 'history'])->name('reporting.orders');
+
+        // Orders (Quotations & Sales Orders)
+        Route::get('/orders', [SalesOrderController::class, 'index'])->name('orders.index');
+        Route::get('/orders/create', [SalesOrderController::class, 'create'])->name('orders.create');
+        Route::post('/orders', [SalesOrderController::class, 'store'])->name('orders.store');
+        Route::get('/orders/{id}', [SalesOrderController::class, 'show'])->where('id', '.+')->name('orders.show');
+        Route::post('/orders/{id}/confirm', [SalesOrderController::class, 'confirm'])->where('id', '.+')->name('orders.confirm');
+        Route::post('/orders/{id}/cancel', [SalesOrderController::class, 'cancel'])->where('id', '.+')->name('orders.cancel');
+        Route::post('/orders/{id}/lines', [SalesOrderController::class, 'addLine'])->where('id', '.+')->name('orders.lines.add');
+        Route::put('/orders/{id}/lines/{lineId}', [SalesOrderController::class, 'updateLine'])->where('id', '.+')->name('orders.lines.update');
+        Route::delete('/orders/{id}/lines/{lineId}', [SalesOrderController::class, 'removeLine'])->where('id', '.+')->name('orders.lines.remove');
+
+        // Customers
+        Route::get('/customers', [SalesCustomerController::class, 'index'])->name('customers.index');
+        Route::get('/customers/{id}', [SalesCustomerController::class, 'show'])->where('id', '.+')->name('customers.show');
+        Route::put('/customers/{id}', [SalesCustomerController::class, 'update'])->where('id', '.+')->name('customers.update');
     });
 });
 

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\AuditLog;
+use App\Models\CustomerInvoice;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
 use App\Models\InternalTransfer;
@@ -19,6 +20,7 @@ use App\Models\SalesOrderLine;
 use App\Models\StockLedger;
 use App\Models\StockReservation;
 use App\Models\User;
+use App\Models\VendorBill;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -392,6 +394,52 @@ class AppInitialSeeder extends Seeder
                 'actor_role' => 'warehouse',
                 'notes' => 'Penerimaan barang PO0008 dari vendor V03 siap dilakukan inspeksi QC',
                 'created_at' => now(),
+            ]
+        );
+
+        $financeUser = User::where('role_id', 'finance')->first() ?? $salesUser;
+
+        // 9. Existing Document INV-OPEN01 (Customer Invoice C001, AR Rp2.500.000 for T-05, T-12, T-37)
+        CustomerInvoice::firstOrCreate(
+            ['id' => 'INV-OPEN01'],
+            [
+                'source_doc_no' => null,
+                'customer_id' => 'C001',
+                'status' => 'posted',
+                'invoice_date' => now()->subDays(5)->toDateString(),
+                'due_date' => now()->addDays(9)->toDateString(),
+                'payment_terms' => 'NET14',
+                'subtotal_before_tax' => 2252252.25,
+                'total_tax' => 247747.75,
+                'grand_total' => 2500000.00,
+                'amount_paid' => 0.00,
+                'amount_residual' => 2500000.00,
+                'posted_at' => now()->subDays(5),
+                'posted_by' => $financeUser->id,
+                'created_by' => $salesUser->id,
+                'notes' => 'Existing Customer Invoice INV-OPEN01 (Baseline AR Rp2.500.000)',
+            ]
+        );
+
+        // 10. Existing Document BILL-OPEN01 (Vendor Bill V02, AP Rp5.000.000 for T-37)
+        VendorBill::firstOrCreate(
+            ['id' => 'BILL-OPEN01'],
+            [
+                'source_doc_no' => null,
+                'vendor_id' => 'V02',
+                'status' => 'posted',
+                'bill_date' => now()->subDays(5)->toDateString(),
+                'due_date' => now()->addDays(9)->toDateString(),
+                'payment_terms' => 'NET14',
+                'subtotal_before_tax' => 4504504.50,
+                'total_tax' => 495495.50,
+                'grand_total' => 5000000.00,
+                'amount_paid' => 0.00,
+                'amount_residual' => 5000000.00,
+                'posted_at' => now()->subDays(5),
+                'posted_by' => $financeUser->id,
+                'created_by' => $warehouseUser->id,
+                'notes' => 'Existing Vendor Bill BILL-OPEN01 (Baseline AP Rp5.000.000)',
             ]
         );
     }
