@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Navigation\AppCatalogService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -42,6 +43,7 @@ class HandleInertiaRequests extends Middleware
                     'role_name' => $user->role?->display_name ?? ucfirst($user->role_id ?? 'User'),
                 ] : null,
             ],
+            'apps' => AppCatalogService::forUser($user),
             'company' => [
                 'name' => 'PT Bara Ritel Nusantara',
                 'brand' => 'Bara Wear',

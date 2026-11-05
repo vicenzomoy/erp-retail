@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, usePage } from '@inertiajs/react';
+import { Link, usePage , router } from '@inertiajs/react';
 import {
     LayoutDashboard,
     Truck,
@@ -21,12 +21,10 @@ import {
     User,
     LogOut,
 } from 'lucide-react';
-import OdooAppSwitcherModal from '@/Components/Odoo/OdooAppSwitcherModal';
 
 export default function InventoryLayout({ title, breadcrumbs = [], children }) {
     const { auth, company, flash } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [appSwitcherOpen, setAppSwitcherOpen] = useState(false);
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
     // Sidebar navigation groups according to Odoo 17 & User instructions:
@@ -125,8 +123,8 @@ export default function InventoryLayout({ title, breadcrumbs = [], children }) {
                     {/* App Switcher 9-dots button */}
                     <button
                         type="button"
-                        onClick={() => setAppSwitcherOpen(true)}
-                        title="Buka Aplikasi ERP"
+                        onClick={() => router.visit(route('home'))}
+                        title="Beranda (Aplikasi ERP)"
                         className="flex h-8 w-8 items-center justify-center rounded-sm bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white transition cursor-pointer"
                     >
                         <div className="grid grid-cols-3 gap-0.5 p-1">
@@ -366,11 +364,6 @@ export default function InventoryLayout({ title, breadcrumbs = [], children }) {
                 </main>
             </div>
 
-            {/* App Switcher Modal */}
-            <OdooAppSwitcherModal
-                isOpen={appSwitcherOpen}
-                onClose={() => setAppSwitcherOpen(false)}
-            />
         </div>
     );
 }

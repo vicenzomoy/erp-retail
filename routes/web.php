@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Inventory\DeliveryOrderController;
 use App\Http\Controllers\Inventory\InternalTransferController;
 use App\Http\Controllers\Inventory\InventoryOverviewController;
@@ -19,16 +20,31 @@ use Inertia\Inertia;
 
 Route::get('/', function () {
     if (auth()->check()) {
-        return redirect()->route('inventory.overview');
+        return redirect()->route('home');
     }
     return redirect()->route('login');
 });
 
 Route::get('/dashboard', function () {
-    return redirect()->route('inventory.overview');
+    return redirect()->route('home');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    // S-01 Beranda App Switcher (F-01) - semua peran
+    Route::get('/home', [HomeController::class, 'index'])->name('home');
+
+    // App yang UI-nya belum dibangun; tetap dijaga hak akses di server (SR-18)
+    Route::get('/crm', fn () => app(HomeController::class)->pending('crm'))
+        ->middleware('app.access:crm')->name('crm.overview');
+    Route::get('/purchase', fn () => app(HomeController::class)->pending('purchase'))
+        ->middleware('app.access:purchase')->name('purchase.overview');
+    Route::get('/settings', fn () => app(HomeController::class)->pending('settings'))
+        ->middleware('app.access:settings')->name('settings.overview');
+    Route::prefix('accounting')->name('accounting.')->middleware('app.access:accounting')->group(function () {
+        Route::get('/', fn () => app(HomeController::class)->pending('accounting'))->name('overview');
+        Route::get('/journals', fn () => app(HomeController::class)->pending('accounting', 'Journal Entries'))->name('journals');
+    });
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -36,7 +52,7 @@ Route::middleware('auth')->group(function () {
     // ==========================================
     // INVENTORY MODULE ROUTES (F-04, F-08, F-09, F-13, F-20)
     // ==========================================
-    Route::prefix('inventory')->name('inventory.')->group(function () {
+    Route::prefix('inventory')->name('inventory.')->middleware('app.access:inventory')->group(function () {
         // Overview (Odoo Kanban cards)
         Route::get('/', [InventoryOverviewController::class, 'index'])->name('overview');
 
@@ -95,7 +111,7 @@ Route::middleware('auth')->group(function () {
     // ==========================================
     // POINT OF SALE MODULE ROUTES (F-17, F-18, S-15, S-16)
     // ==========================================
-    Route::prefix('pos')->name('pos.')->group(function () {
+    Route::prefix('pos')->name('pos.')->middleware('app.access:pos')->group(function () {
         // Overview Dashboard
         Route::get('/', [PosController::class, 'overview'])->name('overview');
 
@@ -125,7 +141,7 @@ Route::middleware('auth')->group(function () {
     // ==========================================
     // SALES MODULE ROUTES (F-06, F-07, F-11)
     // ==========================================
-    Route::prefix('sales')->name('sales.')->group(function () {
+    Route::prefix('sales')->name('sales.')->middleware('app.access:sales')->group(function () {
         // Overview
         Route::get('/', [SalesOverviewController::class, 'index'])->name('overview');
 
