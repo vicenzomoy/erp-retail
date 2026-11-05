@@ -1,5 +1,10 @@
 <?php
 
+use App\Http\Controllers\Accounting\AccountingOverviewController;
+use App\Http\Controllers\Accounting\CustomerInvoiceController;
+use App\Http\Controllers\Accounting\JournalEntryController;
+use App\Http\Controllers\Accounting\PaymentController;
+use App\Http\Controllers\Accounting\VendorBillController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Inventory\DeliveryOrderController;
 use App\Http\Controllers\Inventory\InternalTransferController;
@@ -40,14 +45,59 @@ Route::middleware('auth')->group(function () {
         ->middleware('app.access:purchase')->name('purchase.overview');
     Route::get('/settings', fn () => app(HomeController::class)->pending('settings'))
         ->middleware('app.access:settings')->name('settings.overview');
+    // ==========================================
+    // ACCOUNTING MODULE ROUTES (S-12, S-13, S-14 / F-14, F-15, F-16, F-23)
+    // ==========================================
     Route::prefix('accounting')->name('accounting.')->middleware('app.access:accounting')->group(function () {
-        Route::get('/', fn () => app(HomeController::class)->pending('accounting'))->name('overview');
-        Route::get('/journals', fn () => app(HomeController::class)->pending('accounting', 'Journal Entries'))->name('journals');
+        // Overview Dashboard
+        Route::get('/', [AccountingOverviewController::class, 'index'])->name('overview');
+
+        // S-12: Vendor Bills with Three-Way Match (F-14, F-23, T-23, T-24)
+        Route::get('/bills', [VendorBillController::class, 'index'])->name('bills.index');
+        Route::get('/bills/create', [VendorBillController::class, 'create'])->name('bills.create');
+        Route::post('/bills', [VendorBillController::class, 'store'])->name('bills.store');
+        Route::post('/bills/{id}/post', [VendorBillController::class, 'post'])
+            ->where('id', '.+')
+            ->name('bills.post');
+        Route::get('/bills/{id}', [VendorBillController::class, 'show'])
+            ->where('id', '.+')
+            ->name('bills.show');
+
+        // Customer Invoices (F-10, F-16, F-23, T-17, T-18, T-25, T-28)
+        Route::get('/invoices', [CustomerInvoiceController::class, 'index'])->name('invoices.index');
+        Route::get('/invoices/create', [CustomerInvoiceController::class, 'create'])->name('invoices.create');
+        Route::post('/invoices', [CustomerInvoiceController::class, 'store'])->name('invoices.store');
+        Route::post('/invoices/{id}/post', [CustomerInvoiceController::class, 'post'])
+            ->where('id', '.+')
+            ->name('invoices.post');
+        Route::get('/invoices/{id}', [CustomerInvoiceController::class, 'show'])
+            ->where('id', '.+')
+            ->name('invoices.show');
+
+        // S-13: Register Payment & Reconciliation (F-15, T-20, T-25, T-26)
+        Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
+        Route::get('/payments/create', [PaymentController::class, 'create'])->name('payments.create');
+        Route::post('/payments', [PaymentController::class, 'store'])->name('payments.store');
+        Route::get('/payments/{id}', [PaymentController::class, 'show'])
+            ->where('id', '.+')
+            ->name('payments.show');
+
+        // S-14: Journal Entries & General Ledger (F-16, T-27, T-28)
+        Route::get('/journals', [JournalEntryController::class, 'index'])->name('journals');
+        Route::get('/journal-entries', [JournalEntryController::class, 'index'])->name('journals.index');
+        Route::get('/journals/{id}', [JournalEntryController::class, 'show'])
+            ->where('id', '[0-9]+')
+            ->name('journals.show');
+        Route::get('/ledger', [JournalEntryController::class, 'generalLedger'])->name('ledger');
+        Route::get('/general-ledger', [JournalEntryController::class, 'generalLedger'])->name('gl.index');
     });
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Log Notes / Chatter Footer (Odoo Pattern — dapat dipakai lintas modul oleh seluruh peran terautentikasi)
+    Route::post('/inventory/log-notes', [LogNoteController::class, 'store'])->name('inventory.log-notes.store');
 
     // ==========================================
     // INVENTORY MODULE ROUTES (F-04, F-08, F-09, F-13, F-20)
@@ -103,9 +153,6 @@ Route::middleware('auth')->group(function () {
 
         // Configuration: Locations & Warehouses
         Route::get('/configuration/locations', [WarehouseLocationController::class, 'index'])->name('configuration.locations');
-
-        // Log Notes / Chatter Footer (Odoo Pattern)
-        Route::post('/log-notes', [LogNoteController::class, 'store'])->name('log-notes.store');
     });
 
     // ==========================================

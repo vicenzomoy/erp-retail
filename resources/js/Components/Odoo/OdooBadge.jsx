@@ -15,7 +15,12 @@ export default function OdooBadge({ status, label, children }) {
             break;
         case 'done':
         case 'validated':
+        case 'paid':
+        case 'reconciled':
             colorClass = 'bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold';
+            break;
+        case 'posted':
+            colorClass = 'bg-teal-50 text-teal-800 border-teal-300 font-semibold';
             break;
         case 'cancelled':
         case 'rejected':

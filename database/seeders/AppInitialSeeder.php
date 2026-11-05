@@ -8,6 +8,8 @@ use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
 use App\Models\InternalTransfer;
 use App\Models\InternalTransferLine;
+use App\Models\JournalEntry;
+use App\Models\JournalLine;
 use App\Models\Master\Product;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
@@ -399,11 +401,46 @@ class AppInitialSeeder extends Seeder
 
         $financeUser = User::where('role_id', 'finance')->first() ?? $salesUser;
 
+        // 8b. Opening Balance Journal Entry (Baseline GL: Bank Rp50jt, AR Rp2,5jt, Inventory Rp24.531.000, AP Rp5jt)
+        $openJe = JournalEntry::firstOrCreate(
+            ['entry_no' => 'JE/OPEN/0001'],
+            [
+                'entry_type'           => 'opening_balance',
+                'source_document_type' => 'opening_balance',
+                'source_document_id'   => 'OPENING',
+                'entry_date'           => now()->subDays(5)->toDateString(),
+                'description'          => 'Saldo Awal Buku Besar (Bank, Piutang INV-OPEN01, Persediaan, Utang BILL-OPEN01, Modal)',
+                'status'               => 'posted',
+                'is_balanced'          => true,
+                'total_debit'          => 77031000.00,
+                'total_credit'         => 77031000.00,
+                'posted_at'            => now()->subDays(5),
+                'posted_by'            => $financeUser->id,
+                'created_by'           => $financeUser->id,
+            ]
+        );
+
+        if ($openJe->lines()->count() === 0) {
+            $openLines = [
+                ['account_code' => '1020', 'description' => 'Saldo Awal Bank Operasional', 'debit' => 50000000.00, 'credit' => 0.00],
+                ['account_code' => '1100', 'description' => 'Saldo Awal Piutang Usaha (INV-OPEN01 - PT Riau Mode Bersama)', 'debit' => 2500000.00, 'credit' => 0.00],
+                ['account_code' => '1200', 'description' => 'Saldo Awal Persediaan Barang Dagang (219 pcs)', 'debit' => 24531000.00, 'credit' => 0.00],
+                ['account_code' => '2100', 'description' => 'Saldo Awal Utang Usaha (BILL-OPEN01 - CV Jaket Nusantara)', 'debit' => 0.00, 'credit' => 5000000.00],
+                ['account_code' => '3000', 'description' => 'Modal Awal PT Bara Ritel Nusantara', 'debit' => 0.00, 'credit' => 72031000.00],
+            ];
+            foreach ($openLines as $ol) {
+                JournalLine::create(array_merge($ol, [
+                    'journal_entry_id' => $openJe->id,
+                    'created_at'       => now()->subDays(5),
+                ]));
+            }
+        }
+
         // 9. Existing Document INV-OPEN01 (Customer Invoice C001, AR Rp2.500.000 for T-05, T-12, T-37)
-        CustomerInvoice::firstOrCreate(
+        CustomerInvoice::updateOrCreate(
             ['id' => 'INV-OPEN01'],
             [
-                'source_doc_no' => null,
+                'source_doc_no' => 'INV-OPEN01',
                 'customer_id' => 'C001',
                 'status' => 'posted',
                 'invoice_date' => now()->subDays(5)->toDateString(),
@@ -416,16 +453,17 @@ class AppInitialSeeder extends Seeder
                 'amount_residual' => 2500000.00,
                 'posted_at' => now()->subDays(5),
                 'posted_by' => $financeUser->id,
+                'journal_entry_id' => $openJe->id,
                 'created_by' => $salesUser->id,
                 'notes' => 'Existing Customer Invoice INV-OPEN01 (Baseline AR Rp2.500.000)',
             ]
         );
 
         // 10. Existing Document BILL-OPEN01 (Vendor Bill V02, AP Rp5.000.000 for T-37)
-        VendorBill::firstOrCreate(
+        VendorBill::updateOrCreate(
             ['id' => 'BILL-OPEN01'],
             [
-                'source_doc_no' => null,
+                'source_doc_no' => 'BILL-OPEN01',
                 'vendor_id' => 'V02',
                 'status' => 'posted',
                 'bill_date' => now()->subDays(5)->toDateString(),
@@ -438,6 +476,7 @@ class AppInitialSeeder extends Seeder
                 'amount_residual' => 5000000.00,
                 'posted_at' => now()->subDays(5),
                 'posted_by' => $financeUser->id,
+                'journal_entry_id' => $openJe->id,
                 'created_by' => $warehouseUser->id,
                 'notes' => 'Existing Vendor Bill BILL-OPEN01 (Baseline AP Rp5.000.000)',
             ]
