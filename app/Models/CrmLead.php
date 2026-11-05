@@ -53,4 +53,29 @@ class CrmLead extends Model
     {
         return $this->hasMany(CrmLeadQuotationLink::class, 'lead_id');
     }
+
+    public function salesOrders()
+    {
+        return $this->belongsToMany(SalesOrder::class, 'crm_lead_quotation_links', 'lead_id', 'sales_order_id');
+    }
+
+    public function isLead(): bool
+    {
+        return $this->type === 'lead';
+    }
+
+    public function isOpportunity(): bool
+    {
+        return $this->type === 'opportunity';
+    }
+
+    public function isWon(): bool
+    {
+        return $this->stage === 'won';
+    }
+
+    public function isLost(): bool
+    {
+        return $this->stage === 'lost';
+    }
 }

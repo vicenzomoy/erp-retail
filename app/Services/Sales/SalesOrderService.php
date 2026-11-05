@@ -66,7 +66,23 @@ class SalesOrderService
      */
     public function createDraft(array $data, User $actor): SalesOrder
     {
+        // --- Idempotency guard: return existing SO if same idempotency_key already committed ---
+        if (!empty($data['idempotency_key'])) {
+            $existing = SalesOrder::where('idempotency_key', $data['idempotency_key'])->first();
+            if ($existing) {
+                return $existing->load(['lines', 'customer']);
+            }
+        }
+
         return DB::transaction(function () use ($data, $actor) {
+
+            // --- Idempotency double-check inside transaction ---
+            if (!empty($data['idempotency_key'])) {
+                $existing = SalesOrder::where('idempotency_key', $data['idempotency_key'])->lockForUpdate()->first();
+                if ($existing) {
+                    return $existing->load(['lines', 'customer']);
+                }
+            }
 
             // --- Customer validation ---
             /** @var ContactCustomer $customer */

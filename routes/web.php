@@ -5,6 +5,7 @@ use App\Http\Controllers\Accounting\CustomerInvoiceController;
 use App\Http\Controllers\Accounting\JournalEntryController;
 use App\Http\Controllers\Accounting\PaymentController;
 use App\Http\Controllers\Accounting\VendorBillController;
+use App\Http\Controllers\Crm\CrmLeadController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Inventory\DeliveryOrderController;
 use App\Http\Controllers\Inventory\InternalTransferController;
@@ -39,12 +40,33 @@ Route::middleware('auth')->group(function () {
     Route::get('/home', [HomeController::class, 'index'])->name('home');
 
     // App yang UI-nya belum dibangun; tetap dijaga hak akses di server (SR-18)
-    Route::get('/crm', fn () => app(HomeController::class)->pending('crm'))
-        ->middleware('app.access:crm')->name('crm.overview');
     Route::get('/purchase', fn () => app(HomeController::class)->pending('purchase'))
         ->middleware('app.access:purchase')->name('purchase.overview');
     Route::get('/settings', fn () => app(HomeController::class)->pending('settings'))
         ->middleware('app.access:settings')->name('settings.overview');
+
+    // ==========================================
+    // CRM MODULE ROUTES (F-05 / S-05, T-09, T-10)
+    // ==========================================
+    Route::prefix('crm')->name('crm.')->middleware('app.access:crm')->group(function () {
+        // Pipeline / Kanban View (Main Entry)
+        Route::get('/', [CrmLeadController::class, 'pipeline'])->name('overview');
+        Route::get('/pipeline', [CrmLeadController::class, 'pipeline'])->name('pipeline');
+
+        // Leads & Opportunities (CRUD)
+        Route::get('/leads', [CrmLeadController::class, 'index'])->name('leads.index');
+        Route::get('/leads/create', [CrmLeadController::class, 'create'])->name('leads.create');
+        Route::post('/leads', [CrmLeadController::class, 'store'])->name('leads.store');
+        Route::get('/leads/{id}', [CrmLeadController::class, 'show'])->where('id', '.+')->name('leads.show');
+        Route::put('/leads/{id}', [CrmLeadController::class, 'update'])->where('id', '.+')->name('leads.update');
+
+        // Actions: Drag & Drop Stage, Convert, Quotation, Won, Lost
+        Route::patch('/leads/{id}/stage', [CrmLeadController::class, 'updateStage'])->where('id', '.+')->name('leads.stage');
+        Route::post('/leads/{id}/convert', [CrmLeadController::class, 'convert'])->where('id', '.+')->name('leads.convert');
+        Route::post('/leads/{id}/create-quotation', [CrmLeadController::class, 'createQuotation'])->where('id', '.+')->name('leads.create-quotation');
+        Route::post('/leads/{id}/won', [CrmLeadController::class, 'markWon'])->where('id', '.+')->name('leads.won');
+        Route::post('/leads/{id}/lost', [CrmLeadController::class, 'markLost'])->where('id', '.+')->name('leads.lost');
+    });
     // ==========================================
     // ACCOUNTING MODULE ROUTES (S-12, S-13, S-14 / F-14, F-15, F-16, F-23)
     // ==========================================
