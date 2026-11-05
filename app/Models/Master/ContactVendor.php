@@ -14,7 +14,17 @@ class ContactVendor extends Model
     protected $keyType = 'string';
     public $timestamps = false;
 
-    protected $guarded = ['*'];
+    protected $fillable = [
+        'id',
+        'name',
+        'city',
+        'payment_terms',
+    ];
+
+    public function paymentTerm()
+    {
+        return $this->belongsTo(PaymentTerm::class, 'payment_terms', 'term_id');
+    }
 
     public function purchaseOrders(): HasMany
     {

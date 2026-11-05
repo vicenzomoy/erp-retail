@@ -17,6 +17,10 @@ use App\Http\Controllers\Inventory\StockReportingController;
 use App\Http\Controllers\Inventory\WarehouseLocationController;
 use App\Http\Controllers\Pos\PosController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Purchase\PurchaseOrderController;
+use App\Http\Controllers\Purchase\PurchaseOverviewController;
+use App\Http\Controllers\Purchase\PurchaseReportingController;
+use App\Http\Controllers\Purchase\PurchaseVendorController;
 use App\Http\Controllers\Sales\SalesCustomerController;
 use App\Http\Controllers\Sales\SalesOrderController;
 use App\Http\Controllers\Sales\SalesOverviewController;
@@ -40,10 +44,43 @@ Route::middleware('auth')->group(function () {
     Route::get('/home', [HomeController::class, 'index'])->name('home');
 
     // App yang UI-nya belum dibangun; tetap dijaga hak akses di server (SR-18)
-    Route::get('/purchase', fn () => app(HomeController::class)->pending('purchase'))
-        ->middleware('app.access:purchase')->name('purchase.overview');
     Route::get('/settings', fn () => app(HomeController::class)->pending('settings'))
         ->middleware('app.access:settings')->name('settings.overview');
+
+    // ==========================================
+    // PURCHASE MODULE ROUTES (F-12, F-13, F-14 / S-10, S-11, S-12, T-19, T-20)
+    // ==========================================
+    Route::prefix('purchase')->name('purchase.')->middleware('app.access:purchase')->group(function () {
+        Route::get('/', [PurchaseOverviewController::class, 'index'])->name('overview');
+
+        // Orders / RFQ
+        Route::get('/orders', [PurchaseOrderController::class, 'index'])->name('orders.index');
+        Route::get('/orders/create', [PurchaseOrderController::class, 'create'])->name('orders.create');
+        Route::post('/orders', [PurchaseOrderController::class, 'store'])->name('orders.store');
+        Route::post('/orders/{id}/confirm', [PurchaseOrderController::class, 'confirm'])
+            ->where('id', '.+')
+            ->name('orders.confirm');
+        Route::post('/orders/{id}/cancel', [PurchaseOrderController::class, 'cancel'])
+            ->where('id', '.+')
+            ->name('orders.cancel');
+        Route::post('/orders/{id}/create-bill', [PurchaseOrderController::class, 'createBill'])
+            ->where('id', '.+')
+            ->name('orders.create-bill');
+        Route::get('/orders/{id}', [PurchaseOrderController::class, 'show'])
+            ->where('id', '.+')
+            ->name('orders.show');
+
+        // Vendors
+        Route::get('/vendors', [PurchaseVendorController::class, 'index'])->name('vendors.index');
+        Route::get('/vendors/create', [PurchaseVendorController::class, 'create'])->name('vendors.create');
+        Route::post('/vendors', [PurchaseVendorController::class, 'store'])->name('vendors.store');
+        Route::get('/vendors/{id}', [PurchaseVendorController::class, 'show'])
+            ->where('id', '.+')
+            ->name('vendors.show');
+
+        // Reporting
+        Route::get('/reporting', [PurchaseReportingController::class, 'index'])->name('reporting.index');
+    });
 
     // ==========================================
     // CRM MODULE ROUTES (F-05 / S-05, T-09, T-10)
