@@ -125,7 +125,7 @@ export default function StockForecast({
                     <select
                         value={selectedLocation}
                         onChange={(e) => handleLocationFilter(e.target.value)}
-                        className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-xs focus:border-slate-500 focus:outline-none"
+                        className="rounded border border-slate-300 bg-white pl-3 pr-8 py-1.5 text-xs text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
                     >
                         <option value="all">Semua Lokasi Konsol</option>
                         {locations.map((l) => (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, usePage , router } from '@inertiajs/react';
+import { Link, usePage, router } from '@inertiajs/react';
 import {
     LayoutDashboard,
     Truck,
@@ -8,7 +8,7 @@ import {
     Package,
     MapPin,
     BarChart3,
-    FileText,
+    Activity,
     Warehouse,
     Menu,
     ChevronDown,
@@ -91,9 +91,9 @@ export default function InventoryLayout({ title, breadcrumbs = [], children }) {
                     active: route().current('inventory.reporting.forecast'),
                 },
                 {
-                    name: 'Riwayat Mutasi (Ledger)',
+                    name: 'Riwayat Pergerakan',
                     route: 'inventory.reporting.moves',
-                    icon: FileText,
+                    icon: Activity,
                     active: route().current('inventory.reporting.moves'),
                 },
             ],
@@ -270,9 +270,8 @@ export default function InventoryLayout({ title, breadcrumbs = [], children }) {
             <div className="flex flex-1 overflow-hidden">
                 {/* SIDEBAR NAVIGATION (Odoo Submenu Accordion Style) */}
                 <aside
-                    className={`${
-                        sidebarOpen ? 'w-60' : 'w-0 -translate-x-full'
-                    } transition-all duration-200 ease-in-out shrink-0 bg-white border-r border-slate-200 flex flex-col z-30 overflow-y-auto shadow-xs`}
+                    className={`${sidebarOpen ? 'w-60' : 'w-0 -translate-x-full'
+                        } transition-all duration-200 ease-in-out shrink-0 bg-white border-r border-slate-200 flex flex-col z-30 overflow-y-auto shadow-xs`}
                 >
                     <div className="p-3">
                         <div className="mb-2 flex items-center justify-between px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -295,18 +294,16 @@ export default function InventoryLayout({ title, breadcrumbs = [], children }) {
                                                 <Link
                                                     key={item.name}
                                                     href={route(item.route)}
-                                                    className={`group flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-all ${
-                                                        item.active
+                                                    className={`group flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-all ${item.active
                                                             ? 'bg-slate-900 text-white shadow-xs font-semibold'
                                                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <Icon
-                                                        className={`h-4 w-4 shrink-0 transition-colors ${
-                                                            item.active
+                                                        className={`h-4 w-4 shrink-0 transition-colors ${item.active
                                                                 ? 'text-emerald-400'
                                                                 : 'text-slate-400 group-hover:text-slate-700'
-                                                        }`}
+                                                            }`}
                                                     />
                                                     <span className="truncate">{item.name}</span>
                                                 </Link>

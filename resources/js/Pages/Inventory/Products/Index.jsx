@@ -71,7 +71,7 @@ export default function Index({ products, filters, availableColors, availableSiz
                     <select
                         value={filters.color}
                         onChange={(e) => handleFilterChange('color', e.target.value)}
-                        className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700"
+                        className="rounded border border-slate-300 bg-white pl-3 pr-8 py-1.5 text-xs text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
                     >
                         <option value="all">Semua Warna</option>
                         {availableColors.map((c) => (
@@ -84,7 +84,7 @@ export default function Index({ products, filters, availableColors, availableSiz
                     <select
                         value={filters.size}
                         onChange={(e) => handleFilterChange('size', e.target.value)}
-                        className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700"
+                        className="rounded border border-slate-300 bg-white pl-3 pr-8 py-1.5 text-xs text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
                     >
                         <option value="all">Semua Ukuran</option>
                         {availableSizes.map((s) => (

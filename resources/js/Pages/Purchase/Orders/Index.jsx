@@ -79,7 +79,7 @@ export default function Index({ orders, filters = {}, counts = {}, vendors = [] 
                     <select
                         value={filters.vendor_id || ''}
                         onChange={(e) => handleVendorFilter(e.target.value)}
-                        className="rounded border border-slate-300 bg-white py-1.5 px-2 text-xs text-slate-800 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        className="rounded border border-slate-300 bg-white py-1.5 pl-3 pr-8 text-xs text-slate-800 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                     >
                         <option value="">Semua Pemasok</option>
                         {vendors.map((v) => (

@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Master\Product;
 use App\Models\Master\WarehouseLocation;
 use App\Models\SalesOrder;
-use App\Models\StockLedger;
 use App\Models\StockMove;
 use App\Services\Inventory\StockReservationService;
 use App\Services\Inventory\StockService;
@@ -91,58 +90,73 @@ class StockReportingController extends Controller
     }
 
     /**
-     * Stock Moves / Stock Ledger History Report.
+     * Stock Moves History — Odoo-style (F-20).
+     * Shows all stock movements: Referensi, Produk, Dari, Ke, Qty, Status.
      */
     public function stockMoves(Request $request): Response
     {
-        $sku = $request->query('sku', 'all');
-        $location = $request->query('location', 'all');
-        $moveType = $request->query('move_type', 'all');
+        $sku        = $request->query('sku', 'all');
+        $status     = $request->query('status', 'all');
+        $docType    = $request->query('doc_type', 'all');
+        $dateFrom   = $request->query('date_from');
+        $dateTo     = $request->query('date_to');
 
-        $query = StockLedger::with(['product', 'location', 'movedBy'])
+        $query = StockMove::with(['product', 'fromLocation', 'toLocation', 'doneBy'])
+            ->orderBy('created_at', 'desc')
             ->orderBy('id', 'desc');
 
         if ($sku !== 'all') {
             $query->where('variant_sku', $sku);
         }
 
-        if ($location !== 'all') {
-            $query->where('location_code', $location);
+        if ($status !== 'all') {
+            $query->where('state', $status);
         }
 
-        if ($moveType !== 'all') {
-            $query->where('move_type', $moveType);
+        if ($docType !== 'all') {
+            $query->where('source_document_type', $docType);
         }
 
-        $moves = $query->paginate(20)->through(function ($m) {
+        if ($dateFrom) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+
+        $moves = $query->paginate(50)->through(function ($m) {
             return [
-                'id' => $m->id,
-                'created_at' => $m->created_at?->format('d/m/Y H:i'),
-                'variant_sku' => $m->variant_sku,
-                'product_name' => $m->product?->name ?? $m->variant_sku,
-                'location_code' => $m->location_code,
-                'move_type' => $m->move_type,
-                'qty_change' => (float) $m->qty_change,
-                'qty_on_hand_after' => (float) $m->qty_on_hand_after,
-                'unit_cost' => (float) $m->unit_cost,
-                'total_value_change' => (float) $m->total_value_change,
-                'source_document_type' => $m->source_document_type,
-                'source_document_id' => $m->source_document_id,
-                'moved_by_name' => $m->movedBy?->name ?? 'System',
+                'id'                   => $m->id,
+                'date'                 => $m->done_at?->format('d/m/Y H:i')
+                                          ?? $m->created_at?->format('d/m/Y H:i'),
+                'reference'            => $m->source_document_id,
+                'doc_type'             => $m->source_document_type,
+                'variant_sku'          => $m->variant_sku,
+                'product_name'         => $m->product?->name ?? $m->variant_sku,
+                'location_from'        => $m->location_from ?? '—',
+                'location_from_name'   => $m->fromLocation?->location_name ?? $m->location_from ?? '—',
+                'location_to'          => $m->location_to ?? '—',
+                'location_to_name'     => $m->toLocation?->location_name ?? $m->location_to ?? '—',
+                'qty_done'             => (float) $m->qty_done,
+                'state'                => $m->state,
+                'done_by_name'         => $m->doneBy?->name ?? 'System',
             ];
         });
 
-        $products = Product::all();
-        $locations = WarehouseLocation::all();
+        $products  = Product::orderBy('name')->get(['variant_sku', 'name']);
+        $locations = WarehouseLocation::orderBy('location_code')->get(['location_code', 'location_name']);
 
         return Inertia::render('Inventory/Reporting/StockMoves', [
-            'moves' => $moves,
+            'moves'   => $moves,
             'filters' => [
-                'sku' => $sku,
-                'location' => $location,
-                'move_type' => $moveType,
+                'sku'       => $sku,
+                'status'    => $status,
+                'doc_type'  => $docType,
+                'date_from' => $dateFrom,
+                'date_to'   => $dateTo,
             ],
-            'products' => $products,
+            'products'  => $products,
             'locations' => $locations,
         ]);
     }
