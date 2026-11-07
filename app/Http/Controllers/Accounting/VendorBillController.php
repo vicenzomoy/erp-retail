@@ -93,7 +93,7 @@ class VendorBillController extends Controller
      */
     public function create(Request $request): Response
     {
-        $selectedPoId = $request->query('purchase_order_id', 'PO0008');
+        $selectedPoId = $request->query('purchase_order_id', 'PO0007');
 
         $purchaseOrders = PurchaseOrder::with(['vendor', 'lines.product', 'receipts.lines'])
             ->whereIn('status', ['confirmed', 'done'])

@@ -185,7 +185,7 @@ export default function Create({ nextId, vendors = [], products = [], paymentTer
                             value={data.id}
                             onChange={(e) => setData('id', e.target.value)}
                             className="w-full rounded border border-slate-300 bg-slate-50 font-mono font-bold text-slate-900 py-1.5 px-3 focus:border-amber-500 focus:bg-white focus:outline-none"
-                            placeholder="PO-0001"
+                            placeholder={nextId || 'PO0001'}
                         />
                     </div>
 

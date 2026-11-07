@@ -34,18 +34,20 @@ class CrmLeadService
 
     public function generateLeadId(): string
     {
-        $max = DB::table('crm_leads')
-            ->where('id', 'LIKE', 'L%')
-            ->max('id');
+        $maxNum = 0;
+        $leads = DB::table('crm_leads')->pluck('id');
 
-        if ($max === null) {
-            return 'L0001';
+        foreach ($leads as $id) {
+            if (preg_match('/^L-?(\d+)$/i', $id, $m)) {
+                $num = (int) $m[1];
+                if ($num > $maxNum) {
+                    $maxNum = $num;
+                }
+            }
         }
 
-        $numeric = (int) ltrim(substr($max, 1), '0');
-        $next    = $numeric + 1;
-
-        return 'L' . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        $next = $maxNum + 1;
+        return sprintf('L%04d', $next);
     }
 
     // -------------------------------------------------------------------------

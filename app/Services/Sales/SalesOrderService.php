@@ -22,24 +22,24 @@ class SalesOrderService
     // -------------------------------------------------------------------------
 
     /**
-     * Generate the next SO ID in format SO-XXXX (zero-padded 4 digits).
-     * Queries MAX(id) for safety even if rows are sparse.
+     * Generate the next SO ID in format SO000X (zero-padded 4 digits).
      */
     public function generateOrderId(): string
     {
-        $max = DB::table('sales_orders')
-            ->where('id', 'LIKE', 'SO-%')
-            ->max('id');
+        $maxNum = 0;
+        $orders = DB::table('sales_orders')->pluck('id');
 
-        if ($max === null) {
-            return 'SO-0001';
+        foreach ($orders as $id) {
+            if (preg_match('/^SO-?(\d+)$/i', $id, $m)) {
+                $num = (int) $m[1];
+                if ($num > $maxNum) {
+                    $maxNum = $num;
+                }
+            }
         }
 
-        // Parse numeric suffix after "SO-"
-        $numeric = (int) ltrim(substr($max, 3), '0');
-        $next    = $numeric + 1;
-
-        return 'SO-' . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        $next = $maxNum + 1;
+        return sprintf('SO%04d', $next);
     }
 
     // -------------------------------------------------------------------------

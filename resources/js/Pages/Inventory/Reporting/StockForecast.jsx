@@ -1,41 +1,24 @@
 import React, { useState } from 'react';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import InventoryLayout from '@/Layouts/InventoryLayout';
 import {
     BarChart3,
     Layers,
     Package,
     CheckCircle2,
-    AlertTriangle,
-    ShieldAlert,
-    Plus,
-    X,
     Trash2,
     Search,
     ChevronDown,
     ChevronRight,
-    MapPin,
-    ShoppingCart,
 } from 'lucide-react';
 
 export default function StockForecast({
     report = [],
     selectedLocation = 'WH-PKU',
     locations = [],
-    salesOrders = [],
 }) {
     const [search, setSearch] = useState('');
-    const [showReserveModal, setShowReserveModal] = useState(false);
     const [expandedRows, setExpandedRows] = useState({});
-
-    // Reservation Form
-    const { data, setData, post, processing, errors, reset } = useForm({
-        sales_order_id: '',
-        so_line_id: '',
-        variant_sku: '',
-        location_code: selectedLocation === 'all' ? (locations[0]?.location_code || 'WH-PKU') : selectedLocation,
-        qty_reserved: 1,
-    });
 
     const toggleRow = (sku) => {
         setExpandedRows((prev) => ({
@@ -50,41 +33,6 @@ export default function StockForecast({
             { location: loc },
             { preserveState: true }
         );
-    };
-
-    const handleSoSelect = (soId) => {
-        const selectedSo = salesOrders.find((so) => so.id === soId);
-        setData((prev) => ({
-            ...prev,
-            sales_order_id: soId,
-            so_line_id: selectedSo?.lines[0]?.id || '',
-            variant_sku: selectedSo?.lines[0]?.sku || '',
-            qty_reserved: selectedSo?.lines[0] ? (selectedSo.lines[0].qty_ordered - selectedSo.lines[0].qty_delivered) : 1,
-        }));
-    };
-
-    const handleLineSelect = (lineId) => {
-        const selectedSo = salesOrders.find((so) => so.id === data.sales_order_id);
-        const line = selectedSo?.lines.find((l) => l.id === parseInt(lineId));
-        if (line) {
-            setData((prev) => ({
-                ...prev,
-                so_line_id: line.id,
-                variant_sku: line.sku,
-                qty_reserved: line.qty_ordered - line.qty_delivered,
-            }));
-        }
-    };
-
-    const handleReserveSubmit = (e) => {
-        e.preventDefault();
-        post(route('inventory.reporting.reserve'), {
-            preserveScroll: true,
-            onSuccess: () => {
-                setShowReserveModal(false);
-                reset();
-            },
-        });
     };
 
     const handleReleaseReservation = (resId) => {
@@ -144,18 +92,9 @@ export default function StockForecast({
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Cari SKU / nama..."
-                            className="rounded border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 w-52"
+                            className="rounded border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 w-52 sm:w-64"
                         />
                     </div>
-
-                    <button
-                        type="button"
-                        onClick={() => setShowReserveModal(true)}
-                        className="inline-flex items-center gap-1.5 rounded bg-slate-900 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-                    >
-                        <Plus className="h-3.5 w-3.5" />
-                        Simulasi Reservasi SO (T-13 / T-14)
-                    </button>
                 </div>
             </div>
 
@@ -199,7 +138,7 @@ export default function StockForecast({
             <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
                 <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-700">
-                        Daftar Produk & Status Available to Promise (Lokasi: {selectedLocation === 'all' ? 'Semua Lokasi' : selectedLocation})
+                        Daftar Produk &amp; Status Available to Promise (Lokasi: {selectedLocation === 'all' ? 'Semua Lokasi' : selectedLocation})
                     </span>
                     <span className="text-xs text-slate-500">
                         Klik panah untuk melihat rincian Sales Order yang mereservasi stok
@@ -370,144 +309,6 @@ export default function StockForecast({
                     </table>
                 </div>
             </div>
-
-            {/* Modal Simulasi Reservasi SO (T-13 & T-14) */}
-            {showReserveModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden border border-slate-200">
-                        <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
-                            <div>
-                                <h3 className="text-sm font-bold text-slate-900">
-                                    Simulasi Reservasi Sales Order
-                                </h3>
-                                <p className="text-[11px] text-slate-500">
-                                    Uji Skenario T-13 (Reservasi Sukses) & T-14 (Blokir Jika Kurang ATP)
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowReserveModal(false)}
-                                className="text-slate-400 hover:text-slate-600"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleReserveSubmit} className="p-4 space-y-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                    Pilih Dokumen Sales Order
-                                </label>
-                                <select
-                                    value={data.sales_order_id}
-                                    onChange={(e) => handleSoSelect(e.target.value)}
-                                    required
-                                    className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-slate-500 focus:outline-none"
-                                >
-                                    <option value="">-- Pilih Sales Order --</option>
-                                    {salesOrders.map((so) => (
-                                        <option key={so.id} value={so.id}>
-                                            {so.id} &bull; Pelanggan: {so.customer} ({so.lines.length} baris barang)
-                                        </option>
-                                    ))}
-                                </select>
-                                {errors.sales_order_id && (
-                                    <p className="text-red-600 text-xs mt-1">{errors.sales_order_id}</p>
-                                )}
-                            </div>
-
-                            {data.sales_order_id && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                        Pilih Baris Item Pesanan
-                                    </label>
-                                    <select
-                                        value={data.so_line_id}
-                                        onChange={(e) => handleLineSelect(e.target.value)}
-                                        required
-                                        className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-slate-500 focus:outline-none"
-                                    >
-                                        {salesOrders
-                                            .find((so) => so.id === data.sales_order_id)
-                                            ?.lines.map((l) => (
-                                                <option key={l.id} value={l.id}>
-                                                    SKU: {l.sku} &bull; {l.product_name} (Order: {l.qty_ordered}, Belum Kirim: {l.qty_ordered - l.qty_delivered})
-                                                </option>
-                                            ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                        Lokasi Gudang / Toko
-                                    </label>
-                                    <select
-                                        value={data.location_code}
-                                        onChange={(e) => setData('location_code', e.target.value)}
-                                        required
-                                        className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-slate-500 focus:outline-none"
-                                    >
-                                        {locations.map((loc) => (
-                                            <option key={loc.location_code} value={loc.location_code}>
-                                                {loc.location_code} ({loc.location_name})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                        Qty Reservasi
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        step="1"
-                                        value={data.qty_reserved}
-                                        onChange={(e) => setData('qty_reserved', parseFloat(e.target.value) || 0)}
-                                        required
-                                        className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-slate-500 focus:outline-none"
-                                    />
-                                    {errors.qty_reserved && (
-                                        <p className="text-red-600 text-xs mt-1">{errors.qty_reserved}</p>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="rounded border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-900 space-y-1">
-                                <div className="font-bold flex items-center gap-1.5">
-                                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                                    Aturan Validasi ATP (T-13 & T-14):
-                                </div>
-                                <div>
-                                    Sistem akan memeriksa stok <code>Available = On Hand - Active Reservations</code> di lokasi yang dipilih. Jika Qty diminta melebihi ATP, sistem akan menolak transaksi secara otomatis tanpa partial leak.
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowReserveModal(false)}
-                                    className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={processing}
-                                    className="inline-flex items-center gap-1.5 rounded bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 disabled:opacity-50"
-                                >
-                                    <CheckCircle2 className="h-4 w-4" />
-                                    {processing ? 'Memproses...' : 'Terapkan Reservasi'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </InventoryLayout>
     );
 }
-

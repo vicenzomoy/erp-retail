@@ -21,7 +21,7 @@ use Illuminate\Validation\ValidationException;
 class PurchaseOrderService
 {
     /**
-     * Generate ID unik untuk Purchase Order / RFQ (format: PO-0001 atau PO0009).
+     * Generate ID unik untuk Purchase Order / RFQ (format: PO000X).
      */
     public function generatePoId(): string
     {
@@ -43,7 +43,7 @@ class PurchaseOrderService
         }
 
         $next = $maxNum + 1;
-        return sprintf('PO-%04d', $next);
+        return sprintf('PO%04d', $next);
     }
 
     /**

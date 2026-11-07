@@ -91,7 +91,7 @@ class CustomerInvoiceController extends Controller
      */
     public function create(Request $request): Response
     {
-        $selectedSoId = $request->query('sales_order_id', 'SO-0001');
+        $selectedSoId = $request->query('sales_order_id', '');
 
         $salesOrders = SalesOrder::with(['customer', 'lines.product', 'deliveryOrders.lines'])
             ->whereIn('status', ['confirmed', 'done'])
