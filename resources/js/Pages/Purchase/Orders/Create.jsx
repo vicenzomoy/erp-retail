@@ -6,10 +6,7 @@ import {
     Plus,
     Trash2,
     Save,
-    CheckCircle2,
     ShoppingBag,
-    DollarSign,
-    Calculator,
     AlertCircle,
 } from 'lucide-react';
 
@@ -22,7 +19,6 @@ export default function Create({ nextId, vendors = [], products = [], paymentTer
         payment_terms: defaultVendor.payment_terms || 'NET30',
         source_doc_no: '',
         notes: '',
-        auto_confirm: false,
         lines: [
             {
                 variant_sku: products[0]?.variant_sku || '',
@@ -93,13 +89,8 @@ export default function Create({ nextId, vendors = [], products = [], paymentTer
         }).format(num || 0);
     };
 
-    const handleSubmit = (autoConfirm = false) => {
-        post(route('purchase.orders.store'), {
-            transform: (currentData) => ({
-                ...currentData,
-                auto_confirm: autoConfirm,
-            }),
-        });
+    const handleSubmit = () => {
+        post(route('purchase.orders.store'));
     };
 
     return (
@@ -137,21 +128,12 @@ export default function Create({ nextId, vendors = [], products = [], paymentTer
                 <div className="flex items-center gap-2">
                     <button
                         type="button"
-                        onClick={() => handleSubmit(false)}
+                        onClick={() => handleSubmit()}
                         disabled={processing}
                         className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-800 shadow-xs hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
                     >
                         <Save className="h-4 w-4 text-slate-600" />
                         Simpan Draft (RFQ)
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleSubmit(true)}
-                        disabled={processing}
-                        className="inline-flex items-center gap-1.5 rounded bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
-                    >
-                        <CheckCircle2 className="h-4 w-4" />
-                        Konfirmasi Langsung (PO)
                     </button>
                 </div>
             </div>

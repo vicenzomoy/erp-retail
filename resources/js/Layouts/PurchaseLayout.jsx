@@ -41,7 +41,7 @@ export default function PurchaseLayout({ title, breadcrumbs = [], children }) {
                     name: 'Pesanan Pembelian (PO)',
                     route: 'purchase.orders.index',
                     icon: ShoppingBag,
-                    active: route().current('purchase.orders.*'),
+                    active: route().current('purchase.orders.index') || route().current('purchase.orders.show'),
                 },
                 {
                     name: 'Buat RFQ Baru',
