@@ -270,13 +270,6 @@ export default function InventoryLayout({ title, breadcrumbs = [], children }) {
                         } transition-all duration-200 ease-in-out shrink-0 bg-white border-r border-slate-200 flex flex-col z-30 overflow-y-auto shadow-xs`}
                 >
                     <div className="p-3">
-                        <div className="mb-2 flex items-center justify-between px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                            <span>Modul Inventory</span>
-                            <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                                Bara Wear
-                            </span>
-                        </div>
-
                         <nav className="space-y-4">
                             {navigation.map((section) => (
                                 <div key={section.group} className="space-y-1">
@@ -291,14 +284,14 @@ export default function InventoryLayout({ title, breadcrumbs = [], children }) {
                                                     key={item.name}
                                                     href={route(item.route)}
                                                     className={`group flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-all ${item.active
-                                                            ? 'bg-slate-900 text-white shadow-xs font-semibold'
-                                                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                                        ? 'bg-slate-900 text-white shadow-xs font-semibold'
+                                                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                                                         }`}
                                                 >
                                                     <Icon
                                                         className={`h-4 w-4 shrink-0 transition-colors ${item.active
-                                                                ? 'text-emerald-400'
-                                                                : 'text-slate-400 group-hover:text-slate-700'
+                                                            ? 'text-emerald-400'
+                                                            : 'text-slate-400 group-hover:text-slate-700'
                                                             }`}
                                                     />
                                                     <span className="truncate">{item.name}</span>
