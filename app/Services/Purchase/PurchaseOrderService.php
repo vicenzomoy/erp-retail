@@ -516,7 +516,7 @@ class PurchaseOrderService
      */
     public function getVendorsForSelect(): array
     {
-        return ContactVendor::orderBy('name')
+        return ContactVendor::orderBy('id')
             ->get(['id', 'name', 'city', 'payment_terms'])
             ->map(fn ($v) => [
                 'id' => $v->id,
@@ -533,7 +533,8 @@ class PurchaseOrderService
      */
     public function getProductsForSelect(): array
     {
-        return Product::orderBy('variant_sku')
+        return Product::with('pricelists')
+            ->orderBy('variant_sku')
             ->get(['variant_sku', 'name', 'size', 'color', 'unit', 'cost', 'default_vendor'])
             ->map(fn ($p) => [
                 'variant_sku' => $p->variant_sku,
@@ -544,6 +545,10 @@ class PurchaseOrderService
                 'unit' => $p->unit,
                 'cost' => (float) $p->cost,
                 'default_vendor' => $p->default_vendor,
+                'vendor_ids' => array_values(array_unique(array_filter([
+                    $p->default_vendor,
+                    ...$p->pricelists->pluck('vendor_id')->all(),
+                ]))),
             ])
             ->toArray();
     }

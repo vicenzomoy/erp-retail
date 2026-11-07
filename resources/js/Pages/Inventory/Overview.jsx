@@ -203,13 +203,6 @@ export default function Overview({ kpis = {}, recentMoves = [], lowStockAlerts =
                                     Penerimaan barang dari PO / Vendor
                                 </p>
                             </div>
-                            <Link
-                                href={route('inventory.receipts.create')}
-                                className="inline-flex items-center gap-1 rounded bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition"
-                            >
-                                <Plus className="h-3.5 w-3.5" />
-                                Buat
-                            </Link>
                         </div>
 
                         <div className="flex items-baseline justify-between mb-4">

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Purchase;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\JournalEntry;
+use App\Models\Master\Product;
 use App\Models\PurchaseOrder;
 use App\Models\Receipt;
 use App\Models\VendorBill;
@@ -63,11 +64,35 @@ class PurchaseOrderController extends Controller
             'notes' => 'nullable|string|max:1000',
             'auto_confirm' => 'nullable|boolean',
             'lines' => 'required|array|min:1',
-            'lines.*.variant_sku' => 'required|string|exists:products,variant_sku',
-            'lines.*.qty_ordered' => 'required|numeric|min:0.001',
+            'lines.*.variant_sku' => 'required|string|exists:products,variant_sku|distinct',
+            'lines.*.qty_ordered' => 'required|integer|min:1',
             'lines.*.unit_price' => 'required|numeric|min:0',
             'lines.*.tax_id' => 'nullable|string|exists:tax_rates,tax_id',
+        ], [
+            'lines.required' => 'Minimal 1 baris produk harus ditambahkan.',
+            'lines.min' => 'Minimal 1 baris produk harus ditambahkan.',
+            'lines.*.variant_sku.distinct' => 'Produk tidak boleh dipilih lebih dari sekali pada baris order.',
+            'lines.*.qty_ordered.integer' => 'Kuantitas harus berupa bilangan bulat (tidak boleh desimal).',
+            'lines.*.qty_ordered.min' => 'Kuantitas minimal adalah 1.',
         ]);
+
+        // Verifikasi bahwa produk yang dipesan disediakan oleh vendor yang dipilih
+        $vendorId = $validated['vendor_id'];
+        $productSkus = collect($validated['lines'])->pluck('variant_sku');
+        $invalidProducts = Product::with('pricelists')
+            ->whereIn('variant_sku', $productSkus)
+            ->get()
+            ->filter(function ($p) use ($vendorId) {
+                $suppliedByVendor = $p->default_vendor === $vendorId ||
+                    $p->pricelists->contains('vendor_id', $vendorId);
+                return ! $suppliedByVendor;
+            });
+
+        if ($invalidProducts->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'lines' => 'Produk [' . $invalidProducts->pluck('variant_sku')->implode(', ') . '] tidak disediakan oleh vendor yang dipilih.',
+            ]);
+        }
 
         $po = $this->service->createRfq($validated, $request->user());
 

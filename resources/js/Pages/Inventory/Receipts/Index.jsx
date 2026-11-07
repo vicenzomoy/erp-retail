@@ -2,7 +2,7 @@ import React from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import InventoryLayout from '@/Layouts/InventoryLayout';
 import OdooBadge from '@/Components/Odoo/OdooBadge';
-import { Plus, Search, ArrowDownLeft, Filter, ArrowRight } from 'lucide-react';
+import { Search, ArrowDownLeft, Filter, ArrowRight } from 'lucide-react';
 
 export default function Index({ receipts, filters, counts }) {
     const handleStatusFilter = (status) => {
@@ -36,13 +36,6 @@ export default function Index({ receipts, filters, counts }) {
             {/* Odoo Control Panel Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200">
                 <div className="flex items-center gap-3">
-                    <Link
-                        href={route('inventory.receipts.create')}
-                        className="inline-flex items-center gap-1.5 rounded bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Buat Penerimaan (New)
-                    </Link>
                     <span className="text-sm font-bold text-slate-800">
                         Penerimaan Barang Gudang (Receipts)
                     </span>
