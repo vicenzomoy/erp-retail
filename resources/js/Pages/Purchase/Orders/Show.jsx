@@ -38,11 +38,11 @@ export default function Show({
     const isDone = order.status === 'done';
     const isCancelled = order.status === 'cancelled';
 
-    // Status pipeline untuk OdooStatusBar
+    // Status pipeline untuk OdooStatusBar (Draft -> Confirmed -> Done)
     const statusSteps = [
-        { key: 'rfq', label: 'Draft (RFQ)' },
-        { key: 'confirmed', label: 'PO Dikonfirmasi' },
-        { key: 'done', label: 'Selesai (Done)' },
+        { key: ['rfq', 'draft'], label: 'Draft' },
+        { key: 'confirmed', label: 'Confirmed' },
+        { key: 'done', label: 'Done' },
     ];
 
     const formatRp = (num) => {
@@ -159,8 +159,8 @@ export default function Show({
                         </span>
                     ) : (
                         <OdooStatusBar
-                            steps={statusSteps}
-                            currentStep={order.status}
+                            status={order.status}
+                            stages={statusSteps}
                         />
                     )}
                 </div>
