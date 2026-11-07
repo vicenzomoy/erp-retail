@@ -19,6 +19,7 @@ use App\Http\Controllers\Pos\PosController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Purchase\PurchaseOrderController;
 use App\Http\Controllers\Purchase\PurchaseOverviewController;
+use App\Http\Controllers\Purchase\PurchaseProductController;
 use App\Http\Controllers\Purchase\PurchaseReportingController;
 use App\Http\Controllers\Purchase\PurchaseVendorController;
 use App\Http\Controllers\Sales\SalesCustomerController;
@@ -77,6 +78,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/vendors/{id}', [PurchaseVendorController::class, 'show'])
             ->where('id', '.+')
             ->name('vendors.show');
+
+        // Products & Stock for Procurement
+        Route::get('/products', [PurchaseProductController::class, 'index'])->name('products.index');
 
         // Reporting
         Route::get('/reporting', [PurchaseReportingController::class, 'index'])->name('reporting.index');

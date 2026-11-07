@@ -6,6 +6,7 @@ import {
     FileText,
     Plus,
     Users,
+    Package,
     BarChart3,
     Menu,
     ChevronDown,
@@ -54,6 +55,17 @@ export default function PurchaseLayout({ title, breadcrumbs = [], children }) {
                     route: 'purchase.vendors.index',
                     icon: Users,
                     active: route().current('purchase.vendors.*'),
+                },
+            ],
+        },
+        {
+            group: 'Katalog & Stok',
+            items: [
+                {
+                    name: 'Produk & Stok',
+                    route: 'purchase.products.index',
+                    icon: Package,
+                    active: route().current('purchase.products.*'),
                 },
             ],
         },

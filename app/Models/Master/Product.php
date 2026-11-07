@@ -4,6 +4,8 @@ namespace App\Models\Master;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Product extends Model
 {
@@ -26,6 +28,16 @@ class Product extends Model
     public function vendor(): BelongsTo
     {
         return $this->belongsTo(ContactVendor::class, 'default_vendor', 'id');
+    }
+
+    public function pricelists(): HasMany
+    {
+        return $this->hasMany(VendorPricelist::class, 'variant_sku', 'variant_sku');
+    }
+
+    public function defaultPricelist(): HasOne
+    {
+        return $this->hasOne(VendorPricelist::class, 'variant_sku', 'variant_sku');
     }
 }
 

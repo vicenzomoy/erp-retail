@@ -10,8 +10,9 @@ import {
     AlertCircle,
 } from 'lucide-react';
 
-export default function Create({ nextId, vendors = [], products = [], paymentTerms = [] }) {
-    const defaultVendor = vendors[0] || {};
+export default function Create({ nextId, vendors = [], products = [], paymentTerms = [], defaultVendorId, defaultSku }) {
+    const defaultVendor = (defaultVendorId ? vendors.find((v) => v.id === defaultVendorId) : null) || vendors[0] || {};
+    const initialProduct = (defaultSku ? products.find((p) => p.variant_sku === defaultSku) : null) || products[0] || {};
 
     const { data, setData, post, processing, errors } = useForm({
         id: nextId,
@@ -21,9 +22,9 @@ export default function Create({ nextId, vendors = [], products = [], paymentTer
         notes: '',
         lines: [
             {
-                variant_sku: products[0]?.variant_sku || '',
+                variant_sku: initialProduct?.variant_sku || '',
                 qty_ordered: 10,
-                unit_price: products[0]?.cost || 0,
+                unit_price: initialProduct?.cost || 0,
                 tax_id: 'VAT-NONLUX',
             },
         ],

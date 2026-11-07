@@ -41,13 +41,15 @@ class PurchaseOrderController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
         return Inertia::render('Purchase/Orders/Create', [
             'nextId' => $this->service->generatePoId(),
             'vendors' => $this->service->getVendorsForSelect(),
             'products' => $this->service->getProductsForSelect(),
             'paymentTerms' => $this->service->getPaymentTermsForSelect(),
+            'defaultVendorId' => $request->query('vendor_id'),
+            'defaultSku' => $request->query('sku'),
         ]);
     }
 
