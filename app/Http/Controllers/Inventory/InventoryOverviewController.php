@@ -24,10 +24,11 @@ class InventoryOverviewController extends Controller
     public function index(Request $request): Response
     {
         $kpis = $this->stockService->getInventoryKPIs();
+        $lowStockAlerts = $this->stockService->getLowStockAlerts(10);
 
         $recentMoves = StockMove::with(['product', 'fromLocation', 'toLocation'])
             ->orderBy('id', 'desc')
-            ->limit(8)
+            ->limit(10)
             ->get()
             ->map(function ($m) {
                 return [
@@ -36,18 +37,18 @@ class InventoryOverviewController extends Controller
                     'type' => $m->source_document_type,
                     'sku' => $m->variant_sku,
                     'product_name' => $m->product?->name ?? $m->variant_sku,
-                    'from' => $m->location_from,
-                    'to' => $m->location_to,
+                    'from' => $m->location_from ?? '—',
+                    'to' => $m->location_to ?? '—',
                     'qty' => (float) $m->qty_done,
-                    'unit_cost' => (float) $m->unit_cost,
-                    'total_value' => (float) $m->total_value,
-                    'date' => $m->done_at?->format('d M Y H:i') ?? $m->created_at?->format('d M Y H:i'),
+                    'state' => $m->state ?? 'done',
+                    'date' => $m->done_at?->format('d/m/Y H:i') ?? $m->created_at?->format('d/m/Y H:i'),
                 ];
             });
 
         return Inertia::render('Inventory/Overview', [
             'kpis' => $kpis,
             'recentMoves' => $recentMoves,
+            'lowStockAlerts' => $lowStockAlerts,
         ]);
     }
 }

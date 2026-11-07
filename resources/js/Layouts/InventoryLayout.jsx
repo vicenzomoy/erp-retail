@@ -6,7 +6,6 @@ import {
     ArrowDownLeft,
     ArrowRightLeft,
     Package,
-    MapPin,
     BarChart3,
     Activity,
     Warehouse,
@@ -68,16 +67,13 @@ export default function InventoryLayout({ title, breadcrumbs = [], children }) {
             group: 'Produk',
             items: [
                 {
-                    name: 'Produk & Varian',
+                    name: 'Produk & Stok',
                     route: 'inventory.products.index',
                     icon: Package,
-                    active: route().current('inventory.products.index') || route().current('inventory.products.show'),
-                },
-                {
-                    name: 'Stok per Lokasi',
-                    route: 'inventory.products.stock-by-location',
-                    icon: MapPin,
-                    active: route().current('inventory.products.stock-by-location'),
+                    active:
+                        route().current('inventory.products.index') ||
+                        route().current('inventory.products.show') ||
+                        route().current('inventory.products.stock-by-location'),
                 },
             ],
         },

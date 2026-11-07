@@ -74,15 +74,28 @@ class ProductController extends Controller
         $availableColors = Product::distinct()->pluck('color');
         $availableSizes = Product::distinct()->pluck('size');
 
+        // Also pass stock-by-location matrix so the page can toggle views without reload
+        $matrix    = $this->stockService->getStockByLocationMatrix();
+        $locations = WarehouseLocation::orderBy('location_code')->get();
+
         return Inertia::render('Inventory/Products/Index', [
             'products' => $products,
             'filters' => [
                 'search' => $search,
-                'color' => $color,
-                'size' => $size,
+                'color'  => $color,
+                'size'   => $size,
             ],
             'availableColors' => $availableColors,
-            'availableSizes' => $availableSizes,
+            'availableSizes'  => $availableSizes,
+            // Stock-by-location tab data
+            'matrix'    => $matrix,
+            'locations' => $locations,
+            'summary'   => [
+                'total_on_hand'    => collect($matrix)->sum('company_total_qty'),
+                'total_reserved'   => collect($matrix)->sum('company_reserved_qty'),
+                'total_available'  => collect($matrix)->sum('company_available_qty'),
+                'total_valuation'  => collect($matrix)->sum('standard_value'),
+            ],
         ]);
     }
 

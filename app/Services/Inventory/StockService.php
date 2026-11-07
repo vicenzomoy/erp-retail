@@ -189,6 +189,11 @@ class StockService
         $totalAvailable = $totalOnHand - $totalReserved;
         $totalValue = (float) StockLedger::sum('total_value_change');
 
+        // Low stock calculations
+        $lowStockAlerts = $this->getLowStockAlerts(10);
+        $lowStockCount = count($lowStockAlerts);
+        $outOfStockCount = count(array_filter($lowStockAlerts, fn ($a) => $a['available'] <= 0));
+
         // Operations counts
         $receiptsToProcess = DB::table('receipts')->whereIn('status', ['draft', 'ready'])->count();
         $receiptsDone = DB::table('receipts')->where('status', 'validated')->count();
@@ -205,6 +210,8 @@ class StockService
             'total_reserved' => $totalReserved,
             'total_available' => $totalAvailable,
             'total_valuation' => $totalValue,
+            'low_stock_count' => $lowStockCount,
+            'out_of_stock_count' => $outOfStockCount,
             'receipts' => [
                 'to_process' => $receiptsToProcess,
                 'done' => $receiptsDone,
@@ -219,6 +226,46 @@ class StockService
                 'done' => $transfersDone,
             ],
         ];
+    }
+
+    /**
+     * Get products with low or depleted stock (ATP <= threshold).
+     */
+    public function getLowStockAlerts(int $threshold = 10): array
+    {
+        $products = Product::orderBy('name')->get();
+        $alerts = [];
+
+        foreach ($products as $p) {
+            $onHand = (float) $this->getOnHand($p->variant_sku);
+            $reserved = (float) $this->getReserved($p->variant_sku);
+            $available = $onHand - $reserved;
+
+            if ($available <= $threshold) {
+                $status = 'warning';
+                if ($available <= 0) {
+                    $status = 'out_of_stock';
+                } elseif ($available <= 5) {
+                    $status = 'critical';
+                }
+
+                $alerts[] = [
+                    'sku' => $p->variant_sku,
+                    'name' => $p->name,
+                    'size' => $p->size,
+                    'color' => $p->color,
+                    'unit' => $p->unit,
+                    'on_hand' => $onHand,
+                    'reserved' => $reserved,
+                    'available' => $available,
+                    'status' => $status,
+                ];
+            }
+        }
+
+        usort($alerts, fn ($a, $b) => $a['available'] <=> $b['available']);
+
+        return $alerts;
     }
 }
 
