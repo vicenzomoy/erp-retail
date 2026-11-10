@@ -90,6 +90,11 @@ class CustomerInvoice extends Model
         return $this->hasMany(CreditNote::class, 'original_invoice_id');
     }
 
+    public function customerReturns(): HasMany
+    {
+        return $this->hasMany(CustomerReturn::class, 'customer_invoice_id');
+    }
+
     public function payments(): HasMany
     {
         return $this->hasMany(PaymentAllocation::class, 'document_id')

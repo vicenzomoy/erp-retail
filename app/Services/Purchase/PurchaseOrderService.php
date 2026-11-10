@@ -22,10 +22,11 @@ class PurchaseOrderService
 {
     /**
      * Generate ID unik untuk Purchase Order / RFQ (format: PO000X).
+     * Baseline PO adalah PO0007, sehingga PO baru dimulai dari PO0008.
      */
     public function generatePoId(): string
     {
-        $maxNum = 0;
+        $maxNum = 7;
         $orders = DB::table('purchase_orders')->pluck('id');
 
         foreach ($orders as $id) {
@@ -44,6 +45,28 @@ class PurchaseOrderService
 
         $next = $maxNum + 1;
         return sprintf('PO%04d', $next);
+    }
+
+    /**
+     * Generate ID Penerimaan Barang (Receipt) berformat WH-PKU/IN/000X.
+     */
+    public function generateReceiptId(?string $locationCode = 'WH-PKU'): string
+    {
+        $prefix = sprintf('%s/IN/', $locationCode ?: 'WH-PKU');
+        $maxNum = 0;
+        $receipts = DB::table('receipts')->pluck('id');
+
+        foreach ($receipts as $id) {
+            if (preg_match('/(?:WH-PKU|WH)\/IN\/(\d+)$/i', $id, $m)) {
+                $num = (int) $m[1];
+                if ($num > $maxNum) {
+                    $maxNum = $num;
+                }
+            }
+        }
+
+        $next = $maxNum + 1;
+        return sprintf('%s%04d', $prefix, $next);
     }
 
     /**
@@ -297,7 +320,7 @@ class PurchaseOrderService
     }
 
     /**
-     * Memastikan dokumen Receipt (WH/IN/xxxx) dibuat untuk PO yang sudah confirmed.
+     * Memastikan dokumen Receipt (WH-PKU/IN/000X) dibuat untuk PO yang sudah confirmed.
      */
     public function ensureReceiptCreated(PurchaseOrder $po, ?User $actor = null): Receipt
     {
@@ -306,16 +329,7 @@ class PurchaseOrderService
             return $existing;
         }
 
-        // Generate ID Receipt WH/IN/xxxx
-        $rcpCount = Receipt::count() + 1;
-        $rcpId = sprintf('WH/IN/%04d', $rcpCount);
-
-        // Cari ID yang belum terpakai jika ada tabrakan
-        while (Receipt::where('id', $rcpId)->exists()) {
-            $rcpCount++;
-            $rcpId = sprintf('WH/IN/%04d', $rcpCount);
-        }
-
+        $rcpId = $this->generateReceiptId('WH-PKU');
         $creatorId = $actor?->id ?? $po->created_by ?? User::first()->id;
 
         $receipt = Receipt::create([

@@ -47,17 +47,61 @@ export default function SalesOrderCreate({
     products = [],
     payment_terms = [],
     paymentTerms = [],
+    prefill = {},
+    lead = null,
 }) {
     const rawTerms = payment_terms?.length > 0 ? payment_terms : paymentTerms;
     const termsList = Array.isArray(rawTerms) ? rawTerms : [];
 
-    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const initialCustomer = prefill?.customer_id
+        ? customers.find((c) => String(c.id) === String(prefill.customer_id))
+        : null;
+
+    const [selectedCustomer, setSelectedCustomer] = useState(initialCustomer);
+
+    const initialLines = () => {
+        // Jika ada items dari Lead CRM (multi-item)
+        if (lead?.items && Array.isArray(lead.items) && lead.items.length > 0) {
+            return lead.items.map((item, idx) => {
+                const prod = products.find(
+                    (p) => String(p.variant_sku || p.sku) === String(item.variant_sku)
+                );
+                return {
+                    _id: `lead-item-${idx}-${Date.now()}`,
+                    variant_sku: item.variant_sku,
+                    qty_ordered: Math.max(1, parseInt(item.qty_interest, 10) || 1),
+                    unit_price: prod?.sales_price ?? prod?.selling_price ?? prod?.price ?? 0,
+                    discount_pct: 0,
+                };
+            });
+        }
+
+        if (prefill?.variant_sku) {
+            const prod = products.find(
+                (p) => String(p.variant_sku || p.sku) === String(prefill.variant_sku)
+            );
+            return [
+                {
+                    _id: 'prefill-1',
+                    variant_sku: prefill.variant_sku,
+                    qty_ordered: Math.max(1, parseInt(prefill.qty_ordered, 10) || 1),
+                    unit_price: prod?.sales_price ?? prod?.selling_price ?? prod?.price ?? 0,
+                    discount_pct: 0,
+                },
+            ];
+        }
+        return [blankLine()];
+    };
 
     const { data, setData, post, processing, errors } = useForm({
-        customer_id: '',
-        payment_terms: '',
-        notes: '',
-        lines: [blankLine()],
+        customer_id: prefill?.customer_id || '',
+        payment_terms: initialCustomer?.payment_terms || '',
+        notes: prefill?.lead_id
+            ? `Penawaran harga dibuat dari CRM Lead ${prefill.lead_id}`
+            : (prefill?.notes || ''),
+        source_doc_no: prefill?.source_doc_no || prefill?.lead_id || '',
+        lead_id: prefill?.lead_id || '',
+        lines: initialLines(),
     });
 
     const lines = data.lines || [];
@@ -136,47 +180,59 @@ export default function SalesOrderCreate({
     return (
         <SalesLayout
             title="Buat Quotation Baru"
-            breadcrumbs={[
-                { label: 'Orders', href: route('sales.orders.index') },
-                { label: 'Buat Quotation Baru' },
-            ]}
+            breadcrumbs={
+                prefill?.lead_id
+                    ? [
+                          { label: 'Pipeline CRM', href: route('crm.pipeline') },
+                          { label: prefill.lead_id, href: route('crm.leads.show', prefill.lead_id) },
+                          { label: 'Buat Quotation Baru' },
+                      ]
+                    : [
+                          { label: 'Orders', href: route('sales.orders.index') },
+                          { label: 'Buat Quotation Baru' },
+                      ]
+            }
         >
             <Head title="Buat Quotation Baru — Sales Bara Wear" />
-
-            {/* Back link */}
-            <div className="mb-4">
-                <Link
-                    href={route('sales.orders.index')}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition"
-                >
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                    Kembali ke Daftar Order
-                </Link>
-            </div>
 
             <form onSubmit={handleSubmit}>
                 {/* ── Form Header ── */}
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-col gap-2">
                         <OdooStatusBar status="draft" stages={stages} />
-                        <h1 className="text-lg font-bold text-slate-900">Quotation Baru</h1>
+                        <h1 className="text-lg font-bold text-slate-900">
+                            Quotation Baru
+                            {prefill?.lead_id && (
+                                <span className="ml-2 text-xs font-normal text-slate-500 font-mono">
+                                    (Prospek {prefill.lead_id})
+                                </span>
+                            )}
+                        </h1>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
                         <Link
-                            href={route('sales.orders.index')}
-                            className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                            href={prefill?.lead_id ? route('crm.leads.show', prefill.lead_id) : route('crm.pipeline')}
+                            className="rounded border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                         >
                             Batal
                         </Link>
                         <button
                             type="submit"
                             disabled={processing}
-                            className="rounded bg-slate-900 text-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-700 disabled:opacity-60 transition"
+                            className="rounded bg-slate-900 text-white px-4 py-1.5 text-xs font-semibold hover:bg-slate-700 disabled:opacity-60 transition cursor-pointer shadow-xs"
                         >
                             {processing ? 'Menyimpan…' : 'Simpan sebagai Draft'}
                         </button>
                     </div>
                 </div>
+
+                {/* Hidden fields for CRM linkage */}
+                {data.lead_id && (
+                    <>
+                        <input type="hidden" name="lead_id" value={data.lead_id} />
+                        <input type="hidden" name="source_doc_no" value={data.source_doc_no} />
+                    </>
+                )}
 
                 {/* ── Form Body ── */}
                 <div className="rounded-lg border border-slate-200 bg-white shadow-xs mb-4">
@@ -398,11 +454,15 @@ export default function SalesOrderCreate({
                                             <td className="px-3 py-2">
                                                 <input
                                                     type="number"
-                                                    min="0.001"
-                                                    step="any"
+                                                    min="1"
+                                                    step="1"
                                                     value={line.qty_ordered}
                                                     onChange={(e) =>
-                                                        updateLine(line._id, 'qty_ordered', e.target.value)
+                                                        updateLine(
+                                                            line._id,
+                                                            'qty_ordered',
+                                                            e.target.value ? Math.max(1, Math.round(Number(e.target.value))) : ''
+                                                        )
                                                     }
                                                     className="w-full rounded border border-slate-200 px-2 py-1 text-xs text-right tabular-nums text-slate-800 focus:border-blue-400 focus:outline-none"
                                                 />
@@ -459,6 +519,16 @@ export default function SalesOrderCreate({
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Over-discount notification */}
+                    {lines.some((l) => parseFloat(l.discount_pct || 0) > 10) && (
+                        <div className="mx-4 mt-3 p-3 rounded-lg bg-amber-50 border border-amber-300 text-xs text-amber-800 flex items-start gap-2">
+                            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                                <strong className="font-semibold text-amber-900">Perhatian Kebijakan Diskon:</strong> Diskon salah satu item melebihi 10%. Quotation ini akan masuk ke status <strong>Menunggu Persetujuan Owner (Discount Hold)</strong> setelah disimpan dan tidak dapat dikonfirmasi sebelum disetujui Owner.
+                            </div>
+                        </div>
+                    )}
 
                     {/* Totals footer */}
                     <div className="border-t border-slate-200 px-4 py-3 flex justify-end">

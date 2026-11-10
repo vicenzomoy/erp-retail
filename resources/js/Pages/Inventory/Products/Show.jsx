@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import InventoryLayout from '@/Layouts/InventoryLayout';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
 import OdooBadge from '@/Components/Odoo/OdooBadge';
@@ -17,9 +17,12 @@ import {
     CheckCircle2,
     ShieldCheck,
     Truck,
+    Eye,
 } from 'lucide-react';
 
 export default function Show({ product, locationStock = [], recentMoves = [], relatedDocs = [], auditLogs = [] }) {
+    const { auth } = usePage().props;
+    const isProcurement = ['procurement', 'sales'].includes(auth?.user?.role_id);
     const [activeTab, setActiveTab] = useState('stock'); // 'stock' | 'attributes' | 'moves'
     const [isEditing, setIsEditing] = useState(false);
 
@@ -76,7 +79,7 @@ export default function Show({ product, locationStock = [], recentMoves = [], re
                         <ArrowLeft className="h-4 w-4" />
                     </Link>
 
-                    {!isEditing ? (
+                    {isProcurement ? null : !isEditing ? (
                         <button
                             type="button"
                             onClick={() => {

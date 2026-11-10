@@ -14,7 +14,7 @@ export default function JournalEntryShow({ entry, stockMoves, relatedDocs, audit
             title={`Journal Entry ${entry.entry_no}`}
             breadcrumbs={[
                 { label: 'Accounting', href: route('accounting.overview') },
-                { label: 'Journal Entries (S-14)', href: route('accounting.journals.index') },
+                { label: 'Journal Entries', href: route('accounting.journals.index') },
                 { label: entry.entry_no },
             ]}
         >
@@ -36,7 +36,7 @@ export default function JournalEntryShow({ entry, stockMoves, relatedDocs, audit
                             href={route('accounting.gl.index')}
                             className="rounded border border-indigo-300 bg-indigo-50 px-3.5 py-1.5 text-xs font-semibold text-indigo-800 hover:bg-indigo-100"
                         >
-                            Lihat di General Ledger (S-14)
+                            Lihat di General Ledger
                         </Link>
                         <Link
                             href={route('accounting.journals.index')}
@@ -68,12 +68,12 @@ export default function JournalEntryShow({ entry, stockMoves, relatedDocs, audit
                         )}
                         <OdooSmartButton
                             label="Jurnal Dokumen Ini"
-                            value={`${entry.same_source_journal_count} Entri (T-28)`}
+                            value={`${entry.same_source_journal_count} Entri`}
                             href={route('accounting.journals.index', { search: entry.source_document_id })}
                         />
                         <OdooSmartButton
                             label="Stock Moves"
-                            value={`${(stockMoves || []).length} Mutasi (T-27)`}
+                            value={`${(stockMoves || []).length} Mutasi`}
                             href={route('accounting.gl.index', { account: '5000' })}
                         />
                     </div>
@@ -82,7 +82,7 @@ export default function JournalEntryShow({ entry, stockMoves, relatedDocs, audit
                         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
                             <div>
                                 <div className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                                    Journal Entry — Buku Besar Akuntansi (S-14 / F-16)
+                                    Journal Entry — Buku Besar Akuntansi
                                 </div>
                                 <h1 className="mt-0.5 font-mono text-2xl font-extrabold text-gray-900">
                                     {entry.entry_no}
@@ -131,7 +131,7 @@ export default function JournalEntryShow({ entry, stockMoves, relatedDocs, audit
                         {/* Tabel Rincian Baris Jurnal */}
                         <div>
                             <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-700">
-                                1. Rincian Baris Jurnal (Journal Items — Bukti Keseimbangan Debit = Kredit T-27 & T-28)
+                                1. Rincian Baris Jurnal (Journal Items)
                             </h3>
                             <div className="overflow-x-auto rounded-lg border border-gray-200">
                                 <table className="min-w-full divide-y divide-gray-200 text-left text-xs">
@@ -193,10 +193,10 @@ export default function JournalEntryShow({ entry, stockMoves, relatedDocs, audit
                             </div>
                         </div>
 
-                        {/* Tabel Entri Stock Move Terkait (Bukti Wajib Skenario T-27 COGS) */}
+                        {/* Tabel Entri Stock Move Terkait */}
                         <div>
                             <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-700">
-                                2. Entri Stock Move Terkait (Bukti Keterlacakan Valuasi Persediaan & COGS — Skenario T-27)
+                                2. Entri Stock Move Terkait (Valuasi Persediaan &amp; COGS)
                             </h3>
                             {(stockMoves || []).length === 0 ? (
                                 <div className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-xs text-gray-500">

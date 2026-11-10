@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Sales;
 
 use App\Http\Controllers\Controller;
+use App\Models\CrmLead;
+use App\Models\CrmLeadQuotationLink;
 use App\Models\Master\ContactCustomer;
 use App\Models\Master\PaymentTerm;
 use App\Models\SalesOrder;
@@ -40,18 +42,65 @@ class SalesOrderController extends Controller
     }
 
     // -------------------------------------------------------------------------
-    // Create — New SO Form
+    // Create — New SO Form (harus diakses dari Lead/CRM)
     // -------------------------------------------------------------------------
 
-    public function create(): Response
+    public function create(Request $request): Response|\Illuminate\Http\RedirectResponse
     {
+        $leadId = $request->query('lead_id');
+
+        // ⚠ Quotation hanya bisa dibuat dari CRM Lead
+        if (!$leadId) {
+            return redirect()
+                ->route('crm.pipeline')
+                ->with('error', 'Quotation hanya bisa dibuat dari CRM Lead / Opportunity. Silakan buka prospek terlebih dahulu, lalu klik "Buat Penawaran".');
+        }
+
+        $lead = CrmLead::find($leadId);
+        if (!$lead) {
+            return redirect()
+                ->route('crm.pipeline')
+                ->with('error', "Lead {$leadId} tidak ditemukan.");
+        }
+
+        // Jika lead sudah Won/Lost, tidak bisa buat quotation baru
+        if (in_array($lead->stage, ['won', 'lost'])) {
+            return redirect()
+                ->route('crm.leads.show', $leadId)
+                ->with('error', "Lead {$leadId} sudah berstatus " . strtoupper($lead->stage) . ". Tidak bisa membuat penawaran baru.");
+        }
+
         $paymentTerms = PaymentTerm::all(['term_id', 'description', 'due_days'])->toArray();
 
+        // Ambil interest items dari lead untuk pre-populate baris SO
+        $interestItems = $lead->interest_items ?? [];
+        if (empty($interestItems) && $lead->variant_sku) {
+            // Backward compat: lead lama hanya punya 1 produk
+            $interestItems = [[
+                'variant_sku'  => $lead->variant_sku,
+                'qty_interest' => $lead->qty_interest ?? 1,
+                'unit_price'   => 0,
+            ]];
+        }
+
         return Inertia::render('Sales/Orders/Create', [
-            'customers'     => $this->service->getCustomersForSelect(),
-            'products'      => $this->service->getProductsForSelect(),
-            'payment_terms' => $paymentTerms,
-            'paymentTerms'  => $paymentTerms,
+            'customers'      => $this->service->getCustomersForSelect(),
+            'products'       => $this->service->getProductsForSelect(),
+            'payment_terms'  => $paymentTerms,
+            'paymentTerms'   => $paymentTerms,
+            'lead'           => [
+                'id'           => $lead->id,
+                'customer_id'  => $lead->customer_id,
+                'customer_name'=> $lead->customer?->name,
+                'stage'        => $lead->stage,
+                'items'        => $interestItems,
+            ],
+            'prefill' => [
+                'customer_id'   => $lead->customer_id,
+                'lead_id'       => $lead->id,
+                'source_doc_no' => $lead->id,
+                'notes'         => "Penawaran harga dibuat dari CRM Lead {$lead->id}",
+            ],
         ]);
     }
 
@@ -65,10 +114,12 @@ class SalesOrderController extends Controller
             'customer_id'   => ['required', 'string', 'exists:contacts_customers,id'],
             'payment_terms' => ['nullable', 'string', 'exists:payment_terms,term_id'],
             'notes'         => ['nullable', 'string'],
+            'source_doc_no' => ['nullable', 'string', 'max:50'],
+            'lead_id'       => ['nullable', 'string', 'max:50'],
             'discount_pct'  => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines'         => ['required', 'array', 'min:1'],
             'lines.*.variant_sku'   => ['required', 'string', 'exists:products,variant_sku'],
-            'lines.*.qty_ordered'   => ['required', 'numeric', 'min:0.001'],
+            'lines.*.qty_ordered'   => ['required', 'integer', 'min:1'],
             'lines.*.discount_pct'  => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
@@ -83,6 +134,27 @@ class SalesOrderController extends Controller
 
         try {
             $so = $this->service->createDraft($validated, $request->user());
+
+            // If created from CRM Lead, link lead and move to qualified
+            $leadId = $validated['lead_id'] ?? $validated['source_doc_no'] ?? null;
+            if ($leadId) {
+                $lead = CrmLead::find($leadId);
+                if ($lead) {
+                    CrmLeadQuotationLink::firstOrCreate([
+                        'lead_id'        => $lead->id,
+                        'sales_order_id' => $so->id,
+                    ]);
+                    if ($lead->stage === 'new') {
+                        $lead->stage = 'qualified';
+                        $lead->type  = 'opportunity';
+                    }
+                    $lead->expected_revenue = (string) $so->grand_total;
+                    if (! $lead->converted_at) {
+                        $lead->converted_at = now();
+                    }
+                    $lead->save();
+                }
+            }
 
             return redirect()
                 ->route('sales.orders.show', $so->id)
@@ -104,7 +176,8 @@ class SalesOrderController extends Controller
         $so = $this->service->getOrderForShow($id);
 
         return Inertia::render('Sales/Orders/Show', [
-            'order' => $so,
+            'order'    => $so,
+            'products' => $this->service->getProductsForSelect(),
         ]);
     }
 
@@ -158,9 +231,11 @@ class SalesOrderController extends Controller
     {
         $validated = $request->validate([
             'variant_sku'  => ['required', 'string', 'exists:products,variant_sku'],
-            'qty_ordered'  => ['required', 'numeric', 'min:0.001'],
+            'qty_ordered'  => ['required', 'numeric', 'min:1'],
             'discount_pct' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
+
+        $validated['qty_ordered'] = (string) (int) round((float) $validated['qty_ordered']);
 
         try {
             $this->service->addLine($id, $validated, $request->user());
@@ -195,9 +270,13 @@ class SalesOrderController extends Controller
     public function updateLine(Request $request, string $id, int $lineId): RedirectResponse
     {
         $validated = $request->validate([
-            'qty_ordered'  => ['nullable', 'numeric', 'min:0.001'],
+            'qty_ordered'  => ['nullable', 'numeric', 'min:1'],
             'discount_pct' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
+
+        if (isset($validated['qty_ordered'])) {
+            $validated['qty_ordered'] = (string) (int) round((float) $validated['qty_ordered']);
+        }
 
         try {
             $this->service->updateLine($lineId, $validated, $request->user());
@@ -206,6 +285,50 @@ class SalesOrderController extends Controller
                 ->route('sales.orders.show', $id)
                 ->with('success', 'Baris berhasil diperbarui.');
 
+        } catch (ValidationException $e) {
+            return redirect()
+                ->route('sales.orders.show', $id)
+                ->with('error', collect($e->errors())->flatten()->first());
+        }
+    }
+
+    public function approveDiscount(Request $request, string $id): RedirectResponse
+    {
+        $validated = $request->validate([
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $so = $this->service->approveDiscount($id, $validated['notes'] ?? null, $request->user());
+
+            return redirect()
+                ->route('sales.orders.show', $id)
+                ->with('success', "Diskon penawaran {$so->id} berhasil disetujui oleh Owner.");
+        } catch (ValidationException $e) {
+            return redirect()
+                ->route('sales.orders.show', $id)
+                ->with('error', collect($e->errors())->flatten()->first());
+        }
+    }
+
+    public function rejectDiscount(Request $request, string $id): RedirectResponse
+    {
+        $validated = $request->validate([
+            'reason'            => ['nullable', 'string', 'max:500'],
+            'adjusted_discount' => ['nullable', 'numeric', 'min:0', 'max:10'],
+        ]);
+
+        try {
+            $so = $this->service->rejectDiscount(
+                $id,
+                $validated['reason'] ?? null,
+                isset($validated['adjusted_discount']) ? (float) $validated['adjusted_discount'] : 10.0,
+                $request->user()
+            );
+
+            return redirect()
+                ->route('sales.orders.show', $id)
+                ->with('success', "Pengajuan diskon > 10% untuk {$so->id} ditolak dan diskon disesuaikan kembali.");
         } catch (ValidationException $e) {
             return redirect()
                 ->route('sales.orders.show', $id)

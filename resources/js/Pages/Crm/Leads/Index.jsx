@@ -28,8 +28,6 @@ function getStageBadge(stage) {
     const map = {
         new: { cls: 'bg-slate-100 text-slate-700 border-slate-300', label: 'Baru' },
         qualified: { cls: 'bg-sky-100 text-sky-800 border-sky-300', label: 'Terkualifikasi' },
-        proposition: { cls: 'bg-amber-100 text-amber-800 border-amber-300', label: 'Peluang' },
-        opportunity: { cls: 'bg-amber-100 text-amber-800 border-amber-300', label: 'Peluang' },
         won: { cls: 'bg-emerald-100 text-emerald-800 border-emerald-300', label: 'Menang' },
         lost: { cls: 'bg-rose-100 text-rose-800 border-rose-300', label: 'Kalah' },
     };
@@ -152,7 +150,6 @@ export default function LeadsIndex({ leads, filters = {}, customers = [] }) {
                         <option value="all">Semua Tahap</option>
                         <option value="new">Baru</option>
                         <option value="qualified">Terkualifikasi</option>
-                        <option value="proposition">Peluang / Negosiasi</option>
                         <option value="won">Menang</option>
                         <option value="lost">Kalah</option>
                     </select>

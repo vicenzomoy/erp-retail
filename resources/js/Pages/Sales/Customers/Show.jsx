@@ -14,6 +14,7 @@ import {
     AlertCircle,
 } from 'lucide-react';
 import SalesLayout from '@/Layouts/SalesLayout';
+import CrmLayout from '@/Layouts/CrmLayout';
 
 const formatRp = (value) =>
     new Intl.NumberFormat('id-ID', {
@@ -37,8 +38,12 @@ const INV_STATUS_BADGE = {
     cancelled: 'bg-rose-100 text-rose-700',
 };
 
-export default function SalesCustomerShow({ customer, sales_orders = [], invoices = [] }) {
+export default function SalesCustomerShow({ customer, sales_orders = [], invoices = [], inCrm = false }) {
     const [isEditing, setIsEditing] = useState(false);
+    const isCrm = inCrm || route().current('crm.*');
+    const LayoutComponent = isCrm ? CrmLayout : SalesLayout;
+    const indexRouteName = isCrm ? 'crm.customers.index' : 'sales.customers.index';
+    const updateRouteName = isCrm ? 'crm.customers.update' : 'sales.customers.update';
 
     const { data, setData, put, processing, errors, reset } = useForm({
         credit_limit: customer.credit_limit,
@@ -47,7 +52,7 @@ export default function SalesCustomerShow({ customer, sales_orders = [], invoice
 
     const handleSave = (e) => {
         e.preventDefault();
-        put(route('sales.customers.update', customer.id), {
+        put(route(updateRouteName, customer.id), {
             onSuccess: () => setIsEditing(false),
         });
     };
@@ -61,10 +66,10 @@ export default function SalesCustomerShow({ customer, sales_orders = [], invoice
     const utilPct = parseFloat(customer.credit_utilization) || 0;
 
     return (
-        <SalesLayout
+        <LayoutComponent
             title={customer.name}
             breadcrumbs={[
-                { label: 'Pelanggan', href: route('sales.customers.index') },
+                { label: 'Pelanggan', href: route(indexRouteName) },
                 { label: customer.name },
             ]}
         >
@@ -73,7 +78,7 @@ export default function SalesCustomerShow({ customer, sales_orders = [], invoice
             {/* Back link */}
             <div className="mb-4">
                 <Link
-                    href={route('sales.customers.index')}
+                    href={route(indexRouteName)}
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition"
                 >
                     <ArrowLeft className="h-3.5 w-3.5" />
@@ -364,7 +369,7 @@ export default function SalesCustomerShow({ customer, sales_orders = [], invoice
                     </table>
                 </div>
             </div>
-        </SalesLayout>
+        </LayoutComponent>
     );
 }
 

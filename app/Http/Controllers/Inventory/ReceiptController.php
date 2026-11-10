@@ -233,8 +233,7 @@ class ReceiptController extends Controller
             'lines.*.qty_expected' => 'required|numeric|min:0.001',
         ]);
 
-        $rcpCount = Receipt::count() + 1;
-        $rcpId = sprintf('WH/IN/%04d', $rcpCount);
+        $rcpId = $this->receiptService->generateReceiptId($validated['location_to'] ?? 'WH-PKU');
 
         $receipt = Receipt::create([
             'id' => $rcpId,

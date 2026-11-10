@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import InventoryLayout from '@/Layouts/InventoryLayout';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
@@ -16,10 +16,14 @@ import {
     Printer,
     DollarSign,
     ShieldCheck,
+    Eye,
 } from 'lucide-react';
 
 export default function Show({ receipt, stockMoves = [], relatedDocs = [], auditLogs = [] }) {
+    const { auth } = usePage().props;
+    const isProcurement = ['procurement', 'sales'].includes(auth?.user?.role_id);
     const isValidated = receipt.status === 'validated';
+    const isEditable = !isValidated && !isProcurement;
 
     const { data, setData, post, processing, errors } = useForm({
         lines: receipt.lines.map((l) => ({
@@ -81,15 +85,17 @@ export default function Show({ receipt, stockMoves = [], relatedDocs = [], audit
                     </Link>
 
                     {!isValidated ? (
-                        <button
-                            type="button"
-                            onClick={handleValidate}
-                            disabled={processing}
-                            className="inline-flex items-center gap-1.5 rounded bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
-                        >
-                            <CheckCircle2 className="h-4 w-4" />
-                            {processing ? 'Memvalidasi QC...' : 'Validasi Penerimaan (QC)'}
-                        </button>
+                        !isProcurement && (
+                            <button
+                                type="button"
+                                onClick={handleValidate}
+                                disabled={processing}
+                                className="inline-flex items-center gap-1.5 rounded bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
+                            >
+                                <CheckCircle2 className="h-4 w-4" />
+                                {processing ? 'Memvalidasi QC...' : 'Validasi Penerimaan (QC)'}
+                            </button>
+                        )
                     ) : (
                         <span className="inline-flex items-center gap-1.5 rounded bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-semibold border border-emerald-300">
                             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -266,7 +272,7 @@ export default function Show({ receipt, stockMoves = [], relatedDocs = [], audit
                                             {line.qty_expected} {line.unit}
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            {!isValidated ? (
+                                            {isEditable ? (
                                                 <input
                                                     type="number"
                                                     min="0"
@@ -282,7 +288,7 @@ export default function Show({ receipt, stockMoves = [], relatedDocs = [], audit
                                             )}
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            {!isValidated ? (
+                                            {isEditable ? (
                                                 <input
                                                     type="number"
                                                     min="0"
@@ -298,7 +304,7 @@ export default function Show({ receipt, stockMoves = [], relatedDocs = [], audit
                                             )}
                                         </td>
                                         <td className="px-4 py-3">
-                                            {!isValidated ? (
+                                            {isEditable ? (
                                                 <input
                                                     type="text"
                                                     placeholder="Contoh: Jahitan cacat / rusak..."

@@ -72,7 +72,7 @@ class PaymentService
         // Jika idempotency_key sudah pernah diproses, kembalikan pembayaran yang sudah ada tanpa memotong saldo lagi!
         $existingPayment = Payment::where('idempotency_key', $idempotencyKey)->first();
         if ($existingPayment) {
-            $noteMsg = "Pencegahan Duplikasi Pembayaran (SR-17 & SR-20): Kunci transaksi '{$idempotencyKey}' sudah digunakan pada pembayaran {$existingPayment->id}. Utang/Piutang dan Saldo Bank tidak dipotong ulang.";
+            $noteMsg = "Pencegahan Duplikasi Pembayaran: Kunci transaksi '{$idempotencyKey}' sudah digunakan pada pembayaran {$existingPayment->id}. Utang/Piutang dan Saldo Bank tidak dipotong ulang.";
 
             AuditLog::record(
                 action: 'ATTEMPT_DUPLICATE_PAYMENT',
@@ -126,11 +126,11 @@ class PaymentService
                 actorRole: $actor->role_id ?? 'finance',
                 documentType: 'purchase_order',
                 documentId: $documentId,
-                notes: "Penolakan pembayaran PO {$documentId}: Belum ada Accepted Receipt dan Vendor Bill terposting (SR-05 & SR-06)."
+                notes: "Penolakan pembayaran PO {$documentId}: Belum ada Accepted Receipt dan Vendor Bill terposting."
             );
 
             throw ValidationException::withMessages([
-                'document_id' => "Pembayaran langsung untuk Purchase Order {$documentId} ditolak (Aturan SR-05 & SR-06): Pembayaran kepada pemasok hanya dapat dilakukan atas dasar Vendor Bill terposting yang telah melalui validasi Three-Way Match dengan Accepted Receipt.",
+                'document_id' => "Pembayaran langsung untuk Purchase Order {$documentId} ditolak: Pembayaran kepada pemasok hanya dapat dilakukan atas dasar Vendor Bill terposting yang telah melalui validasi Three-Way Match dengan Accepted Receipt.",
             ]);
         }
 
@@ -165,7 +165,7 @@ class PaymentService
             );
 
             throw ValidationException::withMessages([
-                'amount' => "Dokumen {$documentId} sudah lunas (Paid) dengan sisa tagihan Rp 0. Pembayaran ganda ditolak (SR-17 & SR-20).",
+                'amount' => "Dokumen {$documentId} sudah lunas (Paid) dengan sisa tagihan Rp 0. Pembayaran ganda ditolak.",
             ]);
         }
 

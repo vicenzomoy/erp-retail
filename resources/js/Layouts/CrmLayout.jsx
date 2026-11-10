@@ -16,6 +16,7 @@ import {
     Info,
     TrendingUp,
 } from 'lucide-react';
+import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
 
 export default function CrmLayout({ title, breadcrumbs = [], children }) {
     const { auth, company, flash } = usePage().props;
@@ -24,7 +25,7 @@ export default function CrmLayout({ title, breadcrumbs = [], children }) {
 
     const navigation = [
         {
-            group: 'Pipeline & Penjualan',
+            group: 'Pipeline',
             items: [
                 {
                     name: 'Pipeline (Kanban)',
@@ -47,19 +48,13 @@ export default function CrmLayout({ title, breadcrumbs = [], children }) {
             ],
         },
         {
-            group: 'Aplikasi Terkait',
+            group: 'Pelanggan',
             items: [
                 {
-                    name: 'Sales Order & Quotation',
-                    route: 'sales.orders.index',
-                    icon: ShoppingCart,
-                    active: false,
-                },
-                {
                     name: 'Daftar Pelanggan',
-                    route: 'sales.customers.index',
+                    route: 'crm.customers.index',
                     icon: Users,
-                    active: false,
+                    active: route().current('crm.customers.*'),
                 },
             ],
         },
@@ -138,81 +133,7 @@ export default function CrmLayout({ title, breadcrumbs = [], children }) {
                 </div>
 
                 {/* Sisi Kanan: Company & User profile */}
-                <div className="flex items-center gap-2 sm:gap-4">
-                    {/* Company Badge */}
-                    <div className="hidden sm:flex items-center gap-1.5 rounded-sm bg-slate-800/80 px-2.5 py-1 text-xs text-slate-200 border border-slate-700/60">
-                        <Building2 className="h-3.5 w-3.5 text-amber-400" />
-                        <span className="font-medium truncate max-w-[170px]">
-                            {company?.name || 'PT Bara Ritel Nusantara'}
-                        </span>
-                    </div>
-
-                    {/* User Profile & Role Dropdown */}
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                            className="flex items-center gap-2 rounded-sm bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700 transition cursor-pointer"
-                        >
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-700 text-[11px] font-bold text-white uppercase">
-                                {auth?.user?.name ? auth.user.name.substring(0, 2) : 'SA'}
-                            </div>
-                            <span className="hidden md:inline font-medium text-slate-200 truncate max-w-[120px]">
-                                {auth?.user?.name || 'Sales User'}
-                            </span>
-                            <span className="hidden lg:inline text-[10px] bg-sky-900/80 text-sky-300 font-semibold px-1.5 py-0.5 rounded border border-sky-700/50">
-                                {auth?.user?.role_name || 'Sales'}
-                            </span>
-                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-                        </button>
-
-                        {userDropdownOpen && (
-                            <div
-                                className="absolute right-0 mt-1 w-52 rounded-md bg-white py-1 shadow-lg border border-slate-200 z-50 text-slate-700 text-xs animate-in fade-in zoom-in-95 duration-100"
-                                onMouseLeave={() => setUserDropdownOpen(false)}
-                            >
-                                <div className="px-3 py-2 border-b border-slate-100 bg-slate-50">
-                                    <p className="font-semibold text-slate-900 truncate">{auth?.user?.name}</p>
-                                    <p className="text-[11px] text-slate-500 truncate">{auth?.user?.email}</p>
-                                    <div className="mt-1 flex items-center gap-1">
-                                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                                        <span className="text-[10px] text-slate-600 uppercase font-bold tracking-wide">
-                                            Peran: {auth?.user?.role_id}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <Link
-                                    href={route('home')}
-                                    className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 text-slate-700 transition"
-                                >
-                                    <Building2 className="h-3.5 w-3.5 text-slate-400" />
-                                    Beranda Aplikasi
-                                </Link>
-
-                                <Link
-                                    href={route('profile.edit')}
-                                    className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 text-slate-700 transition"
-                                >
-                                    <User className="h-3.5 w-3.5 text-slate-400" />
-                                    Profil Pengguna
-                                </Link>
-
-                                <div className="border-t border-slate-100 my-1"></div>
-
-                                <Link
-                                    href={route('logout')}
-                                    method="post"
-                                    as="button"
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-rose-600 hover:bg-rose-50 transition font-medium"
-                                >
-                                    <LogOut className="h-3.5 w-3.5 text-rose-500" />
-                                    Keluar (Logout)
-                                </Link>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                <TopBarUserMenu />
             </header>
 
             {/* ========================================================= */}
@@ -221,58 +142,55 @@ export default function CrmLayout({ title, breadcrumbs = [], children }) {
             <div className="flex flex-1 overflow-hidden">
                 {/* Odoo Style Left Sidebar Navigation */}
                 <aside
-                    className={`border-r border-slate-200 bg-white transition-all duration-200 flex flex-col shrink-0 ${
-                        sidebarOpen ? 'w-56' : 'w-0 -translate-x-full md:w-0'
-                    } overflow-hidden`}
+                    className={`${sidebarOpen ? 'w-60' : 'w-0 -translate-x-full'
+                        } transition-all duration-200 ease-in-out shrink-0 bg-white border-r border-slate-200 flex flex-col z-30 overflow-y-auto shadow-xs`}
                 >
-                    <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <div className="flex items-center gap-2">
-                            <div className="flex h-7 w-7 items-center justify-center rounded bg-gradient-to-br from-sky-400 to-blue-600 text-white shadow-xs">
-                                <Users className="h-4 w-4" />
+                                                    < div className="p-3">
+                                                <nav className="space-y-4">
+                                                    {navigation.map((group, gIdx) => (
+                                                        <div key={gIdx} className="space-y-1">
+                                                            <div className="px-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                                                                {group.group}
+                                                            </div>
+                                                            <div className="space-y-0.5">
+                                                                {group.items.map((item, iIdx) => {
+                                                                    const Icon = item.icon;
+                                                                    return (
+                                                                        <Link
+                                                                            key={iIdx}
+                                                                            href={route(item.route)}
+                                                                            className={`group flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-all ${item.active
+                                                                                    ? 'bg-slate-900 text-white shadow-xs font-semibold'
+                                                                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                                                                }`}
+                                                                                    >
+                                                    <Icon
+                                                        className={`h-4 w-4 shrink-0 transition-colors ${
+                                                            item.active
+                                                                ? 'text-sky-400'
+                                                                : 'text-slate-400 group-hover:text-slate-700'
+                                                        }`}
+                                                    />
+                                                                <span className="truncate">{item.name}</span>
+                                                            </Link>
+                                                            );
+                                        })}
+                                                        </div>
+                                </div>
+                            ))}
+                            </nav>
+                    </div>
+
+                        {/* Bottom Sidebar Info (Konsisten dengan modul lain) */}
+                        <div className="mt-auto border-t border-slate-100 p-3 bg-slate-50/50 text-[11px] text-slate-500">
+                            <div className="flex items-center gap-1.5 text-slate-700 font-medium mb-0.5">
+                                <span className="h-2 w-2 rounded-full bg-sky-500 animate-pulse"></span>
+                                <span>Modul CRM</span>
                             </div>
-                            <div>
-                                <h2 className="text-xs font-bold text-slate-900 tracking-tight">CRM Pipeline</h2>
-                                <p className="text-[10px] text-slate-500">Lead &amp; Opportunity</p>
+                            <div className="text-[10px] text-slate-400">
+                                Pipeline Peluang &amp; Akuisisi Pelanggan
                             </div>
                         </div>
-                    </div>
-
-                    <nav className="flex-1 overflow-y-auto p-2 space-y-4">
-                        {navigation.map((group, gIdx) => (
-                            <div key={gIdx}>
-                                <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                    {group.group}
-                                </div>
-                                <div className="space-y-0.5">
-                                    {group.items.map((item, iIdx) => {
-                                        const Icon = item.icon;
-                                        return (
-                                            <Link
-                                                key={iIdx}
-                                                href={route(item.route)}
-                                                className={`flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition ${
-                                                    item.active
-                                                        ? 'bg-sky-50 text-sky-800 font-semibold'
-                                                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                                                }`}
-                                            >
-                                                <Icon
-                                                    className={`h-4 w-4 ${
-                                                        item.active ? 'text-sky-600' : 'text-slate-400'
-                                                    }`}
-                                                />
-                                                <span className="truncate">{item.name}</span>
-                                            </Link>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        ))}
-                    </nav>
-
-                    <div className="p-3 border-t border-slate-100 bg-slate-50 text-[10px] text-slate-400">
-                        Odoo 17.0 CRM Pipeline · F-05
-                    </div>
                 </aside>
 
                 {/* Main Content Area */}

@@ -5,7 +5,7 @@ namespace App\Services\Navigation;
 use App\Models\User;
 
 /**
- * Katalog 7 app utama (S-01 / F-01) beserta matriks akses per peran (SR-18).
+ * Katalog app utama (S-01 / F-01) beserta matriks akses per peran (SR-18).
  * Dipakai bersama oleh beranda, app switcher, dan middleware penjaga server.
  */
 class AppCatalogService
@@ -15,6 +15,12 @@ class AppCatalogService
      * Owner berhak ke seluruh app.
      */
     public const APPS = [
+        'owner' => [
+            'name'  => 'Dashboard',
+            'desc'  => 'Eksekutif, Profit & Persetujuan',
+            'route' => 'owner.dashboard',
+            'roles' => ['owner'],
+        ],
         'sales' => [
             'name'  => 'Sales',
             'desc'  => 'Penjualan & Penawaran',
@@ -41,7 +47,7 @@ class AppCatalogService
         ],
         'accounting' => [
             'name'  => 'Accounting',
-            'desc'  => 'Faktur & Buku Besar',
+            'desc'  => 'Faktur, Tagihan, Kas & Buku Besar',
             'route' => 'accounting.overview',
             'roles' => ['owner', 'finance'],
         ],
@@ -61,6 +67,10 @@ class AppCatalogService
 
     public static function canAccess(?User $user, string $appKey): bool
     {
+        if ($appKey === 'invoicing') {
+            $appKey = 'accounting';
+        }
+
         if (! $user || ! isset(self::APPS[$appKey])) {
             return false;
         }
@@ -69,26 +79,31 @@ class AppCatalogService
     }
 
     /**
-     * Daftar app yang boleh dibuka user (yang tidak berhak disembunyikan).
+     * Daftar app yang ditampilkan di Beranda (Home):
+     * Seluruh modul ditampilkan untuk semua pengguna KECUALI modul khusus 'owner' (Owner Hub).
+     * Ketika pengguna mengklik modul yang tidak diizinkan bagi perannya,
+     * server middleware EnsureAppAccess akan menolak akses (403) dan mencatat ke AuditLog.
      *
-     * @return array<int, array{key:string,name:string,desc:string,href:string}>
+     * @return array<int, array{key:string,name:string,desc:string,href:string,allowed:bool}>
      */
     public static function forUser(?User $user): array
     {
         $apps = [];
         foreach (self::APPS as $key => $app) {
-            if (! self::canAccess($user, $key)) {
+            // Modul khusus Owner ('owner') hanya ditampilkan di Home untuk peran Owner
+            if ($key === 'owner' && $user?->role_id !== 'owner') {
                 continue;
             }
+
             $apps[] = [
-                'key'  => $key,
-                'name' => $app['name'],
-                'desc' => $app['desc'],
-                'href' => route($app['route']),
+                'key'     => $key,
+                'name'    => $app['name'],
+                'desc'    => $app['desc'],
+                'href'    => route($app['route']),
+                'allowed' => self::canAccess($user, $key),
             ];
         }
 
         return $apps;
     }
 }
-

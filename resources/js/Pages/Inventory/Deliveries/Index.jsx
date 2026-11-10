@@ -36,13 +36,6 @@ export default function Index({ deliveries, filters, counts }) {
             {/* Odoo Control Panel Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200">
                 <div className="flex items-center gap-3">
-                    <Link
-                        href={route('inventory.deliveries.create')}
-                        className="inline-flex items-center gap-1.5 rounded bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Buat Pengiriman (New)
-                    </Link>
                     <span className="text-sm font-bold text-slate-800">
                         Pengiriman Barang (Delivery Orders)
                     </span>
@@ -76,41 +69,37 @@ export default function Index({ deliveries, filters, counts }) {
                 </span>
                 <button
                     onClick={() => handleStatusFilter('all')}
-                    className={`rounded px-2.5 py-1 font-medium transition cursor-pointer ${
-                        filters.status === 'all'
-                            ? 'bg-slate-900 text-white font-semibold'
-                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                    }`}
+                    className={`rounded px-2.5 py-1 font-medium transition cursor-pointer ${filters.status === 'all'
+                        ? 'bg-slate-900 text-white font-semibold'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                        }`}
                 >
                     Semua ({counts.all})
                 </button>
                 <button
                     onClick={() => handleStatusFilter('to_process')}
-                    className={`rounded px-2.5 py-1 font-medium transition cursor-pointer ${
-                        filters.status === 'to_process'
-                            ? 'bg-slate-900 text-white font-semibold'
-                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                    }`}
+                    className={`rounded px-2.5 py-1 font-medium transition cursor-pointer ${filters.status === 'to_process'
+                        ? 'bg-slate-900 text-white font-semibold'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                        }`}
                 >
                     Siap Diproses ({counts.to_process})
                 </button>
                 <button
                     onClick={() => handleStatusFilter('done')}
-                    className={`rounded px-2.5 py-1 font-medium transition cursor-pointer ${
-                        filters.status === 'done'
-                            ? 'bg-slate-900 text-white font-semibold'
-                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                    }`}
+                    className={`rounded px-2.5 py-1 font-medium transition cursor-pointer ${filters.status === 'done'
+                        ? 'bg-slate-900 text-white font-semibold'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                        }`}
                 >
                     Selesai (Done) ({counts.done})
                 </button>
                 <button
                     onClick={() => handleStatusFilter('backorders')}
-                    className={`rounded px-2.5 py-1 font-medium transition cursor-pointer ${
-                        filters.status === 'backorders'
-                            ? 'bg-slate-900 text-white font-semibold'
-                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                    }`}
+                    className={`rounded px-2.5 py-1 font-medium transition cursor-pointer ${filters.status === 'backorders'
+                        ? 'bg-slate-900 text-white font-semibold'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                        }`}
                 >
                     Backorders ({counts.backorders})
                 </button>
@@ -206,13 +195,12 @@ export default function Index({ deliveries, filters, counts }) {
                                     key={idx}
                                     href={link.url || '#'}
                                     dangerouslySetInnerHTML={{ __html: link.label }}
-                                    className={`rounded px-2.5 py-1 text-xs font-medium transition ${
-                                        link.active
-                                            ? 'bg-slate-900 text-white font-bold'
-                                            : link.url
+                                    className={`rounded px-2.5 py-1 text-xs font-medium transition ${link.active
+                                        ? 'bg-slate-900 text-white font-bold'
+                                        : link.url
                                             ? 'text-slate-700 hover:bg-slate-200'
                                             : 'text-slate-300 pointer-events-none'
-                                    }`}
+                                        }`}
                                 />
                             ))}
                         </div>

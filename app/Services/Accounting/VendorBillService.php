@@ -13,6 +13,7 @@ use App\Models\ReceiptLine;
 use App\Models\User;
 use App\Models\VendorBill;
 use App\Models\VendorBillLine;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -26,17 +27,20 @@ class VendorBillService
     ) {}
 
     /**
-     * Generate ID Vendor Bill berformat BILL-0001 (mengabaikan BILL-OPEN01).
+     * Generate ID Vendor Bill berformat BILL/tahun/bulan/000X (cth: BILL/2026/11/0001).
      */
-    public function generateBillId(): string
+    public function generateBillId(?string $date = null): string
     {
+        $dt = $date ? Carbon::parse($date) : now();
+        $prefix = sprintf('BILL/%s/%s/', $dt->format('Y'), $dt->format('m'));
+
         $ids = DB::table('vendor_bills')
-            ->where('id', 'LIKE', 'BILL-%')
+            ->where('id', 'LIKE', "{$prefix}%")
             ->pluck('id');
 
         $maxNumeric = 0;
         foreach ($ids as $id) {
-            if (preg_match('/^BILL-(\d+)$/', $id, $m)) {
+            if (preg_match('/\/(\d+)$/', $id, $m)) {
                 $num = (int) $m[1];
                 if ($num > $maxNumeric) {
                     $maxNumeric = $num;
@@ -44,7 +48,7 @@ class VendorBillService
             }
         }
 
-        return sprintf('BILL-%04d', $maxNumeric + 1);
+        return sprintf('%s%04d', $prefix, $maxNumeric + 1);
     }
 
     /**
@@ -116,13 +120,27 @@ class VendorBillService
             ];
         }
 
+        $totalOrdered       = (float) collect($lines)->sum('qty_ordered');
+        $totalAccepted      = (float) collect($lines)->sum('qty_accepted');
+        $totalRejected      = (float) collect($lines)->sum('qty_rejected');
+        $totalAlreadyBilled = (float) collect($lines)->sum('qty_already_billed');
+        $totalBillable      = (float) collect($lines)->sum('max_billable_qty');
+        $estimatedAmount    = (float) collect($lines)->sum('default_line_total');
+
         return [
             'purchase_order_id'      => $po->id,
             'vendor_id'              => $po->vendor_id,
             'vendor_name'            => $po->vendor?->name,
             'payment_terms'          => $po->payment_terms,
+            'order_date'             => $po->created_at?->format('d/m/Y'),
             'has_validated_receipt'  => $validatedReceipts->isNotEmpty(),
             'primary_receipt_id'     => $validatedReceipts->first()?->id,
+            'total_ordered'          => $totalOrdered,
+            'total_accepted'         => $totalAccepted,
+            'total_rejected'         => $totalRejected,
+            'total_already_billed'   => $totalAlreadyBilled,
+            'total_billable'         => $totalBillable,
+            'estimated_amount'       => $estimatedAmount,
             'validated_receipts'     => $validatedReceipts->map(fn (Receipt $r) => [
                 'id'           => $r->id,
                 'receipt_date' => $r->receipt_date?->format('Y-m-d'),
@@ -537,11 +555,11 @@ class VendorBillService
                 documentId: $docIdForAudit,
                 oldValue: ['purchase_order_id' => $po->id, 'validated_receipts_count' => 0],
                 newValue: $mismatchReport,
-                notes: "Penolakan Three-Way Match (SR-05/SR-06): PO {$po->id} belum memiliki Accepted Receipt yang tervalidasi."
+                notes: "Penolakan Three-Way Match: PO {$po->id} belum memiliki Accepted Receipt yang tervalidasi."
             );
 
             throw ValidationException::withMessages([
-                'three_way_match' => "Three-Way Match Diblokir (SR-05 & SR-06): Purchase Order {$po->id} belum memiliki Penerimaan Barang (Accepted Receipt) yang tervalidasi. Tagihan pemasok atau pembayaran tidak dapat diproses.",
+                'three_way_match' => "Three-Way Match Diblokir: Purchase Order {$po->id} belum memiliki Penerimaan Barang (Accepted Receipt) yang tervalidasi. Tagihan pemasok atau pembayaran tidak dapat diproses.",
             ]);
         }
 
@@ -629,7 +647,7 @@ class VendorBillService
             );
 
             throw ValidationException::withMessages([
-                'three_way_match' => $mismatchReport['reason'] . ' Sesuai aturan SR-06 dan SR-13, tagihan pemasok diblokir sebelum posting.',
+                'three_way_match' => $mismatchReport['reason'] . ' Tagihan pemasok diblokir sebelum posting karena melebihi kuantitas penerimaan barang yang lolos QC.',
             ]);
         }
     }

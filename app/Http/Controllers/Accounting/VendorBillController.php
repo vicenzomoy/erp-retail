@@ -36,7 +36,7 @@ class VendorBillController extends Controller
             ->orderByDesc('created_at')
             ->orderByDesc('id');
 
-        if ($status !== 'all') {
+        if ($status !== 'all' && $status !== 'to_bill') {
             $query->where('status', $status);
         }
 
@@ -69,16 +69,32 @@ class VendorBillController extends Controller
             'journal_entry_no'    => $b->journalEntry?->entry_no,
         ])->withQueryString();
 
+        // Daftar Purchase Order yang sudah ada Receipt QC gudang namun belum selesai ditagih
+        $pendingOrders = [];
+        $confirmedPos = PurchaseOrder::with(['vendor', 'lines.product', 'receipts.lines'])
+            ->whereIn('status', ['confirmed', 'done'])
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($confirmedPos as $po) {
+            $matrix = $this->billService->getThreeWayMatchForPo($po);
+            if ($matrix['has_validated_receipt'] && (float) $matrix['total_billable'] > 0) {
+                $pendingOrders[] = $matrix;
+            }
+        }
+
         $apLedger = $this->glService->getAccountLedger('2100');
 
         return Inertia::render('Accounting/Bills/Index', [
-            'bills'   => $bills,
-            'filters' => [
+            'bills'         => $bills,
+            'pendingOrders' => $pendingOrders,
+            'filters'       => [
                 'status' => $status,
                 'search' => $search,
             ],
-            'counts'  => [
+            'counts'        => [
                 'all'        => VendorBill::count(),
+                'to_bill'    => count($pendingOrders),
                 'draft'      => VendorBill::where('status', 'draft')->count(),
                 'posted'     => VendorBill::where('status', 'posted')->count(),
                 'paid'       => VendorBill::where('status', 'paid')->count(),
@@ -93,7 +109,7 @@ class VendorBillController extends Controller
      */
     public function create(Request $request): Response
     {
-        $selectedPoId = $request->query('purchase_order_id', 'PO0007');
+        $selectedPoId = $request->query('purchase_order_id', '');
 
         $purchaseOrders = PurchaseOrder::with(['vendor', 'lines.product', 'receipts.lines'])
             ->whereIn('status', ['confirmed', 'done'])
@@ -101,34 +117,23 @@ class VendorBillController extends Controller
             ->get();
 
         $poMatrices = [];
+        $firstReadyPoId = '';
         foreach ($purchaseOrders as $po) {
-            $poMatrices[$po->id] = $this->billService->getThreeWayMatchForPo($po);
+            $matrix = $this->billService->getThreeWayMatchForPo($po);
+            $poMatrices[$po->id] = $matrix;
+            if (! $firstReadyPoId && $matrix['has_validated_receipt'] && (float) $matrix['total_billable'] > 0) {
+                $firstReadyPoId = $po->id;
+            }
         }
 
-        // Ambil riwayat penolakan Three-Way Match terbaru (untuk bukti T-24 bila baru saja ditolak)
-        $recentRejections = AuditLog::where('document_type', 'vendor_bill')
-            ->where('status', 'REJECTED')
-            ->orderByDesc('id')
-            ->limit(5)
-            ->get()
-            ->map(fn (AuditLog $log) => [
-                'id'             => $log->id,
-                'action'         => $log->action,
-                'status'         => $log->status,
-                'document_id'    => $log->document_id,
-                'actor_username' => $log->actor_username,
-                'actor_role'     => $log->actor_role,
-                'notes'          => $log->notes,
-                'old_value'      => $log->old_value,
-                'new_value'      => $log->new_value,
-                'created_at'     => $log->created_at?->format('d/m/Y H:i:s'),
-            ]);
+        $defaultPoId = isset($poMatrices[$selectedPoId])
+            ? $selectedPoId
+            : ($firstReadyPoId ?: ($purchaseOrders->first()?->id ?? ''));
 
         return Inertia::render('Accounting/Bills/Create', [
-            'selectedPoId'     => isset($poMatrices[$selectedPoId]) ? $selectedPoId : ($purchaseOrders->first()?->id ?? ''),
-            'poMatrices'       => $poMatrices,
-            'mismatchReport'   => session('mismatch_report'),
-            'recentRejections' => $recentRejections,
+            'selectedPoId'   => $defaultPoId,
+            'poMatrices'     => $poMatrices,
+            'mismatchReport' => session('mismatch_report'),
         ]);
     }
 
@@ -342,7 +347,7 @@ class VendorBillController extends Controller
 
         if ($result['already_posted']) {
             return redirect()->route('accounting.bills.show', $bill->id)
-                ->with('info', "Vendor Bill {$bill->id} sudah berstatus Posted sebelumnya (Idempotent — SR-17). Jurnal tidak digandakan.");
+                ->with('info', "Vendor Bill {$bill->id} sudah berstatus Posted sebelumnya. Jurnal tidak digandakan.");
         }
 
         return redirect()->route('accounting.bills.show', $bill->id)

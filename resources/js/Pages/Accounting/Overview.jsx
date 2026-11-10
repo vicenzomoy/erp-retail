@@ -7,13 +7,15 @@ import {
     Wallet,
     FileSpreadsheet,
     FileCheck2,
-    BookOpen,
-    Scale,
-    ArrowUpRight,
+    Layers,
+    ExternalLink,
+    ArrowRight,
     Plus,
     CheckCircle2,
     Package,
-    TrendingUp,
+    Truck,
+    ArrowDownLeft,
+    AlertCircle,
 } from 'lucide-react';
 
 const formatRp = (val) =>
@@ -23,334 +25,438 @@ const formatRp = (val) =>
         maximumFractionDigits: 0,
     }).format(val ?? 0);
 
-export default function Overview({ kpis, recentBills = [], recentInvoices = [], recentJournals = [] }) {
+export default function Overview({
+    kpis = {},
+    pendingBills = [],
+    pendingInvoices = [],
+    unpaidInvoices = [],
+    unpaidBills = [],
+}) {
+    const totalToInvoiceCount = pendingInvoices.length;
+    const totalToBillCount = pendingBills.length;
+    const totalUnpaidCount = unpaidInvoices.length + unpaidBills.length;
+
     return (
-        <AccountingLayout title="Overview Akuntansi">
+        <AccountingLayout
+            title="Accounting Overview"
+            breadcrumbs={[{ label: 'Ringkasan Operasi' }]}
+        >
             <Head title="Accounting Overview — Bara Wear" />
 
-            {/* Header Bar */}
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-xl font-bold text-slate-900">
-                        Accounting &amp; General Ledger
-                    </h1>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                        Kendali Faktur Pemasok (Three-Way Match), Faktur Pelanggan, Rekonsiliasi Kas/Bank, dan Buku Besar Seimbang
+            {/* Top Operational KPI Cards Bar (Senada dengan Modul Inventaris) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mb-6">
+                {/* 1. Saldo Kas & Bank */}
+                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-xs">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                        <span className="text-xs font-semibold uppercase tracking-wider">
+                            Saldo Bank &amp; Kas
+                        </span>
+                        <Landmark className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <div className="text-xl font-black text-slate-900">
+                        {formatRp((kpis?.bank_balance || 0) + (kpis?.cash_balance || 0))}
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                        Bank: {formatRp(kpis?.bank_balance)} &bull; Kas: {formatRp(kpis?.cash_balance)}
                     </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                        href={route('accounting.bills.create')}
-                        className="inline-flex items-center gap-1.5 rounded bg-teal-700 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-teal-800 transition"
-                    >
-                        <Plus className="h-3.5 w-3.5" />
-                        Buat Vendor Bill (S-12)
-                    </Link>
-                    <Link
-                        href={route('accounting.payments.create')}
-                        className="inline-flex items-center gap-1.5 rounded bg-slate-900 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition"
-                    >
-                        <Wallet className="h-3.5 w-3.5" />
-                        Register Payment (S-13)
-                    </Link>
-                    <Link
-                        href={route('accounting.ledger')}
-                        className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                    >
-                        <Scale className="h-3.5 w-3.5 text-teal-600" />
-                        General Ledger (S-14)
-                    </Link>
+                {/* 2. Piutang Pelanggan (Open AR) */}
+                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-xs">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                        <span className="text-xs font-semibold uppercase tracking-wider">
+                            Piutang Pelanggan (AR)
+                        </span>
+                        <FileCheck2 className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <div className="text-xl font-black text-emerald-700">
+                        {formatRp(kpis?.open_ar)}
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                        {unpaidInvoices.length} faktur menunggu pelunasan
+                    </p>
                 </div>
-            </div>
 
-            {/* KPI Cards Row 1: Financial Position */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <Link
-                    href={route('accounting.ledger', { account: '1020' })}
-                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-xs hover:border-teal-400 transition group"
-                >
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                            Saldo Bank (1020)
+                {/* 3. Utang Pemasok (Open AP) */}
+                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-xs">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                        <span className="text-xs font-semibold uppercase tracking-wider">
+                            Utang Pemasok (AP)
                         </span>
-                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-teal-50 text-teal-700">
-                            <Landmark className="h-4 w-4" />
-                        </div>
+                        <FileSpreadsheet className="h-4 w-4 text-amber-500" />
                     </div>
-                    <p className="text-xl font-black text-slate-900">{formatRp(kpis.bank_balance)}</p>
-                    <p className="text-[11px] text-teal-700 font-medium mt-1 flex items-center gap-1">
-                        <span>Lihat Buku Besar Bank</span>
-                        <ArrowUpRight className="h-3 w-3" />
+                    <div className="text-xl font-black text-amber-600">
+                        {formatRp(kpis?.open_ap)}
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                        {unpaidBills.length} tagihan pemasok belum dibayar
                     </p>
-                </Link>
+                </div>
 
-                <Link
-                    href={route('accounting.invoices.index')}
-                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-xs hover:border-indigo-400 transition group"
+                {/* 4. Antrean Dokumen Perlu Diurus */}
+                <div
+                    className={`rounded-lg border p-4 shadow-xs ${
+                        totalToInvoiceCount + totalToBillCount > 0
+                            ? 'border-emerald-300 bg-emerald-50/40'
+                            : 'border-slate-200 bg-white'
+                    }`}
                 >
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                            Open AR / Piutang (1100)
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-emerald-900">
+                            SO &amp; PO Perlu Diurus
                         </span>
-                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-indigo-50 text-indigo-700">
-                            <FileCheck2 className="h-4 w-4" />
-                        </div>
+                        <AlertCircle
+                            className={`h-4 w-4 ${
+                                totalToInvoiceCount + totalToBillCount > 0
+                                    ? 'text-emerald-600'
+                                    : 'text-slate-400'
+                            }`}
+                        />
                     </div>
-                    <p className="text-xl font-black text-slate-900">{formatRp(kpis.open_ar)}</p>
-                    <p className="text-[11px] text-indigo-700 font-medium mt-1 flex items-center gap-1">
-                        <span>{kpis.customer_invoices_count} Faktur Pelanggan</span>
-                        <ArrowUpRight className="h-3 w-3" />
-                    </p>
-                </Link>
-
-                <Link
-                    href={route('accounting.bills.index')}
-                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-xs hover:border-amber-400 transition group"
-                >
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                            Open AP / Utang (2100)
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-black text-emerald-700">
+                            {totalToInvoiceCount + totalToBillCount}
                         </span>
-                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 text-amber-700">
-                            <FileSpreadsheet className="h-4 w-4" />
-                        </div>
-                    </div>
-                    <p className="text-xl font-black text-slate-900">{formatRp(kpis.open_ap)}</p>
-                    <p className="text-[11px] text-amber-700 font-medium mt-1 flex items-center gap-1">
-                        <span>{kpis.vendor_bills_count} Tagihan Vendor</span>
-                        <ArrowUpRight className="h-3 w-3" />
-                    </p>
-                </Link>
-
-                <Link
-                    href={route('accounting.ledger', { account: '5000' })}
-                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-xs hover:border-emerald-400 transition group"
-                >
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                            COGS / HPP (5000) &amp; Stok (1200)
+                        <span className="text-xs font-semibold text-slate-600">
+                            dokumen siap ditagih
                         </span>
-                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
-                            <Package className="h-4 w-4" />
-                        </div>
                     </div>
-                    <p className="text-xl font-black text-slate-900">{formatRp(kpis.cogs_total)}</p>
                     <p className="text-[11px] text-slate-500 mt-1">
-                        Persediaan (1200): <strong className="text-slate-800">{formatRp(kpis.inventory_value)}</strong>
+                        {totalToInvoiceCount} SO Terkirim &bull; {totalToBillCount} PO Lolos QC
                     </p>
-                </Link>
+                </div>
             </div>
 
-            {/* Keseimbangan Jurnal Banner (F-16) */}
-            <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50/70 p-4 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white">
-                        <CheckCircle2 className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-950">
-                                Status Keseimbangan Buku Besar (F-16 Double-Entry Check)
-                            </h3>
-                            <span className="rounded-full bg-emerald-200/80 px-2 py-0.5 text-[10px] font-bold text-emerald-900">
-                                {kpis.gl_is_balanced ? 'SEIMBANG (DEBIT = KREDIT)' : 'TIDAK SEIMBANG'}
+            {/* Odoo 17 Operation Cards (Persis Modul Inventaris) */}
+            <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-slate-500" />
+                        Kartu Operasional Finance &amp; Akuntansi
+                    </h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* 1. CUSTOMER INVOICES CARD */}
+                    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-xs hover:shadow-md transition">
+                        <div className="flex items-start justify-between border-b border-slate-100 pb-3 mb-4">
+                            <div>
+                                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-emerald-50 text-emerald-600">
+                                        <FileCheck2 className="h-4 w-4" />
+                                    </div>
+                                    Faktur Pelanggan (Invoices)
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    Tagihan penjualan atas SO yang dikirim gudang
+                                </p>
+                            </div>
+                            <Link
+                                href={route('accounting.invoices.create')}
+                                className="inline-flex items-center gap-1 rounded bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                                Buat
+                            </Link>
+                        </div>
+
+                        <div className="flex items-baseline justify-between mb-4">
+                            <Link
+                                href={route('accounting.invoices.index', { status: 'to_invoice' })}
+                                className="group flex items-baseline gap-2 cursor-pointer"
+                            >
+                                <span className="text-3xl font-black text-emerald-600 group-hover:underline">
+                                    {totalToInvoiceCount}
+                                </span>
+                                <span className="text-xs font-medium text-slate-600 group-hover:text-emerald-700">
+                                    SO Perlu Difakturkan
+                                </span>
+                            </Link>
+                            <span className="text-xs text-slate-400">
+                                {unpaidInvoices.length} Belum Lunas
                             </span>
                         </div>
-                        <p className="text-xs text-emerald-800 mt-0.5">
-                            Total Debit Terposting: <strong>{formatRp(kpis.gl_total_debit)}</strong> &bull; Total Kredit Terposting: <strong>{formatRp(kpis.gl_total_credit)}</strong> &bull; {kpis.journal_entries_count} Entri Jurnal
+
+                        <div className="pt-2 border-t border-slate-50 flex items-center justify-between">
+                            <Link
+                                href={route('accounting.invoices.index')}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-800"
+                            >
+                                Buka Daftar Faktur
+                                <ExternalLink className="h-3 w-3" />
+                            </Link>
+                        </div>
+                    </div>
+
+                    {/* 2. VENDOR BILLS CARD */}
+                    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-xs hover:shadow-md transition">
+                        <div className="flex items-start justify-between border-b border-slate-100 pb-3 mb-4">
+                            <div>
+                                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-blue-50 text-blue-600">
+                                        <FileSpreadsheet className="h-4 w-4" />
+                                    </div>
+                                    Tagihan Pemasok (Bills)
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    Tagihan pembelian dari PO yang lolos QC gudang
+                                </p>
+                            </div>
+                            <Link
+                                href={route('accounting.bills.create')}
+                                className="inline-flex items-center gap-1 rounded bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                                Buat
+                            </Link>
+                        </div>
+
+                        <div className="flex items-baseline justify-between mb-4">
+                            <Link
+                                href={route('accounting.bills.index', { status: 'to_bill' })}
+                                className="group flex items-baseline gap-2 cursor-pointer"
+                            >
+                                <span className="text-3xl font-black text-blue-600 group-hover:underline">
+                                    {totalToBillCount}
+                                </span>
+                                <span className="text-xs font-medium text-slate-600 group-hover:text-blue-700">
+                                    PO Perlu Ditagih
+                                </span>
+                            </Link>
+                            <span className="text-xs text-slate-400">
+                                {unpaidBills.length} Belum Dibayar
+                            </span>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-50 flex items-center justify-between">
+                            <Link
+                                href={route('accounting.bills.index')}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"
+                            >
+                                Buka Daftar Tagihan Pemasok
+                                <ExternalLink className="h-3 w-3" />
+                            </Link>
+                        </div>
+                    </div>
+
+                    {/* 3. PAYMENTS CARD */}
+                    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-xs hover:shadow-md transition">
+                        <div className="flex items-start justify-between border-b border-slate-100 pb-3 mb-4">
+                            <div>
+                                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-purple-50 text-purple-600">
+                                        <Wallet className="h-4 w-4" />
+                                    </div>
+                                    Kas &amp; Pembayaran
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    Penerimaan piutang &amp; pelunasan utang usaha
+                                </p>
+                            </div>
+                            <Link
+                                href={route('accounting.payments.create')}
+                                className="inline-flex items-center gap-1 rounded bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                                Bayar
+                            </Link>
+                        </div>
+
+                        <div className="flex items-baseline justify-between mb-4">
+                            <Link
+                                href={route('accounting.payments.index')}
+                                className="group flex items-baseline gap-2 cursor-pointer"
+                            >
+                                <span className="text-3xl font-black text-purple-600 group-hover:underline">
+                                    {totalUnpaidCount}
+                                </span>
+                                <span className="text-xs font-medium text-slate-600 group-hover:text-purple-700">
+                                    Menunggu Pembayaran
+                                </span>
+                            </Link>
+                            <span className="text-xs text-slate-400">
+                                {unpaidInvoices.length} AR / {unpaidBills.length} AP
+                            </span>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-50 flex items-center justify-between">
+                            <Link
+                                href={route('accounting.payments.index')}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-800"
+                            >
+                                Buka Riwayat Pembayaran
+                                <ExternalLink className="h-3 w-3" />
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Tabel 1: Daftar Sales Order (SO) yang Perlu Dibuatkan Faktur (Invoice) */}
+            <div className="mb-6 rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">
+                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-5 py-3">
+                    <div className="flex items-center gap-2">
+                        <Truck className="h-4 w-4 text-emerald-600" />
+                        <h3 className="text-sm font-bold text-slate-900">
+                            Sales Order (SO) yang Perlu Dibuatkan Faktur Pelanggan
+                        </h3>
+                        {pendingInvoices.length > 0 && (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200">
+                                {pendingInvoices.length} SO Siap Ditagih
+                            </span>
+                        )}
+                    </div>
+                    <Link
+                        href={route('accounting.invoices.index')}
+                        className="text-xs font-semibold text-slate-600 hover:text-slate-900"
+                    >
+                        Lihat Semua Faktur &rarr;
+                    </Link>
+                </div>
+
+                {pendingInvoices.length === 0 ? (
+                    <div className="p-6 text-center">
+                        <CheckCircle2 className="mx-auto h-7 w-7 text-emerald-500 mb-1.5" />
+                        <p className="text-xs font-semibold text-slate-800">
+                            Semua Sales Order yang sudah dikirim telah dibuatkan Faktur
                         </p>
                     </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <Link
-                        href={route('accounting.journals')}
-                        className="inline-flex items-center gap-1.5 rounded bg-white border border-emerald-300 px-3 py-1.5 text-xs font-bold text-emerald-900 hover:bg-emerald-100 transition"
-                    >
-                        <BookOpen className="h-3.5 w-3.5" />
-                        Buka Journal Entries
-                    </Link>
-                </div>
-            </div>
-
-            {/* Two-column tables: Vendor Bills & Customer Invoices */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                {/* Recent Vendor Bills */}
-                <div className="rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">
-                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                        <div>
-                            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                                Vendor Bills Terbaru (S-12)
-                            </h2>
-                            <p className="text-[11px] text-slate-500">Validasi Three-Way Match (PO - Receipt - Bill)</p>
-                        </div>
-                        <Link
-                            href={route('accounting.bills.index')}
-                            className="text-xs font-semibold text-teal-700 hover:underline"
-                        >
-                            Lihat Semua
-                        </Link>
-                    </div>
+                ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50 text-[11px] font-bold uppercase text-slate-500 border-b border-slate-200">
+                        <table className="w-full text-left text-xs text-slate-700">
+                            <thead className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-bold uppercase tracking-wider text-slate-600">
                                 <tr>
-                                    <th className="px-4 py-2.5">No. Bill</th>
-                                    <th className="px-4 py-2.5">Vendor / PO</th>
-                                    <th className="px-4 py-2.5 text-right">Total</th>
-                                    <th className="px-4 py-2.5 text-right">Residual</th>
-                                    <th className="px-4 py-2.5 text-center">Status</th>
+                                    <th className="px-4 py-2.5">Sales Order</th>
+                                    <th className="px-4 py-2.5">Pelanggan</th>
+                                    <th className="px-4 py-2.5 text-center">Dipesan</th>
+                                    <th className="px-4 py-2.5 text-center">Terkirim Gudang</th>
+                                    <th className="px-4 py-2.5 text-center">Siap Difakturkan</th>
+                                    <th className="px-4 py-2.5 text-right">Estimasi Nilai Faktur</th>
+                                    <th className="px-4 py-2.5 text-right">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {recentBills.map((b) => (
-                                    <tr key={b.id} className="hover:bg-slate-50">
-                                        <td className="px-4 py-2.5 font-mono font-bold text-teal-700">
-                                            <Link href={route('accounting.bills.show', b.id)} className="hover:underline">
-                                                {b.id}
-                                            </Link>
+                                {pendingInvoices.map((so) => (
+                                    <tr key={so.sales_order_id} className="hover:bg-slate-50 transition">
+                                        <td className="px-4 py-2.5 font-mono font-bold text-slate-900">
+                                            {so.sales_order_id}
                                         </td>
-                                        <td className="px-4 py-2.5">
-                                            <div className="font-semibold text-slate-800">{b.vendor_name}</div>
-                                            {b.purchase_order_id && (
-                                                <div className="text-[10px] text-slate-400">
-                                                    PO: {b.purchase_order_id} {b.receipt_id ? `• RCP: ${b.receipt_id}` : ''}
-                                                </div>
-                                            )}
+                                        <td className="px-4 py-2.5 font-medium text-slate-800">
+                                            {so.customer_name}
                                         </td>
-                                        <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                                            {formatRp(b.grand_total)}
+                                        <td className="px-4 py-2.5 text-center text-slate-600">
+                                            {so.total_ordered} pcs
                                         </td>
-                                        <td className="px-4 py-2.5 text-right font-mono text-amber-700 font-semibold">
-                                            {formatRp(b.amount_residual)}
+                                        <td className="px-4 py-2.5 text-center font-bold text-emerald-700">
+                                            {so.total_delivered} pcs
                                         </td>
                                         <td className="px-4 py-2.5 text-center">
-                                            <OdooBadge status={b.status} />
+                                            <span className="rounded bg-emerald-100 px-2 py-0.5 font-bold text-emerald-900 border border-emerald-200">
+                                                {so.total_invoiceable} pcs
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
+                                            {formatRp(so.estimated_amount)}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right">
+                                            <Link
+                                                href={so.action_url}
+                                                className="inline-flex items-center gap-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 text-xs font-bold transition"
+                                            >
+                                                Buat Faktur
+                                                <ArrowRight className="h-3 w-3" />
+                                            </Link>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                </div>
-
-                {/* Recent Customer Invoices */}
-                <div className="rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">
-                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                        <div>
-                            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                                Customer Invoices Terbaru
-                            </h2>
-                            <p className="text-[11px] text-slate-500">Penagihan Berbasis Pengiriman &amp; PPN 11% Bulat Rupiah</p>
-                        </div>
-                        <Link
-                            href={route('accounting.invoices.index')}
-                            className="text-xs font-semibold text-teal-700 hover:underline"
-                        >
-                            Lihat Semua
-                        </Link>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50 text-[11px] font-bold uppercase text-slate-500 border-b border-slate-200">
-                                <tr>
-                                    <th className="px-4 py-2.5">No. Faktur</th>
-                                    <th className="px-4 py-2.5">Pelanggan / SO</th>
-                                    <th className="px-4 py-2.5 text-right">Total</th>
-                                    <th className="px-4 py-2.5 text-right">Residual</th>
-                                    <th className="px-4 py-2.5 text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {recentInvoices.map((inv) => (
-                                    <tr key={inv.id} className="hover:bg-slate-50">
-                                        <td className="px-4 py-2.5 font-mono font-bold text-indigo-700">
-                                            <Link href={route('accounting.invoices.show', inv.id)} className="hover:underline">
-                                                {inv.id}
-                                            </Link>
-                                        </td>
-                                        <td className="px-4 py-2.5">
-                                            <div className="font-semibold text-slate-800">{inv.customer_name}</div>
-                                            {inv.sales_order_id && (
-                                                <div className="text-[10px] text-slate-400">SO: {inv.sales_order_id}</div>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                                            {formatRp(inv.grand_total)}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-right font-mono text-indigo-700 font-semibold">
-                                            {formatRp(inv.amount_residual)}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-center">
-                                            <OdooBadge status={inv.status} />
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                )}
             </div>
 
-            {/* Recent Journal Entries */}
+            {/* Tabel 2: Daftar Purchase Order (PO) yang Perlu Dibuatkan Tagihan Pemasok (Vendor Bill) */}
             <div className="rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">
-                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                    <div>
-                        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                            Jurnal Akuntansi Terbaru (S-14)
-                        </h2>
-                        <p className="text-[11px] text-slate-500">Pencatatan otomatis COGS, Faktur, Tagihan, dan Kas/Bank</p>
+                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-5 py-3">
+                    <div className="flex items-center gap-2">
+                        <ArrowDownLeft className="h-4 w-4 text-blue-600" />
+                        <h3 className="text-sm font-bold text-slate-900">
+                            Purchase Order (PO) yang Perlu Dibuatkan Tagihan Pemasok (Vendor Bill)
+                        </h3>
+                        {pendingBills.length > 0 && (
+                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-800 border border-blue-200">
+                                {pendingBills.length} PO Siap Ditagih
+                            </span>
+                        )}
                     </div>
                     <Link
-                        href={route('accounting.journals')}
-                        className="text-xs font-semibold text-teal-700 hover:underline"
+                        href={route('accounting.bills.index')}
+                        className="text-xs font-semibold text-slate-600 hover:text-slate-900"
                     >
-                        Semua Journal Entries
+                        Lihat Semua Tagihan &rarr;
                     </Link>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 text-[11px] font-bold uppercase text-slate-500 border-b border-slate-200">
-                            <tr>
-                                <th className="px-4 py-2.5">No. Jurnal</th>
-                                <th className="px-4 py-2.5">Tanggal</th>
-                                <th className="px-4 py-2.5">Tipe</th>
-                                <th className="px-4 py-2.5">Dokumen Sumber</th>
-                                <th className="px-4 py-2.5">Keterangan</th>
-                                <th className="px-4 py-2.5 text-right">Debit</th>
-                                <th className="px-4 py-2.5 text-right">Kredit</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {recentJournals.map((je) => (
-                                <tr key={je.id} className="hover:bg-slate-50">
-                                    <td className="px-4 py-2.5 font-mono font-bold text-teal-700">
-                                        <Link href={route('accounting.journals.show', je.id)} className="hover:underline">
-                                            {je.entry_no}
-                                        </Link>
-                                    </td>
-                                    <td className="px-4 py-2.5 text-slate-600">{je.entry_date}</td>
-                                    <td className="px-4 py-2.5">
-                                        <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-700">
-                                            {je.entry_type}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-2.5 font-mono text-slate-700">{je.source_document_id}</td>
-                                    <td className="px-4 py-2.5 text-slate-600 max-w-xs truncate">{je.description}</td>
-                                    <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900">
-                                        {formatRp(je.total_debit)}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900">
-                                        {formatRp(je.total_credit)}
-                                    </td>
+
+                {pendingBills.length === 0 ? (
+                    <div className="p-6 text-center">
+                        <CheckCircle2 className="mx-auto h-7 w-7 text-emerald-500 mb-1.5" />
+                        <p className="text-xs font-semibold text-slate-800">
+                            Semua Purchase Order yang diterima gudang telah dibuatkan Vendor Bill
+                        </p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs text-slate-700">
+                            <thead className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                                <tr>
+                                    <th className="px-4 py-2.5">Purchase Order</th>
+                                    <th className="px-4 py-2.5">Pemasok (Vendor)</th>
+                                    <th className="px-4 py-2.5">Penerimaan Gudang</th>
+                                    <th className="px-4 py-2.5 text-center">Diterima Baik (QC)</th>
+                                    <th className="px-4 py-2.5 text-center">Siap Ditagih</th>
+                                    <th className="px-4 py-2.5 text-right">Estimasi Nilai Tagihan</th>
+                                    <th className="px-4 py-2.5 text-right">Aksi</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {pendingBills.map((po) => (
+                                    <tr key={po.purchase_order_id} className="hover:bg-slate-50 transition">
+                                        <td className="px-4 py-2.5 font-mono font-bold text-slate-900">
+                                            {po.purchase_order_id}
+                                        </td>
+                                        <td className="px-4 py-2.5 font-medium text-slate-800">
+                                            {po.vendor_name}
+                                        </td>
+                                        <td className="px-4 py-2.5 font-mono text-slate-600">
+                                            {po.primary_receipt_id || '—'}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-center font-bold text-emerald-700">
+                                            {po.total_accepted} pcs
+                                        </td>
+                                        <td className="px-4 py-2.5 text-center">
+                                            <span className="rounded bg-blue-100 px-2 py-0.5 font-bold text-blue-900 border border-blue-200">
+                                                {po.total_billable} pcs
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
+                                            {formatRp(po.estimated_amount)}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right">
+                                            <Link
+                                                href={po.action_url}
+                                                className="inline-flex items-center gap-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 text-xs font-bold transition"
+                                            >
+                                                Buat Tagihan
+                                                <ArrowRight className="h-3 w-3" />
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         </AccountingLayout>
     );
 }
-

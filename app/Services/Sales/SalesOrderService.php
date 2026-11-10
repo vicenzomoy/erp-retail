@@ -11,26 +11,31 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\StockReservation;
 use App\Models\User;
+use App\Services\Inventory\DeliveryOrderService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class SalesOrderService
 {
+    public function __construct(
+        protected DeliveryOrderService $deliveryOrderService,
+    ) {}
     // -------------------------------------------------------------------------
     // ID Generation
     // -------------------------------------------------------------------------
 
     /**
      * Generate the next SO ID in format SO000X (zero-padded 4 digits).
+     * Baseline SO is SO0008, so new SO continues from SO0009.
      */
     public function generateOrderId(): string
     {
-        $maxNum = 0;
+        $maxNum = 8;
         $orders = DB::table('sales_orders')->pluck('id');
 
         foreach ($orders as $id) {
-            if (preg_match('/^SO-?(\d+)$/i', $id, $m)) {
+            if (preg_match('/^S(?:O)?-?(\d+)$/i', $id, $m)) {
                 $num = (int) $m[1];
                 if ($num > $maxNum) {
                     $maxNum = $num;
@@ -130,27 +135,94 @@ class SalesOrderService
                 $grandTotal        = bcadd($grandTotal, $line['line_total'], 2);
             }
 
+            // Check if order or any line has discount > 10%
+            $maxDiscount = (string) ($data['discount_pct'] ?? '0');
+            foreach ($linesData as $line) {
+                if (bccomp((string) $line['discount_pct'], $maxDiscount, 2) > 0) {
+                    $maxDiscount = (string) $line['discount_pct'];
+                }
+            }
+
+            $discountHold = false;
+            $discountApprovedBy = null;
+            $discountApprovedAt = null;
+
+            if (bccomp($maxDiscount, '10', 2) > 0) {
+                if ($actor->role_id === 'owner') {
+                    $discountHold = false;
+                    $discountApprovedBy = $actor->id;
+                    $discountApprovedAt = now();
+                } else {
+                    $discountHold = true;
+                }
+            }
+
+            // --- Source doc safe check (mencegah foreign key constraint violation jika constraint lama masih aktif) ---
+            $sourceDocNo = $data['source_doc_no'] ?? null;
+            if ($sourceDocNo) {
+                try {
+                    $hasFk = DB::selectOne("
+                        SELECT 1 FROM pg_constraint 
+                        WHERE conname = 'sales_orders_source_doc_no_foreign'
+                    ");
+                    if ($hasFk) {
+                        $inExisting = DB::table('existing_documents')->where('document_no', $sourceDocNo)->exists();
+                        if (!$inExisting) {
+                            $sourceDocNo = null;
+                        }
+                    }
+                } catch (\Throwable) {
+                    // Fallback
+                    try {
+                        $inExisting = DB::table('existing_documents')->where('document_no', $sourceDocNo)->exists();
+                        if (!$inExisting) {
+                            $sourceDocNo = null;
+                        }
+                    } catch (\Throwable) {
+                        $sourceDocNo = null;
+                    }
+                }
+            }
+
             // --- Persist SO ---
             $so = SalesOrder::create([
-                'id'                  => $soId,
-                'source_doc_no'       => $data['source_doc_no'] ?? null,
-                'customer_id'         => $customer->id,
-                'status'              => 'draft',
-                'credit_hold'         => false,
-                'discount_hold'       => false,
-                'discount_pct'        => (string) ($data['discount_pct'] ?? '0'),
-                'payment_terms'       => $paymentTerms,
-                'subtotal_before_tax' => $subtotalBeforeTax,
-                'total_tax'           => $totalTax,
-                'grand_total'         => $grandTotal,
-                'notes'               => $data['notes'] ?? null,
-                'idempotency_key'     => $data['idempotency_key'] ?? null,
-                'created_by'          => $actor->id,
+                'id'                   => $soId,
+                'source_doc_no'        => $sourceDocNo,
+                'customer_id'          => $customer->id,
+                'status'               => 'draft',
+                'credit_hold'          => false,
+                'discount_hold'        => $discountHold,
+                'discount_approved_by' => $discountApprovedBy,
+                'discount_approved_at' => $discountApprovedAt,
+                'discount_pct'         => (string) ($data['discount_pct'] ?? '0'),
+                'payment_terms'        => $paymentTerms,
+                'subtotal_before_tax'  => $subtotalBeforeTax,
+                'total_tax'            => $totalTax,
+                'grand_total'          => $grandTotal,
+                'notes'                => $data['notes'] ?? null,
+                'idempotency_key'      => $data['idempotency_key'] ?? null,
+                'created_by'           => $actor->id,
             ]);
 
             // --- Persist lines ---
             foreach ($linesData as $line) {
                 $so->lines()->create($line);
+            }
+
+            if ($discountHold) {
+                AuditLog::record(
+                    action: 'SO_DISCOUNT_HOLD',
+                    status: 'warning',
+                    actorUserId: $actor->id,
+                    actorUsername: $actor->name,
+                    actorRole: $actor->role_id ?? 'user',
+                    documentType: 'sales_order',
+                    documentId: $soId,
+                    newValue: [
+                        'discount_pct' => $maxDiscount,
+                    ],
+                    notes: "Quotation {$soId} memiliki diskon {$maxDiscount}% (>10%) dan menunggu persetujuan Owner.",
+                );
             }
 
             // --- Audit log ---
@@ -255,31 +327,54 @@ class SalesOrderService
         }
 
         // ----------------------------------------------------------------
-        // DISCOUNT CHECK — SO-level discount > 10% requires approval
+        // DISCOUNT CHECK — SO-level or line-level discount > 10% requires Owner approval
         // ----------------------------------------------------------------
-        $discountPct = (string) $so->discount_pct;
-        if (bccomp($discountPct, '10', 2) > 0 && $so->discount_approved_by === null) {
-            $so->update(['discount_hold' => true]);
+        $maxDiscount = (string) ($so->discount_pct ?? '0');
+        foreach ($so->lines as $line) {
+            if (bccomp((string) $line->discount_pct, $maxDiscount, 2) > 0) {
+                $maxDiscount = (string) $line->discount_pct;
+            }
+        }
 
-            AuditLog::record(
-                action: 'SO_DISCOUNT_HOLD',
-                status: 'warning',
-                actorUserId: $actor->id,
-                actorUsername: $actor->name,
-                actorRole: $actor->role_id ?? 'user',
-                documentType: 'sales_order',
-                documentId: $soId,
-                newValue: [
-                    'discount_pct' => $discountPct,
-                ],
-                notes: "Diskon {$discountPct}% melebihi batas 10% dan belum disetujui.",
-            );
+        if (bccomp($maxDiscount, '10', 2) > 0 && $so->discount_approved_by === null) {
+            if ($actor->role_id === 'owner') {
+                $so->update([
+                    'discount_hold'        => false,
+                    'discount_approved_by' => $actor->id,
+                    'discount_approved_at' => now(),
+                ]);
+            } else {
+                $so->update(['discount_hold' => true]);
 
+                AuditLog::record(
+                    action: 'SO_DISCOUNT_HOLD',
+                    status: 'warning',
+                    actorUserId: $actor->id,
+                    actorUsername: $actor->name,
+                    actorRole: $actor->role_id ?? 'user',
+                    documentType: 'sales_order',
+                    documentId: $soId,
+                    newValue: [
+                        'discount_pct' => $maxDiscount,
+                    ],
+                    notes: "Diskon {$maxDiscount}% melebihi batas 10% dan belum disetujui Owner.",
+                );
+
+                throw ValidationException::withMessages([
+                    'discount_pct' => sprintf(
+                        'Sales Order %s tidak dapat dikonfirmasi karena diskon %s%% melebihi batas maksimal 10%% dan wajib mendapatkan persetujuan Owner.',
+                        $soId,
+                        rtrim(rtrim(number_format((float) $maxDiscount, 2, '.', ''), '0'), '.')
+                    ),
+                ]);
+            }
+        }
+
+        if ($so->discount_hold && $actor->role_id !== 'owner') {
             throw ValidationException::withMessages([
-                'discount_pct' => sprintf(
-                    'Sales Order %s ditahan karena diskon %.2f%% melebihi batas 10%% dan belum mendapat persetujuan.',
-                    $soId,
-                    (float) $discountPct
+                'discount_hold' => sprintf(
+                    'Sales Order %s sedang ditahan menunggu persetujuan diskon oleh Owner.',
+                    $soId
                 ),
             ]);
         }
@@ -300,6 +395,46 @@ class SalesOrderService
 
             // Lock prices on all lines
             $so->lines()->update(['price_locked_at' => $now]);
+
+            // Otomatis generate Delivery Order ke warehouse
+            $this->deliveryOrderService->createFromSalesOrder($so, $actor);
+
+            // Otomatis pindahkan lead CRM yang tertaut ke tahap 'won' (Menang)
+            $crmLinks = \App\Models\CrmLeadQuotationLink::where('sales_order_id', $so->id)->get();
+            foreach ($crmLinks as $link) {
+                $lead = $link->lead;
+                if ($lead && $lead->stage !== 'won') {
+                    $oldStage = $lead->stage;
+                    $lead->stage = 'won';
+                    $lead->won_at = $now;
+                    $lead->lost_at = null;
+                    $lead->save();
+
+                    AuditLog::record(
+                        action: 'CRM_STAGE_CHANGE',
+                        status: 'SUCCESS',
+                        actorUserId: $actor->id,
+                        actorUsername: $actor->name,
+                        actorRole: $actor->role_id ?? 'sales',
+                        documentType: 'crm_lead',
+                        documentId: $lead->id,
+                        oldValue: ['stage' => $oldStage],
+                        newValue: ['stage' => 'won'],
+                        notes: "Quotation {$so->id} dikonfirmasi menjadi Sales Order. Prospek CRM {$lead->id} otomatis dipindahkan ke tahap Won (Menang)."
+                    );
+                }
+
+                // Quotation lain milik prospek yang sama (masih draft) dibatalkan otomatis
+                if ($lead) {
+                    $siblingIds = \App\Models\CrmLeadQuotationLink::where('lead_id', $lead->id)
+                        ->where('sales_order_id', '!=', $so->id)
+                        ->pluck('sales_order_id');
+                    $drafts = SalesOrder::whereIn('id', $siblingIds)->where('status', 'draft')->pluck('id');
+                    foreach ($drafts as $draftId) {
+                        $this->cancelOrder($draftId, $actor);
+                    }
+                }
+            }
 
             AuditLog::record(
                 action: 'SO_CONFIRMED',
@@ -350,6 +485,43 @@ class SalesOrderService
                 ]);
 
             $so->update(['status' => 'cancelled']);
+
+            // Pindahkan lead CRM ke 'lost' hanya jika tidak ada quotation lain yang masih aktif
+            // dan prospek belum Menang (Won).
+            $crmLinks = \App\Models\CrmLeadQuotationLink::where('sales_order_id', $soId)->get();
+            foreach ($crmLinks as $link) {
+                $lead = $link->lead;
+                if (!$lead || in_array($lead->stage, ['lost', 'won'], true)) {
+                    continue;
+                }
+
+                $hasOtherActive = \App\Models\CrmLeadQuotationLink::where('lead_id', $lead->id)
+                    ->where('sales_order_id', '!=', $soId)
+                    ->whereHas('salesOrder', fn ($q) => $q->where('status', '!=', 'cancelled'))
+                    ->exists();
+                if ($hasOtherActive) {
+                    continue;
+                }
+
+                $oldStage = $lead->stage;
+                $lead->stage = 'lost';
+                $lead->lost_at = now();
+                $lead->won_at = null;
+                $lead->save();
+
+                AuditLog::record(
+                    action: 'CRM_STAGE_CHANGE',
+                    status: 'SUCCESS',
+                    actorUserId: $actor->id,
+                    actorUsername: $actor->name,
+                    actorRole: $actor->role_id ?? 'sales',
+                    documentType: 'crm_lead',
+                    documentId: $lead->id,
+                    oldValue: ['stage' => $oldStage],
+                    newValue: ['stage' => 'lost'],
+                    notes: "Seluruh quotation prospek {$lead->id} telah dibatalkan (terakhir {$soId}). Prospek otomatis dipindahkan ke tahap Lost (Kalah)."
+                );
+            }
 
             AuditLog::record(
                 action: 'SO_CANCELLED',
@@ -412,6 +584,7 @@ class SalesOrderService
             $soLine = SalesOrderLine::create($line);
 
             $this->recalcTotals($so);
+            $this->checkAndUpdateDiscountHold($so, $actor);
 
             AuditLog::record(
                 action: 'SO_LINE_ADDED',
@@ -459,6 +632,7 @@ class SalesOrderService
             $soLine->delete();
 
             $this->recalcTotals($so);
+            $this->checkAndUpdateDiscountHold($so, $actor);
 
             AuditLog::record(
                 action: 'SO_LINE_REMOVED',
@@ -521,6 +695,7 @@ class SalesOrderService
             ]);
 
             $this->recalcTotals($so);
+            $this->checkAndUpdateDiscountHold($so, $actor);
 
             AuditLog::record(
                 action: 'SO_LINE_UPDATED',
@@ -585,7 +760,7 @@ class SalesOrderService
      */
     public function getOrderForShow(string $soId): SalesOrder
     {
-        return SalesOrder::with([
+        $so = SalesOrder::with([
             'customer',
             'lines.product',
             'lines.taxRate',
@@ -597,6 +772,17 @@ class SalesOrderService
             'paymentTerm',
             'creator',
         ])->findOrFail($soId);
+
+        // If the order is confirmed but has no delivery order yet (e.g. legacy/seed data), generate it automatically
+        if ($so->isConfirmed() && $so->deliveryOrders->isEmpty()) {
+            $actor = $so->confirmedBy ?? $so->creator ?? User::first();
+            if ($actor) {
+                $this->deliveryOrderService->createFromSalesOrder($so, $actor);
+                $so->load('deliveryOrders');
+            }
+        }
+
+        return $so;
     }
 
     /**
@@ -639,6 +825,177 @@ class SalesOrderService
     }
 
     // -------------------------------------------------------------------------
+    // Owner Discount Approvals
+    // -------------------------------------------------------------------------
+
+    /**
+     * Owner approves a discount hold on a draft SO (Quotation).
+     */
+    public function approveDiscount(string $soId, ?string $notes, User $owner): SalesOrder
+    {
+        if ($owner->role_id !== 'owner') {
+            throw ValidationException::withMessages([
+                'authorization' => 'Hanya Owner yang berhak menyetujui diskon di atas 10%.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($soId, $notes, $owner) {
+            /** @var SalesOrder $so */
+            $so = SalesOrder::with(['lines', 'customer'])->lockForUpdate()->findOrFail($soId);
+
+            if (! $so->isDraft()) {
+                throw ValidationException::withMessages([
+                    'status' => "Persetujuan diskon hanya dapat dilakukan pada penawaran berstatus draft (Quotation). Status saat ini: {$so->status}.",
+                ]);
+            }
+
+            $now = now();
+            $updatedNotes = $so->notes;
+            if ($notes) {
+                $updatedNotes = $updatedNotes ? $updatedNotes . "\n[Approval Diskon Owner]: " . $notes : "[Approval Diskon Owner]: " . $notes;
+            }
+
+            $so->update([
+                'discount_hold'        => false,
+                'discount_approved_by' => $owner->id,
+                'discount_approved_at' => $now,
+                'notes'                => $updatedNotes,
+            ]);
+
+            AuditLog::record(
+                action: 'SO_DISCOUNT_APPROVED',
+                status: 'success',
+                actorUserId: $owner->id,
+                actorUsername: $owner->name,
+                actorRole: $owner->role_id ?? 'owner',
+                documentType: 'sales_order',
+                documentId: $so->id,
+                newValue: [
+                    'discount_approved_by' => $owner->id,
+                    'discount_approved_at' => $now->toIso8601String(),
+                    'notes'                => $notes,
+                ],
+                notes: "Owner ({$owner->name}) menyetujui pengajuan diskon untuk {$so->id}."
+            );
+
+            return $so->fresh(['lines', 'customer', 'discountApprovedBy', 'creator']);
+        });
+    }
+
+    /**
+     * Owner rejects a discount request on a draft SO (Quotation).
+     * Resets all line discounts and order discount that exceed cap (default 10%).
+     */
+    public function rejectDiscount(string $soId, ?string $reason, ?float $adjustedDiscount, User $owner): SalesOrder
+    {
+        if ($owner->role_id !== 'owner') {
+            throw ValidationException::withMessages([
+                'authorization' => 'Hanya Owner yang berhak menolak atau menyesuaikan diskon.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($soId, $reason, $adjustedDiscount, $owner) {
+            /** @var SalesOrder $so */
+            $so = SalesOrder::with(['lines', 'customer'])->lockForUpdate()->findOrFail($soId);
+
+            if (! $so->isDraft()) {
+                throw ValidationException::withMessages([
+                    'status' => "Penolakan diskon hanya dapat dilakukan pada penawaran berstatus draft (Quotation). Status saat ini: {$so->status}.",
+                ]);
+            }
+
+            $cap = $adjustedDiscount !== null ? min(10.0, max(0.0, (float) $adjustedDiscount)) : 10.0;
+            $capStr = (string) $cap;
+
+            if (bccomp((string) $so->discount_pct, $capStr, 2) > 0) {
+                $so->discount_pct = $capStr;
+            }
+
+            foreach ($so->lines as $line) {
+                if (bccomp((string) $line->discount_pct, $capStr, 2) > 0) {
+                    $lineData = [
+                        'qty_ordered'  => (string) $line->qty_ordered,
+                        'unit_price'   => (string) $line->unit_price,
+                        'discount_pct' => $capStr,
+                    ];
+                    $this->calcLineTotals($lineData);
+                    $line->update([
+                        'discount_pct'        => $capStr,
+                        'subtotal_before_tax' => $lineData['subtotal_before_tax'],
+                        'tax_amount'          => $lineData['tax_amount'],
+                        'line_total'          => $lineData['line_total'],
+                    ]);
+                }
+            }
+
+            $updatedNotes = $so->notes;
+            if ($reason) {
+                $updatedNotes = $updatedNotes ? $updatedNotes . "\n[Penolakan Diskon Owner]: " . $reason : "[Penolakan Diskon Owner]: " . $reason;
+            }
+
+            $so->discount_hold = false;
+            $so->discount_approved_by = null;
+            $so->discount_approved_at = null;
+            $so->notes = $updatedNotes;
+            $so->save();
+
+            $this->recalcTotals($so);
+
+            AuditLog::record(
+                action: 'SO_DISCOUNT_REJECTED',
+                status: 'warning',
+                actorUserId: $owner->id,
+                actorUsername: $owner->name,
+                actorRole: $owner->role_id ?? 'owner',
+                documentType: 'sales_order',
+                documentId: $so->id,
+                newValue: [
+                    'adjusted_to' => $cap,
+                    'reason'      => $reason,
+                ],
+                notes: "Owner ({$owner->name}) menolak pengajuan diskon > 10% untuk {$so->id}. Diskon disesuaikan ke {$cap}%."
+            );
+
+            return $so->fresh(['lines', 'customer', 'creator']);
+        });
+    }
+
+    /**
+     * Check if SO or any lines exceed 10% discount and update discount_hold accordingly.
+     */
+    public function checkAndUpdateDiscountHold(SalesOrder $so, User $actor): void
+    {
+        $so->refresh();
+        $maxDiscount = (string) ($so->discount_pct ?? '0');
+        foreach ($so->lines as $line) {
+            if (bccomp((string) $line->discount_pct, $maxDiscount, 2) > 0) {
+                $maxDiscount = (string) $line->discount_pct;
+            }
+        }
+
+        if (bccomp($maxDiscount, '10', 2) > 0) {
+            if ($actor->role_id === 'owner') {
+                $so->update([
+                    'discount_hold'        => false,
+                    'discount_approved_by' => $actor->id,
+                    'discount_approved_at' => now(),
+                ]);
+            } else {
+                // If not owner and discount was changed, require re-approval
+                $so->update([
+                    'discount_hold'        => true,
+                    'discount_approved_by' => null,
+                    'discount_approved_at' => null,
+                ]);
+            }
+        } else {
+            $so->update([
+                'discount_hold' => false,
+            ]);
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Private Helpers
     // -------------------------------------------------------------------------
 
@@ -664,6 +1021,12 @@ class SalesOrderService
             'total_tax'           => $totalTax,
             'grand_total'         => $grandTotal,
         ]);
+
+        foreach ($so->quotationLinks as $link) {
+            if ($link->lead && $link->lead->stage !== 'lost') {
+                $link->lead->update(['expected_revenue' => $grandTotal]);
+            }
+        }
     }
 
     /**

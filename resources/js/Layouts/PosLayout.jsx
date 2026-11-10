@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, usePage , router } from '@inertiajs/react';
+import { Link, usePage, router } from '@inertiajs/react';
 import {
     LayoutDashboard,
     Store,
@@ -18,6 +18,7 @@ import {
     LogOut,
     Play,
 } from 'lucide-react';
+import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
 
 export default function PosLayout({ title, breadcrumbs = [], children }) {
     const { auth, company, flash } = usePage().props;
@@ -133,90 +134,17 @@ export default function PosLayout({ title, breadcrumbs = [], children }) {
                 </div>
 
                 {/* Right side */}
-                <div className="flex items-center gap-2 sm:gap-4">
-                    {/* Company Badge */}
-                    <div className="hidden sm:flex items-center gap-1.5 rounded-sm bg-slate-800/80 px-2.5 py-1 text-xs text-slate-200 border border-slate-700/60">
-                        <Building2 className="h-3.5 w-3.5 text-amber-400" />
-                        <span className="font-medium truncate max-w-[170px]">
-                            {company?.name || 'PT Bara Ritel Nusantara'}
-                        </span>
-                    </div>
-
-                    {/* User Dropdown */}
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                            className="flex items-center gap-2 rounded-sm bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700 transition cursor-pointer"
-                        >
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-700 text-[11px] font-bold text-white uppercase">
-                                {auth?.user?.name ? auth.user.name.substring(0, 2) : 'KS'}
-                            </div>
-                            <span className="hidden md:inline font-medium text-slate-200 truncate max-w-[120px]">
-                                {auth?.user?.name || 'Kasir'}
-                            </span>
-                            <span className="hidden lg:inline text-[10px] bg-rose-900/80 text-rose-300 font-semibold px-1.5 py-0.5 rounded border border-rose-700/50">
-                                {auth?.user?.role_name || 'Cashier'}
-                            </span>
-                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-                        </button>
-
-                        {userDropdownOpen && (
-                            <>
-                                <div className="fixed inset-0 z-40" onClick={() => setUserDropdownOpen(false)} />
-                                <div className="absolute right-0 mt-2 z-50 w-56 rounded-md bg-white p-2 shadow-xl ring-1 ring-black/5 border border-slate-200 text-slate-800">
-                                    <div className="border-b border-slate-100 px-3 py-2">
-                                        <p className="text-xs font-bold text-slate-900">{auth?.user?.name}</p>
-                                        <p className="text-[11px] text-slate-500 truncate">{auth?.user?.email}</p>
-                                        <span className="mt-1 inline-block text-[10px] font-semibold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">
-                                            Role: {auth?.user?.role_name}
-                                        </span>
-                                    </div>
-                                    <div className="py-1">
-                                        <Link
-                                            href={route('profile.edit')}
-                                            onClick={() => setUserDropdownOpen(false)}
-                                            className="flex items-center gap-2 rounded px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 transition"
-                                        >
-                                            <User className="h-3.5 w-3.5 text-slate-400" />
-                                            Profil Saya
-                                        </Link>
-                                    </div>
-                                    <div className="border-t border-slate-100 pt-1">
-                                        <Link
-                                            href={route('logout')}
-                                            method="post"
-                                            as="button"
-                                            onClick={() => setUserDropdownOpen(false)}
-                                            className="flex w-full items-center gap-2 rounded px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                                        >
-                                            <LogOut className="h-3.5 w-3.5 text-rose-500" />
-                                            Log Out
-                                        </Link>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
+                <TopBarUserMenu />
             </header>
 
             {/* BODY: SIDEBAR + CONTENT */}
             <div className="flex flex-1 overflow-hidden">
                 {/* SIDEBAR */}
                 <aside
-                    className={`${
-                        sidebarOpen ? 'w-60' : 'w-0 -translate-x-full'
-                    } transition-all duration-200 ease-in-out shrink-0 bg-white border-r border-slate-200 flex flex-col z-30 overflow-y-auto shadow-xs`}
+                    className={`${sidebarOpen ? 'w-60' : 'w-0 -translate-x-full'
+                        } transition-all duration-200 ease-in-out shrink-0 bg-white border-r border-slate-200 flex flex-col z-30 overflow-y-auto shadow-xs`}
                 >
                     <div className="p-3">
-                        <div className="mb-2 flex items-center justify-between px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                            <span>Modul POS</span>
-                            <span className="text-[10px] text-rose-600 font-semibold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-                                Bara Wear
-                            </span>
-                        </div>
-
                         <nav className="space-y-4">
                             {navigation.map((section) => (
                                 <div key={section.group} className="space-y-1">
@@ -230,18 +158,16 @@ export default function PosLayout({ title, breadcrumbs = [], children }) {
                                                 <Link
                                                     key={item.name}
                                                     href={route(item.route)}
-                                                    className={`group flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-all ${
-                                                        item.active
+                                                    className={`group flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-all ${item.active
                                                             ? 'bg-slate-900 text-white shadow-xs font-semibold'
                                                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <Icon
-                                                        className={`h-4 w-4 shrink-0 transition-colors ${
-                                                            item.active
+                                                        className={`h-4 w-4 shrink-0 transition-colors ${item.active
                                                                 ? 'text-rose-400'
                                                                 : 'text-slate-400 group-hover:text-slate-700'
-                                                        }`}
+                                                            }`}
                                                     />
                                                     <span className="truncate">{item.name}</span>
                                                 </Link>

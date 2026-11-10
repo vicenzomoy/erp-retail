@@ -23,39 +23,39 @@ export default function JournalEntryIndex({ entries, filters, glSummary }) {
 
     const typeTabs = [
         { key: 'all', label: 'Semua Jurnal' },
-        { key: 'cogs', label: 'COGS / HPP (T-27)' },
-        { key: 'sales_invoice', label: 'Customer Invoice (T-17 / T-28)' },
-        { key: 'vendor_bill', label: 'Vendor Bill (T-23)' },
-        { key: 'payment_in', label: 'Payment In (T-25)' },
-        { key: 'payment_out', label: 'Payment Out (T-26)' },
+        { key: 'cogs', label: 'COGS / HPP' },
+        { key: 'sales_invoice', label: 'Customer Invoice' },
+        { key: 'vendor_bill', label: 'Vendor Bill' },
+        { key: 'payment_in', label: 'Payment In' },
+        { key: 'payment_out', label: 'Payment Out' },
         { key: 'stock_transfer', label: 'Mutasi Stok / Receipt' },
         { key: 'opening_balance', label: 'Saldo Awal' },
     ];
 
     return (
         <AccountingLayout
-            title="Journal Entries (S-14 / F-16)"
+            title="Journal Entries"
             breadcrumbs={[
                 { label: 'Accounting', href: route('accounting.overview') },
-                { label: 'Journal Entries (S-14)' },
+                { label: 'Journal Entries' },
             ]}
             actions={
                 <Link
                     href={route('accounting.gl.index')}
                     className="inline-flex items-center gap-1.5 rounded bg-odoo-purple px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-odoo-purple-dark"
                 >
-                    Buka General Ledger (Buku Besar S-14) →
+                    Buka General Ledger (Buku Besar) →
                 </Link>
             }
         >
-            <Head title="Journal Entries (S-14) — Accounting" />
+            <Head title="Journal Entries — Accounting" />
 
             <div className="space-y-4 p-4 md:p-6">
-                {/* Banner Keseimbangan Jurnal (SR-18 / F-16 / T-27 / T-28) */}
+                {/* Banner Keseimbangan Jurnal */}
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-4 shadow-sm">
                         <div className="text-xs font-bold uppercase tracking-wider text-emerald-900">
-                            Status Keseimbangan Buku Besar (SR-18)
+                            Status Keseimbangan Buku Besar
                         </div>
                         <div className="mt-1 flex items-center gap-2">
                             <span className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-extrabold text-white">
@@ -72,7 +72,7 @@ export default function JournalEntryIndex({ entries, filters, glSummary }) {
 
                     <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-4 shadow-sm">
                         <div className="text-xs font-bold uppercase tracking-wider text-indigo-900">
-                            Pengakuan Beban Pokok Penjualan / COGS (T-27)
+                            Pengakuan Beban Pokok Penjualan / COGS
                         </div>
                         <div className="mt-1 font-mono text-lg font-extrabold text-indigo-800">
                             {glSummary?.cogs_count || 0} Jurnal COGS Aktif
@@ -85,7 +85,7 @@ export default function JournalEntryIndex({ entries, filters, glSummary }) {
                     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm flex flex-col justify-between">
                         <div>
                             <div className="text-xs font-bold uppercase tracking-wider text-gray-600">
-                                Proteksi Anti-Jurnal Ganda (T-28)
+                                Proteksi Anti-Jurnal Ganda
                             </div>
                             <p className="mt-1 text-xs text-gray-600">
                                 Setiap instruksi <code className="font-mono">Post</code> ulang dijamin idempotent dan tidak menggandakan baris jurnal.
@@ -97,7 +97,7 @@ export default function JournalEntryIndex({ entries, filters, glSummary }) {
                                 onClick={() => handleFilterType('cogs')}
                                 className="text-xs font-bold text-odoo-purple hover:underline"
                             >
-                                Filter Khusus Jurnal COGS (Uji T-27) →
+                                Filter Jurnal COGS / HPP →
                             </button>
                         </div>
                     </div>

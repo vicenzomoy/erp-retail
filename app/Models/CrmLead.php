@@ -15,14 +15,15 @@ class CrmLead extends Model
     protected $fillable = [
         'id', 'source_doc_no', 'customer_id', 'contact_name',
         'stage', 'type', 'expected_revenue', 'variant_sku',
-        'qty_interest', 'assigned_user_id', 'converted_at',
-        'won_at', 'lost_at', 'idempotency_key', 'created_by',
+        'qty_interest', 'interest_items', 'assigned_user_id', 'converted_at',
+        'won_at', 'lost_at', 'lost_reason', 'idempotency_key', 'created_by',
     ];
 
     protected function casts(): array
     {
         return [
             'expected_revenue' => 'decimal:2',
+            'interest_items'   => 'array',
             'converted_at'     => 'datetime',
             'won_at'           => 'datetime',
             'lost_at'          => 'datetime',

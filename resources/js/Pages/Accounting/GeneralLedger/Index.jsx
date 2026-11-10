@@ -13,7 +13,7 @@ export default function GeneralLedgerIndex({
 }) {
     const handleSelectAccount = (account) => {
         router.get(
-            route('accounting.gl.index'),
+            route('accounting.reports.general-ledger'),
             { account, entry_type: filters?.entry_type || 'all' },
             { preserveState: true }
         );
@@ -21,20 +21,21 @@ export default function GeneralLedgerIndex({
 
     const quickAccounts = [
         { code: 'all', label: 'Semua Akun (Trial Balance)' },
-        { code: '1020', label: '1020 — Bank Operasional (T-25 / T-26)' },
-        { code: '1100', label: '1100 — Piutang Usaha AR (T-17 / T-25)' },
-        { code: '1200', label: '1200 — Persediaan Barang (T-27)' },
-        { code: '2100', label: '2100 — Utang Usaha AP (T-23 / T-26)' },
+        { code: '1020', label: '1020 — Bank Operasional' },
+        { code: '1100', label: '1100 — Piutang Usaha (AR)' },
+        { code: '1200', label: '1200 — Persediaan Barang' },
+        { code: '2100', label: '2100 — Utang Usaha (AP)' },
         { code: '4000', label: '4000 — Pendapatan Penjualan' },
-        { code: '5000', label: '5000 — Beban Pokok Penjualan / COGS (T-27)' },
+        { code: '5000', label: '5000 — Beban Pokok Penjualan / COGS' },
     ];
 
     return (
         <AccountingLayout
-            title="General Ledger & Trial Balance (S-14)"
+            title="Buku Besar Umum (General Ledger)"
             breadcrumbs={[
                 { label: 'Accounting', href: route('accounting.overview') },
-                { label: 'General Ledger (S-14)' },
+                { label: 'Laporan' },
+                { label: 'Buku Besar Umum' },
             ]}
             actions={
                 <Link
@@ -45,7 +46,7 @@ export default function GeneralLedgerIndex({
                 </Link>
             }
         >
-            <Head title="General Ledger (S-14) — Accounting" />
+            <Head title="General Ledger — Accounting" />
 
             <div className="space-y-5 p-4 md:p-6">
                 {/* Quick Filter Akun Buku Besar */}
@@ -53,7 +54,7 @@ export default function GeneralLedgerIndex({
                     <div className="flex flex-col justify-between gap-2 md:flex-row md:items-center">
                         <div>
                             <h2 className="text-sm font-bold text-gray-900">
-                                Filter Akun Buku Besar (General Ledger S-14 — Bukti T-23, T-25, T-26, T-27, T-28)
+                                Filter Akun Buku Besar (General Ledger)
                             </h2>
                             <p className="text-xs text-gray-500">
                                 Pilih akun spesifik untuk memeriksa mutasi kronologis dan saldo berjalan (running balance).
@@ -218,7 +219,7 @@ export default function GeneralLedgerIndex({
                                         <td className="px-3 py-2 font-mono text-indigo-700">
                                             {row.account_code} — {row.account_name}
                                         </td>
-                                        <td className="px-3 py-2 text-gray-600">{row.line_description}</td>
+                                        <td className="px-3 py-2 text-gray-600">{row.description}</td>
                                         <td className="px-3 py-2 text-right font-mono font-semibold text-emerald-700">
                                             {row.debit > 0 ? formatRp(row.debit) : '-'}
                                         </td>
@@ -235,11 +236,11 @@ export default function GeneralLedgerIndex({
                     </div>
                 </div>
 
-                {/* Tabel Stock Move Terkait Valuasi Persediaan & COGS (Bukti Wajib T-27) */}
+                {/* Tabel Stock Move Terkait Valuasi Persediaan & COGS */}
                 <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
                     <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                            3. Entri Stock Move Terkait Valuasi Persediaan (1200) & COGS (5000) — Bukti Wajib Skenario T-27
+                            3. Entri Stock Move Terkait Valuasi Persediaan (1200) &amp; COGS (5000)
                         </h3>
                     </div>
                     <div className="overflow-x-auto">

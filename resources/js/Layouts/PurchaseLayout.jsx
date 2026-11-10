@@ -17,6 +17,7 @@ import {
     User,
     LogOut,
 } from 'lucide-react';
+import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
 
 export default function PurchaseLayout({ title, breadcrumbs = [], children }) {
     const { auth, company, flash } = usePage().props;
@@ -157,75 +158,7 @@ export default function PurchaseLayout({ title, breadcrumbs = [], children }) {
                 </div>
 
                 {/* Sisi Kanan: Company & User profile */}
-                <div className="flex items-center gap-2 sm:gap-4">
-                    {/* Company Badge */}
-                    <div className="hidden sm:flex items-center gap-1.5 rounded-sm bg-slate-800/80 px-2.5 py-1 text-xs text-slate-200 border border-slate-700/60">
-                        <Building2 className="h-3.5 w-3.5 text-amber-400" />
-                        <span className="font-medium truncate max-w-[170px]">
-                            {company?.name || 'PT Bara Ritel Nusantara'}
-                        </span>
-                    </div>
-
-                    {/* User Profile & Role Dropdown */}
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                            className="flex items-center gap-2 rounded-sm bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700 transition cursor-pointer"
-                        >
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 text-[11px] font-bold text-white uppercase">
-                                {auth?.user?.name ? auth.user.name.substring(0, 2) : 'PR'}
-                            </div>
-                            <span className="hidden md:inline font-medium text-slate-200 truncate max-w-[120px]">
-                                {auth?.user?.name || 'Procurement User'}
-                            </span>
-                            <span className="hidden lg:inline text-[10px] bg-amber-900/80 text-amber-300 font-semibold px-1.5 py-0.5 rounded border border-amber-700/50">
-                                {auth?.user?.role_name || auth?.user?.role_id || 'Procurement'}
-                            </span>
-                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-                        </button>
-
-                        {userDropdownOpen && (
-                            <div className="absolute right-0 mt-2 w-56 rounded-md bg-white py-1 shadow-lg border border-slate-200 z-50 text-slate-700">
-                                <div className="px-3 py-2 border-b border-slate-100">
-                                    <p className="text-xs font-bold text-slate-900">{auth?.user?.name}</p>
-                                    <p className="text-[11px] text-slate-500 truncate">{auth?.user?.email}</p>
-                                    <span className="mt-1 inline-block text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
-                                        Peran: {auth?.user?.role_id}
-                                    </span>
-                                </div>
-
-                                <Link
-                                    href={route('home')}
-                                    className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 text-slate-700"
-                                >
-                                    <Building2 className="h-3.5 w-3.5 text-slate-400" />
-                                    Beranda Aplikasi
-                                </Link>
-
-                                <Link
-                                    href={route('profile.edit')}
-                                    className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 text-slate-700"
-                                >
-                                    <User className="h-3.5 w-3.5 text-slate-400" />
-                                    Profil Pengguna
-                                </Link>
-
-                                <div className="border-t border-slate-100 my-1"></div>
-
-                                <Link
-                                    href={route('logout')}
-                                    method="post"
-                                    as="button"
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-rose-50 text-rose-600"
-                                >
-                                    <LogOut className="h-3.5 w-3.5 text-rose-500" />
-                                    Keluar (Logout)
-                                </Link>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                <TopBarUserMenu />
             </header>
 
             {/* ========================================================= */}

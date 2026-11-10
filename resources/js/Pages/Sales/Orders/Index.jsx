@@ -12,8 +12,9 @@ const formatRp = (value) =>
         maximumFractionDigits: 0,
     }).format(value ?? 0);
 
-function getStatusBadge(status, creditHold) {
+function getStatusBadge(status, creditHold, discountHold) {
     if (creditHold) return { cls: 'bg-amber-100 text-amber-700', label: '⚠ Kredit Hold' };
+    if (discountHold) return { cls: 'bg-rose-100 text-rose-700', label: '⚠ Diskon Hold' };
     const map = {
         draft: { cls: 'bg-slate-100 text-slate-600', label: 'Draft' },
         confirmed: { cls: 'bg-blue-100 text-blue-700', label: 'Terkonfirmasi' },
@@ -65,11 +66,12 @@ export default function SalesOrderIndex({ orders, filters = {} }) {
                     </p>
                 </div>
                 <Link
-                    href={route('sales.orders.create')}
-                    className="flex items-center gap-1.5 rounded bg-slate-900 text-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-700 transition"
+                    href={route('crm.pipeline')}
+                    title="Quotation baru dibuat melalui alur Prospek CRM"
+                    className="flex items-center gap-1.5 rounded bg-slate-900 text-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-700 transition shadow-2xs"
                 >
                     <Plus className="h-3.5 w-3.5" />
-                    Buat Quotation
+                    Buat Quotation (via CRM)
                 </Link>
             </div>
 
@@ -140,7 +142,7 @@ export default function SalesOrderIndex({ orders, filters = {} }) {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {data.map((order) => {
-                                const { cls, label } = getStatusBadge(order.status, order.credit_hold);
+                                const { cls, label } = getStatusBadge(order.status, order.credit_hold, order.discount_hold);
                                 return (
                                     <tr
                                         key={order.id}

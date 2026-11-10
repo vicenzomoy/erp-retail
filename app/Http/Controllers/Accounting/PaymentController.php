@@ -39,7 +39,7 @@ class PaymentController extends Controller
             ->orderByDesc('created_at')
             ->orderByDesc('id');
 
-        if ($type !== 'all') {
+        if ($type !== 'all' && $type !== 'pending') {
             $query->where('payment_type', $type);
         }
 
@@ -81,16 +81,64 @@ class PaymentController extends Controller
             ];
         })->withQueryString();
 
+        // Daftar Faktur Pelanggan & Tagihan Pemasok yang belum lunas (Perlu Dibayar / Diterima Pembayarannya)
+        $openInvoices = CustomerInvoice::with('customer')
+            ->where('status', 'posted')
+            ->where('amount_residual', '>', 0)
+            ->orderByDesc('invoice_date')
+            ->get()
+            ->map(fn (CustomerInvoice $inv) => [
+                'document_type'   => 'customer_invoice',
+                'document_label'  => 'Faktur Pelanggan (AR)',
+                'payment_type'    => 'inbound',
+                'id'              => $inv->id,
+                'source_order_id' => $inv->sales_order_id,
+                'party_id'        => $inv->customer_id,
+                'party_name'      => $inv->customer?->name ?? $inv->customer_id,
+                'due_date'        => $inv->due_date?->format('d/m/Y'),
+                'grand_total'     => (float) $inv->grand_total,
+                'amount_paid'     => (float) $inv->amount_paid,
+                'amount_residual' => (float) $inv->amount_residual,
+            ]);
+
+        $openBills = VendorBill::with('vendor')
+            ->where('status', 'posted')
+            ->where('amount_residual', '>', 0)
+            ->orderByDesc('bill_date')
+            ->get()
+            ->map(fn (VendorBill $b) => [
+                'document_type'   => 'vendor_bill',
+                'document_label'  => 'Tagihan Pemasok (AP)',
+                'payment_type'    => 'outbound',
+                'id'              => $b->id,
+                'source_order_id' => $b->purchase_order_id,
+                'party_id'        => $b->vendor_id,
+                'party_name'      => $b->vendor?->name ?? $b->vendor_id,
+                'due_date'        => $b->due_date?->format('d/m/Y'),
+                'grand_total'     => (float) $b->grand_total,
+                'amount_paid'     => (float) $b->amount_paid,
+                'amount_residual' => (float) $b->amount_residual,
+            ]);
+
+        $pendingDocuments = $openInvoices->concat($openBills)->values();
+
         $glSummary = $this->glService->getAccountsSummary();
         $accByCode = collect($glSummary['accounts'])->keyBy('code');
 
         return Inertia::render('Accounting/Payments/Index', [
-            'payments' => $payments,
-            'filters'  => [
+            'payments'         => $payments,
+            'pendingDocuments' => $pendingDocuments,
+            'filters'          => [
                 'type'   => $type,
                 'search' => $search,
             ],
-            'balances' => [
+            'counts'           => [
+                'all'      => Payment::count(),
+                'pending'  => $pendingDocuments->count(),
+                'inbound'  => Payment::where('payment_type', 'inbound')->count(),
+                'outbound' => Payment::where('payment_type', 'outbound')->count(),
+            ],
+            'balances'         => [
                 'bank_1020'    => (float) ($accByCode['1020']['balance'] ?? 0),
                 'cash_1010'    => (float) ($accByCode['1010']['balance'] ?? 0),
                 'open_ar_1100' => (float) CustomerInvoice::where('status', 'posted')->sum('amount_residual'),
@@ -104,8 +152,9 @@ class PaymentController extends Controller
      */
     public function create(Request $request): Response
     {
-        $preDocType = $request->query('document_type', 'customer_invoice');
-        $preDocId   = $request->query('document_id', '');
+        $hasExplicitType = $request->has('document_type');
+        $preDocType      = $request->query('document_type', 'customer_invoice');
+        $preDocId        = $request->query('document_id', '');
 
         $openInvoices = CustomerInvoice::with('customer')
             ->whereIn('status', ['posted', 'paid'])
@@ -113,6 +162,7 @@ class PaymentController extends Controller
             ->get()
             ->map(fn (CustomerInvoice $inv) => [
                 'id'              => $inv->id,
+                'source_order_id' => $inv->sales_order_id,
                 'party_id'        => $inv->customer_id,
                 'party_name'      => $inv->customer?->name ?? $inv->customer_id,
                 'status'          => $inv->status,
@@ -128,6 +178,7 @@ class PaymentController extends Controller
             ->get()
             ->map(fn (VendorBill $b) => [
                 'id'              => $b->id,
+                'source_order_id' => $b->purchase_order_id,
                 'party_id'        => $b->vendor_id,
                 'party_name'      => $b->vendor?->name ?? $b->vendor_id,
                 'status'          => $b->status,
@@ -136,6 +187,16 @@ class PaymentController extends Controller
                 'amount_residual' => (float) $b->amount_residual,
                 'due_date'        => $b->due_date?->format('d/m/Y'),
             ]);
+
+        // Jika tidak ada parameter document_type dan Faktur Pelanggan tidak ada yang belum lunas,
+        // namun ada Tagihan Pemasok yang belum lunas, otomatis arahkan ke vendor_bill
+        if (!$hasExplicitType && !$preDocId) {
+            $hasUnpaidInv  = $openInvoices->contains(fn ($d) => $d['amount_residual'] > 0);
+            $hasUnpaidBill = $openBills->contains(fn ($d) => $d['amount_residual'] > 0);
+            if (!$hasUnpaidInv && $hasUnpaidBill) {
+                $preDocType = 'vendor_bill';
+            }
+        }
 
         $unbilledPos = PurchaseOrder::with('vendor')
             ->where('status', 'confirmed')
@@ -196,7 +257,7 @@ class PaymentController extends Controller
 
         if ($result['already_processed']) {
             return redirect()->route('accounting.payments.show', $payment->id)
-                ->with('info', "Anti-Duplikasi Aktif (SR-17 & SR-20 / Skenario T-26): Permintaan pembayaran ulang dengan kunci transaksi '{$payment->idempotency_key}' telah dicegah. Utang/Piutang tetap lunas satu kali dan Saldo Bank tidak terpotong ganda.");
+                ->with('info', "Permintaan pembayaran ulang dengan kunci transaksi '{$payment->idempotency_key}' telah dicegah. Utang/Piutang tetap lunas satu kali dan Saldo Bank tidak terpotong ganda.");
         }
 
         return redirect()->route('accounting.payments.show', $payment->id)

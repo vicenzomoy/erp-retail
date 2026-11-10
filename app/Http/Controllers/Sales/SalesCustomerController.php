@@ -16,7 +16,7 @@ class SalesCustomerController extends Controller
     // Index — List of customers with AR/credit summary
     // -------------------------------------------------------------------------
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $customers = ContactCustomer::all()->map(function (ContactCustomer $c) {
             $openAr        = $c->open_ar; // decimal string from accessor
@@ -44,6 +44,7 @@ class SalesCustomerController extends Controller
 
         return Inertia::render('Sales/Customers/Index', [
             'customers' => $customers,
+            'inCrm'     => $request->routeIs('crm.*'),
         ]);
     }
 
@@ -51,7 +52,7 @@ class SalesCustomerController extends Controller
     // Show — Customer detail with SOs and invoices
     // -------------------------------------------------------------------------
 
-    public function show(string $id): Response
+    public function show(Request $request, string $id): Response
     {
         /** @var ContactCustomer $customer */
         $customer = ContactCustomer::findOrFail($id);
@@ -105,6 +106,7 @@ class SalesCustomerController extends Controller
             ],
             'sales_orders' => $salesOrders,
             'invoices'     => $invoices,
+            'inCrm'        => $request->routeIs('crm.*'),
         ]);
     }
 
@@ -147,8 +149,10 @@ class SalesCustomerController extends Controller
             ],
         );
 
+        $targetRoute = $request->routeIs('crm.*') ? 'crm.customers.show' : 'sales.customers.show';
+
         return redirect()
-            ->route('sales.customers.show', $id)
+            ->route($targetRoute, $id)
             ->with('success', "Data pelanggan {$customer->name} berhasil diperbarui.");
     }
 }

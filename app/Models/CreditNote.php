@@ -16,6 +16,7 @@ class CreditNote extends Model
     protected $fillable = [
         'id',
         'original_invoice_id',
+        'customer_return_id',
         'customer_id',
         'status',
         'return_date',
@@ -47,6 +48,11 @@ class CreditNote extends Model
     public function originalInvoice(): BelongsTo
     {
         return $this->belongsTo(CustomerInvoice::class, 'original_invoice_id');
+    }
+
+    public function customerReturn(): BelongsTo
+    {
+        return $this->belongsTo(CustomerReturn::class, 'customer_return_id');
     }
 
     public function customer(): BelongsTo

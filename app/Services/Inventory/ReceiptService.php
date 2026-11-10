@@ -25,6 +25,28 @@ class ReceiptService
     }
 
     /**
+     * Generate the next Receipt ID (e.g. WH-PKU/IN/0001).
+     */
+    public function generateReceiptId(?string $locationCode = 'WH-PKU'): string
+    {
+        $prefix = sprintf('%s/IN/', $locationCode ?: 'WH-PKU');
+        $maxNum = 0;
+        $receipts = DB::table('receipts')->pluck('id');
+
+        foreach ($receipts as $id) {
+            if (preg_match('/(?:WH-PKU|WH)\/IN\/(\d+)$/i', $id, $m)) {
+                $num = (int) $m[1];
+                if ($num > $maxNum) {
+                    $maxNum = $num;
+                }
+            }
+        }
+
+        $next = $maxNum + 1;
+        return sprintf('%s%04d', $prefix, $next);
+    }
+
+    /**
      * Validate a Receipt from PO with QC acceptance/rejection (F-13, SR-12).
      *
      * @param Receipt $receipt

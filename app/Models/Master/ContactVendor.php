@@ -35,5 +35,15 @@ class ContactVendor extends Model
     {
         return $this->hasMany(VendorBill::class, 'vendor_id', 'id');
     }
+
+    /**
+     * Calculate current open AP (unpaid posted vendor bill residuals).
+     */
+    public function getOpenApAttribute(): string
+    {
+        return (string) $this->vendorBills()
+            ->whereIn('status', ['posted'])
+            ->sum('amount_residual');
+    }
 }
 

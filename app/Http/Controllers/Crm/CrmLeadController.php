@@ -102,20 +102,62 @@ class CrmLeadController extends Controller
         $validated = $request->validate([
             'customer_id'      => ['required', 'string', 'exists:contacts_customers,id'],
             'contact_name'     => ['nullable', 'string', 'max:100'],
-            'stage'            => ['nullable', 'string'],
-            'type'             => ['nullable', 'string', 'in:lead,opportunity'],
-            'variant_sku'      => ['nullable', 'string', 'exists:products,variant_sku'],
-            'qty_interest'     => ['nullable', 'numeric', 'min:1'],
-            'expected_revenue' => ['nullable', 'numeric', 'min:0'],
             'assigned_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'notes'            => ['nullable', 'string', 'max:500'],
+            // Multi-item interest lines (tidak boleh ada produk duplikat)
+            'items'                 => ['required', 'array', 'min:1'],
+            'items.*.variant_sku'   => ['required', 'string', 'distinct', 'exists:products,variant_sku'],
+            'items.*.qty_interest'  => ['required', 'integer', 'min:1'],
+        ], [
+            'customer_id.required'          => 'Silakan pilih pelanggan terlebih dahulu.',
+            'items.required'                => 'Daftar produk yang diminati wajib diisi minimal 1 produk.',
+            'items.min'                     => 'Daftar produk yang diminati wajib diisi minimal 1 produk.',
+            'items.*.variant_sku.required'  => 'Silakan pilih produk pada setiap baris.',
+            'items.*.variant_sku.distinct'  => 'Produk ini sudah dipilih di baris lain. Untuk menambah jumlah, silakan ubah kuantitas pada baris produk yang sama.',
+            'items.*.variant_sku.exists'    => 'Produk yang dipilih tidak ditemukan dalam katalog.',
+            'items.*.qty_interest.required' => 'Kuantitas peminatan wajib diisi.',
+            'items.*.qty_interest.integer'  => 'Kuantitas peminatan harus berupa bilangan bulat.',
+            'items.*.qty_interest.min'      => 'Kuantitas peminatan minimal 1 unit.',
         ]);
 
-        $lead = $this->service->createLead($validated, $request->user());
+        // Hitung expected_revenue dari semua item (qty × harga jual)
+        $items = $validated['items'];
+        $skus  = collect($items)->pluck('variant_sku')->unique()->toArray();
+        $priceMap = \App\Models\Master\Product::whereIn('variant_sku', $skus)
+            ->pluck('sales_price', 'variant_sku');
+
+        $totalRevenue = 0;
+        $interestItems = [];
+        foreach ($items as $item) {
+            $price = (float) ($priceMap[$item['variant_sku']] ?? 0);
+            $qty   = (int) $item['qty_interest'];
+            $totalRevenue += $price * $qty;
+            $interestItems[] = [
+                'variant_sku'  => $item['variant_sku'],
+                'qty_interest' => $qty,
+                'unit_price'   => $price,
+            ];
+        }
+
+        // Simpan lead: variant_sku + qty_interest = item pertama (backward compat)
+        $firstItem = $interestItems[0];
+        $payload = [
+            'customer_id'      => $validated['customer_id'],
+            'contact_name'     => $validated['contact_name'] ?? null,
+            'assigned_user_id' => $validated['assigned_user_id'] ?? null,
+            'stage'            => 'new',
+            'type'             => 'lead',
+            'expected_revenue' => $totalRevenue,
+            'variant_sku'      => $firstItem['variant_sku'],
+            'qty_interest'     => $firstItem['qty_interest'],
+            'interest_items'   => $interestItems,
+        ];
+
+        $lead = $this->service->createLead($payload, $request->user());
 
         return redirect()
             ->route('crm.leads.show', $lead->id)
-            ->with('success', "Prospek {$lead->id} berhasil dibuat.");
+            ->with('success', "Prospek {$lead->id} berhasil dibuat dengan " . count($interestItems) . " jenis produk peminatan.");
     }
 
     // -------------------------------------------------------------------------
@@ -141,6 +183,31 @@ class CrmLeadController extends Controller
             ->take(20)
             ->get();
 
+        // Enrich interest items
+        $interestItems = $lead->interest_items ?? [];
+        if (empty($interestItems) && $lead->variant_sku) {
+            $interestItems = [
+                [
+                    'variant_sku'  => $lead->variant_sku,
+                    'qty_interest' => $lead->qty_interest ?? 1,
+                    'unit_price'   => (float) ($lead->product?->sales_price ?? 0),
+                    'product_name' => $lead->product?->name ?? $lead->variant_sku,
+                ],
+            ];
+        } else {
+            $productsBySku = $products->keyBy('variant_sku');
+            $interestItems = array_map(function ($item) use ($productsBySku) {
+                $sku = $item['variant_sku'] ?? '';
+                $p = $productsBySku[$sku] ?? null;
+                return [
+                    'variant_sku'  => $sku,
+                    'qty_interest' => (int) ($item['qty_interest'] ?? 1),
+                    'unit_price'   => (float) ($item['unit_price'] ?? ($p?->sales_price ?? 0)),
+                    'product_name' => $p?->name ?? $sku,
+                ];
+            }, $interestItems);
+        }
+
         return Inertia::render('Crm/Leads/Show', [
             'lead'      => [
                 'id'               => $lead->id,
@@ -157,6 +224,7 @@ class CrmLeadController extends Controller
                 'product_name'     => $lead->product?->name ?? $lead->variant_sku,
                 'product_price'    => (float) ($lead->product?->sales_price ?? 0),
                 'qty_interest'     => $lead->qty_interest,
+                'interest_items'   => $interestItems,
                 'assigned_user_id' => $lead->assigned_user_id,
                 'assigned_name'    => $lead->assignedUser?->name ?? 'Belum Ditugaskan',
                 'created_by_name'  => $lead->creator?->name ?? '—',
@@ -164,6 +232,7 @@ class CrmLeadController extends Controller
                 'converted_at'     => $lead->converted_at?->format('d/m/Y H:i'),
                 'won_at'           => $lead->won_at?->format('d/m/Y H:i'),
                 'lost_at'          => $lead->lost_at?->format('d/m/Y H:i'),
+                'lost_reason'      => $lead->lost_reason,
                 'quotations'       => $lead->quotationLinks->map(function ($link) {
                     $so = $link->salesOrder;
                     return [
@@ -189,19 +258,56 @@ class CrmLeadController extends Controller
     public function update(Request $request, string $id): RedirectResponse
     {
         $validated = $request->validate([
-            'customer_id'      => ['nullable', 'string', 'exists:contacts_customers,id'],
-            'contact_name'     => ['nullable', 'string', 'max:100'],
-            'variant_sku'      => ['nullable', 'string', 'exists:products,variant_sku'],
-            'qty_interest'     => ['nullable', 'numeric', 'min:1'],
-            'expected_revenue' => ['nullable', 'numeric', 'min:0'],
-            'assigned_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'customer_id'           => ['required', 'string', 'exists:contacts_customers,id'],
+            'contact_name'          => ['nullable', 'string', 'max:100'],
+            'assigned_user_id'      => ['nullable', 'integer', 'exists:users,id'],
+            'notes'                 => ['nullable', 'string', 'max:500'],
+            'items'                 => ['required', 'array', 'min:1'],
+            'items.*.variant_sku'   => ['required', 'string', 'distinct', 'exists:products,variant_sku'],
+            'items.*.qty_interest'  => ['required', 'integer', 'min:1'],
+        ], [
+            'customer_id.required'          => 'Silakan pilih pelanggan terlebih dahulu.',
+            'items.required'                => 'Daftar produk yang diminati wajib diisi minimal 1 produk.',
+            'items.min'                     => 'Daftar produk yang diminati wajib diisi minimal 1 produk.',
+            'items.*.variant_sku.required'  => 'Silakan pilih produk pada setiap baris.',
+            'items.*.variant_sku.distinct'  => 'Produk ini sudah dipilih di baris lain. Untuk menambah jumlah, silakan ubah kuantitas pada baris produk yang sama.',
+            'items.*.variant_sku.exists'    => 'Produk yang dipilih tidak ditemukan dalam katalog.',
+            'items.*.qty_interest.required' => 'Kuantitas peminatan wajib diisi.',
+            'items.*.qty_interest.integer'  => 'Kuantitas peminatan harus berupa bilangan bulat.',
+            'items.*.qty_interest.min'      => 'Kuantitas peminatan minimal 1 unit.',
         ]);
 
-        $this->service->updateLead($id, $validated, $request->user());
+        $items = $validated['items'];
+        $skus  = collect($items)->pluck('variant_sku')->unique()->toArray();
+        $priceMap = \App\Models\Master\Product::whereIn('variant_sku', $skus)
+            ->pluck('sales_price', 'variant_sku');
+
+        $totalRevenue = 0;
+        $interestItems = [];
+        foreach ($items as $item) {
+            $price = (float) ($priceMap[$item['variant_sku']] ?? 0);
+            $qty   = (int) $item['qty_interest'];
+            $totalRevenue += $price * $qty;
+            $interestItems[] = [
+                'variant_sku'  => $item['variant_sku'],
+                'qty_interest' => $qty,
+                'unit_price'   => $price,
+            ];
+        }
+
+        $payload = [
+            'customer_id'      => $validated['customer_id'],
+            'contact_name'     => $validated['contact_name'] ?? null,
+            'assigned_user_id' => $validated['assigned_user_id'] ?? null,
+            'expected_revenue' => $totalRevenue,
+            'interest_items'   => $interestItems,
+        ];
+
+        $this->service->updateLead($id, $payload, $request->user());
 
         return redirect()
             ->route('crm.leads.show', $id)
-            ->with('success', "Prospek {$id} berhasil diperbarui.");
+            ->with('success', "Data prospek {$id} berhasil diperbarui.");
     }
 
     // -------------------------------------------------------------------------
@@ -255,11 +361,53 @@ class CrmLeadController extends Controller
     {
         $idempotencyKey = $request->header('X-Idempotency-Key') ?? $request->input('idempotency_key');
 
-        $salesOrder = $this->service->createQuotation($id, $idempotencyKey, $request->user());
+        $validated = $request->validate([
+            'variant_sku'    => ['nullable', 'string', 'exists:products,variant_sku'],
+            'qty_ordered'    => ['nullable', 'numeric', 'min:1'],
+            'payment_terms'  => ['nullable', 'string', 'max:50'],
+            'notes'          => ['nullable', 'string', 'max:500'],
+            'redirect_to'    => ['nullable', 'string'],
+        ]);
+
+        $salesOrder = $this->service->createQuotation($id, $idempotencyKey, $request->user(), $validated);
+
+        if ($request->input('redirect_to') === 'pipeline' || $request->header('X-Inertia')) {
+            return redirect()
+                ->route('crm.pipeline')
+                ->with('success', "Quotation {$salesOrder->id} berhasil dibuat. Prospek dipindahkan ke Qualified.");
+        }
 
         return redirect()
             ->route('sales.orders.show', $salesOrder->id)
             ->with('success', "Quotation {$salesOrder->id} berhasil dibuat/ditautkan untuk Lead {$id}.");
+    }
+
+    // -------------------------------------------------------------------------
+    // Confirm Sales Order (Won from Qualified)
+    // -------------------------------------------------------------------------
+
+    public function confirmSalesOrder(Request $request, string $id): RedirectResponse
+    {
+        $validated = $request->validate([
+            'sales_order_id' => ['nullable', 'string', 'max:50'],
+            'variant_sku'   => ['nullable', 'string', 'exists:products,variant_sku'],
+            'qty_ordered'   => ['nullable', 'numeric', 'min:1'],
+            'payment_terms' => ['nullable', 'string', 'max:50'],
+            'notes'         => ['nullable', 'string', 'max:500'],
+            'redirect_to'   => ['nullable', 'string'],
+        ]);
+
+        $salesOrder = $this->service->createOrConfirmSalesOrder($id, $validated, $request->user());
+
+        if ($request->input('redirect_to') === 'pipeline' || $request->header('X-Inertia')) {
+            return redirect()
+                ->route('crm.pipeline')
+                ->with('success', "Sales Order {$salesOrder->id} berhasil dikonfirmasi. Prospek ditandai sebagai MENANG (Won).");
+        }
+
+        return redirect()
+            ->route('sales.orders.show', $salesOrder->id)
+            ->with('success', "Sales Order {$salesOrder->id} berhasil dikonfirmasi (Won).");
     }
 
     // -------------------------------------------------------------------------
@@ -270,6 +418,12 @@ class CrmLeadController extends Controller
     {
         $lead = $this->service->markWon($id, $request->user());
 
+        if ($request->input('redirect_to') === 'pipeline' || $request->header('X-Inertia')) {
+            return redirect()
+                ->route('crm.pipeline')
+                ->with('success', "Opportunity {$lead->id} berhasil ditandai sebagai MENANG (Won).");
+        }
+
         return redirect()
             ->route('crm.leads.show', $lead->id)
             ->with('success', "Opportunity {$lead->id} berhasil ditandai sebagai MENANG (Won).");
@@ -277,8 +431,18 @@ class CrmLeadController extends Controller
 
     public function markLost(Request $request, string $id): RedirectResponse
     {
-        $reason = $request->input('reason');
-        $lead   = $this->service->markLost($id, $reason, $request->user());
+        $validated = $request->validate([
+            'reason'      => ['required', 'string', 'max:500'],
+            'redirect_to' => ['nullable', 'string'],
+        ]);
+
+        $lead = $this->service->markLost($id, $validated['reason'], $request->user());
+
+        if ($request->input('redirect_to') === 'pipeline' || $request->header('X-Inertia')) {
+            return redirect()
+                ->route('crm.pipeline')
+                ->with('success', "Prospek {$lead->id} ditandai sebagai KALAH (Lost). Alasan: {$validated['reason']}.");
+        }
 
         return redirect()
             ->route('crm.leads.show', $lead->id)

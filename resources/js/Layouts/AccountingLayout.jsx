@@ -2,116 +2,167 @@ import React, { useState } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import {
     LayoutDashboard,
-    ReceiptText,
-    FileSpreadsheet,
-    FileCheck2,
-    PlusCircle,
-    Wallet,
-    BookOpen,
     Scale,
+    BookOpen,
+    FileCheck2,
+    FileSpreadsheet,
+    RotateCcw,
+    Wallet,
     Menu,
-    ChevronDown,
-    Building2,
     CheckCircle2,
     AlertCircle,
     Info,
-    User,
-    LogOut,
+    Landmark,
+    TrendingUp,
+    ArrowLeftRight,
+    TableProperties,
+    Percent,
 } from 'lucide-react';
+import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
 
 export default function AccountingLayout({ title, breadcrumbs = [], children }) {
-    const { auth, company, flash } = usePage().props;
+    const { flash } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
+    // Struktur Menu Odoo 17 Accounting (Bersih, Rapi, Terintegrasi AR + AP + Kas + GL + Laporan)
     const navigation = [
         {
             group: 'Ringkasan',
             items: [
                 {
-                    name: 'Overview Akuntansi',
+                    name: 'Overview',
                     route: 'accounting.overview',
                     icon: LayoutDashboard,
-                    active: route().current('accounting.overview'),
+                    active:
+                        route().current('accounting.overview') ||
+                        route().current('invoicing.overview'),
                 },
             ],
         },
         {
-            group: 'Tagihan Pemasok (AP)',
+            group: 'Pelanggan (Customers)',
             items: [
                 {
-                    name: 'Vendor Bills (S-12)',
-                    route: 'accounting.bills.index',
-                    icon: FileSpreadsheet,
-                    active: route().current('accounting.bills.index') || route().current('accounting.bills.show'),
-                },
-                {
-                    name: 'Buat Vendor Bill',
-                    route: 'accounting.bills.create',
-                    icon: PlusCircle,
-                    active: route().current('accounting.bills.create'),
-                },
-            ],
-        },
-        {
-            group: 'Faktur Pelanggan (AR)',
-            items: [
-                {
-                    name: 'Customer Invoices',
+                    name: 'Faktur Pelanggan (Invoices)',
                     route: 'accounting.invoices.index',
                     icon: FileCheck2,
-                    active: route().current('accounting.invoices.index') || route().current('accounting.invoices.show'),
+                    active:
+                        route().current('accounting.invoices.*') ||
+                        route().current('invoicing.invoices.*'),
                 },
                 {
-                    name: 'Buat Faktur Pelanggan',
-                    route: 'accounting.invoices.create',
-                    icon: PlusCircle,
-                    active: route().current('accounting.invoices.create'),
+                    name: 'Nota Kredit (Credit Notes)',
+                    route: 'accounting.credit-notes.index',
+                    icon: RotateCcw,
+                    active:
+                        route().current('accounting.credit-notes.*') ||
+                        route().current('invoicing.credit-notes.*'),
                 },
             ],
         },
         {
-            group: 'Kas, Bank & Rekonsiliasi',
+            group: 'Pemasok (Vendors)',
             items: [
                 {
-                    name: 'Daftar Pembayaran',
+                    name: 'Tagihan Pemasok (Bills)',
+                    route: 'accounting.bills.index',
+                    icon: FileSpreadsheet,
+                    active:
+                        route().current('accounting.bills.*') ||
+                        route().current('invoicing.bills.*'),
+                },
+            ],
+        },
+        {
+            group: 'Kas & Pembayaran',
+            items: [
+                {
+                    name: 'Pembayaran (Payments)',
                     route: 'accounting.payments.index',
                     icon: Wallet,
-                    active: route().current('accounting.payments.index') || route().current('accounting.payments.show'),
-                },
-                {
-                    name: 'Register Payment (S-13)',
-                    route: 'accounting.payments.create',
-                    icon: PlusCircle,
-                    active: route().current('accounting.payments.create'),
+                    active:
+                        route().current('accounting.payments.*') ||
+                        route().current('invoicing.payments.*'),
                 },
             ],
         },
         {
-            group: 'Buku Besar & Jurnal (S-14)',
+            group: 'Akuntansi (GL)',
             items: [
                 {
-                    name: 'Journal Entries',
+                    name: 'Jurnal Umum (Journal Entries)',
                     route: 'accounting.journals',
                     icon: BookOpen,
-                    active: route().current('accounting.journals') || route().current('accounting.journals.*'),
+                    active:
+                        route().current('accounting.journals') ||
+                        route().current('accounting.journals.*'),
+                },
+            ],
+        },
+        {
+            group: 'Laporan',
+            items: [
+                {
+                    name: 'Neraca Keuangan',
+                    route: 'accounting.reports.balance-sheet',
+                    icon: Landmark,
+                    active: route().current('accounting.reports.balance-sheet'),
                 },
                 {
-                    name: 'General Ledger (GL)',
-                    route: 'accounting.ledger',
+                    name: 'Laba dan Rugi',
+                    route: 'accounting.reports.profit-loss',
+                    icon: TrendingUp,
+                    active: route().current('accounting.reports.profit-loss'),
+                },
+                {
+                    name: 'Arus Kas',
+                    route: 'accounting.reports.cash-flow',
+                    icon: ArrowLeftRight,
+                    active: route().current('accounting.reports.cash-flow'),
+                },
+                {
+                    name: 'Neraca Saldo',
+                    route: 'accounting.reports.trial-balance',
+                    icon: TableProperties,
+                    active: route().current('accounting.reports.trial-balance'),
+                },
+                {
+                    name: 'Buku Besar Umum',
+                    route: 'accounting.reports.general-ledger',
                     icon: Scale,
-                    active: route().current('accounting.ledger'),
+                    active:
+                        route().current('accounting.reports.general-ledger') ||
+                        route().current('accounting.ledger') ||
+                        route().current('accounting.gl.*'),
+                },
+                {
+                    name: 'Laporan Pajak',
+                    route: 'accounting.reports.tax',
+                    icon: Percent,
+                    active: route().current('accounting.reports.tax'),
                 },
             ],
         },
     ];
+
+    // Normalisasi label breadcrumb lama "Invoicing" menjadi "Accounting"
+    const normalizedBreadcrumbs = breadcrumbs.map((crumb) => {
+        if (crumb.label === 'Invoicing') {
+            return {
+                ...crumb,
+                label: 'Accounting',
+                href: crumb.href ? route('accounting.overview') : undefined,
+            };
+        }
+        return crumb;
+    });
 
     return (
         <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans">
             {/* TOP NAVBAR (Odoo 17 Style) */}
             <header className="sticky top-0 z-40 flex h-12 w-full items-center justify-between border-b border-slate-200 bg-slate-900 px-3 sm:px-4 text-white shadow-sm">
                 <div className="flex items-center gap-2 sm:gap-3">
-                    {/* App Switcher 9-dots button -> Home */}
+                    {/* App Switcher 9-dots button */}
                     <button
                         type="button"
                         onClick={() => router.visit(route('home'))}
@@ -145,16 +196,16 @@ export default function AccountingLayout({ title, breadcrumbs = [], children }) 
                     {/* App Name: Accounting */}
                     <Link
                         href={route('accounting.overview')}
-                        className="flex items-center gap-1.5 font-bold tracking-tight text-white hover:text-teal-400 transition"
+                        className="flex items-center gap-1.5 font-bold tracking-tight text-white hover:text-emerald-400 transition"
                     >
-                        <ReceiptText className="h-4 w-4 text-teal-400" />
+                        <Scale className="h-4 w-4 text-emerald-400" />
                         <span className="text-sm font-semibold tracking-wide">Accounting</span>
                     </Link>
 
                     {/* Breadcrumbs */}
-                    {breadcrumbs.length > 0 && (
+                    {normalizedBreadcrumbs.length > 0 && (
                         <nav className="hidden md:flex items-center gap-1.5 text-xs text-slate-400">
-                            {breadcrumbs.map((crumb, idx) => (
+                            {normalizedBreadcrumbs.map((crumb, idx) => (
                                 <React.Fragment key={idx}>
                                     <span className="text-slate-600">/</span>
                                     {crumb.href ? (
@@ -176,96 +227,18 @@ export default function AccountingLayout({ title, breadcrumbs = [], children }) 
                 </div>
 
                 {/* Sisi Kanan: Company & User profile */}
-                <div className="flex items-center gap-2 sm:gap-4">
-                    <div className="hidden sm:flex items-center gap-1.5 rounded-sm bg-slate-800/80 px-2.5 py-1 text-xs text-slate-200 border border-slate-700/60">
-                        <Building2 className="h-3.5 w-3.5 text-amber-400" />
-                        <span className="font-medium truncate max-w-[170px]">
-                            {company?.name || 'PT Bara Ritel Nusantara'}
-                        </span>
-                    </div>
-
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                            className="flex items-center gap-2 rounded-sm bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700 transition cursor-pointer"
-                        >
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-teal-700 text-[11px] font-bold text-white uppercase">
-                                {auth?.user?.name ? auth.user.name.substring(0, 2) : 'FN'}
-                            </div>
-                            <span className="hidden md:inline font-medium text-slate-200 truncate max-w-[120px]">
-                                {auth?.user?.name || 'Finance User'}
-                            </span>
-                            <span className="hidden lg:inline text-[10px] bg-teal-900/80 text-teal-300 font-semibold px-1.5 py-0.5 rounded border border-teal-700/50">
-                                {auth?.user?.role_name || 'Finance'}
-                            </span>
-                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-                        </button>
-
-                        {userDropdownOpen && (
-                            <>
-                                <div
-                                    className="fixed inset-0 z-40"
-                                    onClick={() => setUserDropdownOpen(false)}
-                                ></div>
-                                <div className="absolute right-0 mt-2 z-50 w-56 rounded-md bg-white p-2 shadow-xl ring-1 ring-black/5 border border-slate-200 text-slate-800">
-                                    <div className="border-b border-slate-100 px-3 py-2">
-                                        <p className="text-xs font-bold text-slate-900">
-                                            {auth?.user?.name}
-                                        </p>
-                                        <p className="text-[11px] text-slate-500 truncate">
-                                            {auth?.user?.email}
-                                        </p>
-                                        <span className="mt-1 inline-block text-[10px] font-semibold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-full">
-                                            Role: {auth?.user?.role_name}
-                                        </span>
-                                    </div>
-
-                                    <div className="py-1">
-                                        <Link
-                                            href={route('profile.edit')}
-                                            onClick={() => setUserDropdownOpen(false)}
-                                            className="flex items-center gap-2 rounded px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 transition"
-                                        >
-                                            <User className="h-3.5 w-3.5 text-slate-400" />
-                                            Profil Saya
-                                        </Link>
-                                    </div>
-
-                                    <div className="border-t border-slate-100 pt-1">
-                                        <Link
-                                            href={route('logout')}
-                                            method="post"
-                                            as="button"
-                                            onClick={() => setUserDropdownOpen(false)}
-                                            className="flex w-full items-center gap-2 rounded px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                                        >
-                                            <LogOut className="h-3.5 w-3.5 text-rose-500" />
-                                            Log Out
-                                        </Link>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
+                <TopBarUserMenu />
             </header>
 
-            {/* BODY CONTAINER: SIDEBAR + CONTENT */}
+            {/* BODY CONTAINER */}
             <div className="flex flex-1 overflow-hidden">
+                {/* SIDEBAR NAVIGATION */}
                 <aside
                     className={`${
                         sidebarOpen ? 'w-60' : 'w-0 -translate-x-full'
                     } transition-all duration-200 ease-in-out shrink-0 bg-white border-r border-slate-200 flex flex-col z-30 overflow-y-auto shadow-xs`}
                 >
                     <div className="p-3">
-                        <div className="mb-2 flex items-center justify-between px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                            <span>Modul Akuntansi</span>
-                            <span className="text-[10px] text-teal-700 font-semibold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
-                                Bara Wear
-                            </span>
-                        </div>
-
                         <nav className="space-y-4">
                             {navigation.map((section) => (
                                 <div key={section.group} className="space-y-1">
@@ -288,7 +261,7 @@ export default function AccountingLayout({ title, breadcrumbs = [], children }) 
                                                     <Icon
                                                         className={`h-4 w-4 shrink-0 transition-colors ${
                                                             item.active
-                                                                ? 'text-teal-400'
+                                                                ? 'text-emerald-400'
                                                                 : 'text-slate-400 group-hover:text-slate-700'
                                                         }`}
                                                     />
@@ -304,15 +277,16 @@ export default function AccountingLayout({ title, breadcrumbs = [], children }) 
 
                     <div className="mt-auto border-t border-slate-100 p-3 bg-slate-50/50 text-[11px] text-slate-500">
                         <div className="flex items-center gap-1.5 text-slate-700 font-medium mb-0.5">
-                            <span className="h-2 w-2 rounded-full bg-teal-500 animate-pulse"></span>
-                            <span>Faktur & Buku Besar</span>
+                            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span>Akuntansi &amp; Invoicing Terpadu</span>
                         </div>
                         <div className="text-[10px] text-slate-400">
-                            Three-Way Match &bull; Double-Entry GL
+                            AR, AP, Rekonsiliasi Kas &amp; Buku Besar
                         </div>
                     </div>
                 </aside>
 
+                {/* MAIN CONTENT */}
                 <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8fafc]">
                     {flash?.success && (
                         <div className="mb-4 flex items-center justify-between rounded border border-emerald-300 bg-emerald-50 px-4 py-3 text-xs text-emerald-800 shadow-xs animate-fadeIn">
@@ -347,4 +321,3 @@ export default function AccountingLayout({ title, breadcrumbs = [], children }) 
         </div>
     );
 }
-

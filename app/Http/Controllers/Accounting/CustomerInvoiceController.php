@@ -36,7 +36,7 @@ class CustomerInvoiceController extends Controller
             ->orderByDesc('created_at')
             ->orderByDesc('id');
 
-        if ($status !== 'all') {
+        if ($status !== 'all' && $status !== 'to_invoice') {
             $query->where('status', $status);
         }
 
@@ -67,21 +67,37 @@ class CustomerInvoiceController extends Controller
             'journal_entry_no'    => $inv->journalEntry?->entry_no,
         ])->withQueryString();
 
+        // Daftar Sales Order yang sudah dikirim gudang namun belum selesai difakturkan
+        $pendingOrders = [];
+        $confirmedSos = SalesOrder::with(['customer', 'lines.product', 'deliveryOrders.lines'])
+            ->whereIn('status', ['confirmed', 'done'])
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($confirmedSos as $so) {
+            $matrix = $this->invoiceService->getBillableMatrixForSo($so);
+            if ($matrix['has_done_delivery'] && (float) $matrix['total_invoiceable'] > 0) {
+                $pendingOrders[] = $matrix;
+            }
+        }
+
         $arLedger = $this->glService->getAccountLedger('1100');
 
         return Inertia::render('Accounting/Invoices/Index', [
-            'invoices' => $invoices,
-            'filters'  => [
+            'invoices'      => $invoices,
+            'pendingOrders' => $pendingOrders,
+            'filters'       => [
                 'status' => $status,
                 'search' => $search,
             ],
-            'counts'   => [
-                'all'       => CustomerInvoice::count(),
-                'draft'     => CustomerInvoice::where('status', 'draft')->count(),
-                'posted'    => CustomerInvoice::where('status', 'posted')->count(),
-                'paid'      => CustomerInvoice::where('status', 'paid')->count(),
-                'open_ar'   => (float) CustomerInvoice::where('status', 'posted')->sum('amount_residual'),
-                'gl_ar_bal' => (float) ($arLedger['selected_account']['balance'] ?? 0),
+            'counts'        => [
+                'all'        => CustomerInvoice::count(),
+                'to_invoice' => count($pendingOrders),
+                'draft'      => CustomerInvoice::where('status', 'draft')->count(),
+                'posted'     => CustomerInvoice::where('status', 'posted')->count(),
+                'paid'       => CustomerInvoice::where('status', 'paid')->count(),
+                'open_ar'    => (float) CustomerInvoice::where('status', 'posted')->sum('amount_residual'),
+                'gl_ar_bal'  => (float) ($arLedger['selected_account']['balance'] ?? 0),
             ],
         ]);
     }
@@ -99,12 +115,21 @@ class CustomerInvoiceController extends Controller
             ->get();
 
         $soMatrices = [];
+        $firstReadySoId = '';
         foreach ($salesOrders as $so) {
-            $soMatrices[$so->id] = $this->invoiceService->getBillableMatrixForSo($so);
+            $matrix = $this->invoiceService->getBillableMatrixForSo($so);
+            $soMatrices[$so->id] = $matrix;
+            if (! $firstReadySoId && $matrix['has_done_delivery'] && (float) $matrix['total_invoiceable'] > 0) {
+                $firstReadySoId = $so->id;
+            }
         }
 
+        $defaultSoId = isset($soMatrices[$selectedSoId])
+            ? $selectedSoId
+            : ($firstReadySoId ?: ($salesOrders->first()?->id ?? ''));
+
         return Inertia::render('Accounting/Invoices/Create', [
-            'selectedSoId' => isset($soMatrices[$selectedSoId]) ? $selectedSoId : ($salesOrders->first()?->id ?? ''),
+            'selectedSoId' => $defaultSoId,
             'soMatrices'   => $soMatrices,
         ]);
     }
@@ -314,7 +339,7 @@ class CustomerInvoiceController extends Controller
 
         if ($result['already_posted']) {
             return redirect()->route('accounting.invoices.show', $invoice->id)
-                ->with('info', "Instruksi Post ulang pada Faktur {$invoice->id} diabaikan secara idempotent (SR-17 / Skenario T-28). Jurnal akuntansi tidak mengganda dan Debit = Kredit tetap seimbang.");
+                ->with('info', "Instruksi Post ulang pada Faktur {$invoice->id} diabaikan karena sudah pernah diposting. Jurnal akuntansi tidak mengganda dan Debit = Kredit tetap seimbang.");
         }
 
         return redirect()->route('accounting.invoices.show', $invoice->id)

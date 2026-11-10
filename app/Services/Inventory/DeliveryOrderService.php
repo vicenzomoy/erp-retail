@@ -7,6 +7,7 @@ use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\StockLedger;
 use App\Models\StockMove;
@@ -23,6 +24,107 @@ class DeliveryOrderService
     public function __construct(StockService $stockService)
     {
         $this->stockService = $stockService;
+    }
+
+    /**
+     * Generate the next Delivery Order ID (e.g. WH-PKU/OUT/0001).
+     */
+    public function generateDeliveryId(?string $locationCode = 'WH-PKU'): string
+    {
+        $prefix = sprintf('%s/OUT/', $locationCode ?: 'WH-PKU');
+        $maxNum = 0;
+        $dos = DB::table('delivery_orders')->pluck('id');
+
+        foreach ($dos as $id) {
+            if (preg_match('/(?:WH-PKU|WH)\/OUT\/(\d+)$/i', $id, $m)) {
+                $num = (int) $m[1];
+                if ($num > $maxNum) {
+                    $maxNum = $num;
+                }
+            }
+        }
+
+        $next = $maxNum + 1;
+        return sprintf('%s%04d', $prefix, $next);
+    }
+
+    /**
+     * Automatically generate a Delivery Order from a confirmed Sales Order.
+     * Idempotent: returns existing Delivery Order if already generated.
+     */
+    public function createFromSalesOrder(SalesOrder $so, User $actor, ?string $locationFrom = 'WH-PKU'): DeliveryOrder
+    {
+        $existing = DeliveryOrder::where('sales_order_id', $so->id)
+            ->where('is_backorder', false)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        return DB::transaction(function () use ($so, $actor, $locationFrom) {
+            $doId = $this->generateDeliveryId($locationFrom);
+            $so->loadMissing(['customer', 'lines.product']);
+
+            $delivery = DeliveryOrder::create([
+                'id'                 => $doId,
+                'sales_order_id'     => $so->id,
+                'parent_delivery_id' => null,
+                'is_backorder'       => false,
+                'status'             => 'ready',
+                'location_from'      => $locationFrom,
+                'location_to'        => $so->customer?->city 
+                    ? "{$so->customer->name}, {$so->customer->city}" 
+                    : ($so->customer?->name ?? 'Pelanggan'),
+                'scheduled_date'     => now()->toDateString(),
+                'notes'              => "Pengiriman otomatis untuk Sales Order {$so->id}",
+                'created_by'         => $actor->id,
+            ]);
+
+            foreach ($so->lines as $line) {
+                DeliveryOrderLine::create([
+                    'delivery_order_id' => $delivery->id,
+                    'so_line_id'        => $line->id,
+                    'variant_sku'       => $line->variant_sku,
+                    'qty_demand'        => $line->qty_ordered,
+                    'qty_done'          => 0,
+                    'cogs_per_unit'     => $line->product?->cost ?? 0,
+                    'cogs_total'        => 0,
+                ]);
+
+                // Create stock reservation in location if not already present
+                StockReservation::firstOrCreate(
+                    [
+                        'sales_order_id' => $so->id,
+                        'so_line_id'     => $line->id,
+                    ],
+                    [
+                        'variant_sku'   => $line->variant_sku,
+                        'location_code' => $locationFrom,
+                        'qty_reserved'  => $line->qty_ordered,
+                        'status'        => 'active',
+                        'reserved_at'   => now(),
+                    ]
+                );
+            }
+
+            AuditLog::record(
+                action: 'DELIVERY_ORDER_AUTO_CREATED',
+                status: 'SUCCESS',
+                actorUserId: $actor->id,
+                actorUsername: $actor->name,
+                actorRole: $actor->role_id ?? 'system',
+                documentType: 'delivery_order',
+                documentId: $delivery->id,
+                newValue: [
+                    'sales_order_id' => $so->id,
+                    'lines_count'    => $so->lines->count(),
+                ],
+                notes: "Delivery Order {$delivery->id} otomatis di-generate untuk Sales Order {$so->id}."
+            );
+
+            return $delivery;
+        });
     }
 
     /**
@@ -236,8 +338,7 @@ class DeliveryOrderService
             // 6. Handle Backorder Creation if partial
             $backorder = null;
             if ($hasBackorder && count($backorderLines) > 0) {
-                $boCount = DeliveryOrder::count() + 1;
-                $boId = sprintf('WH/OUT/%04d', $boCount);
+                $boId = $this->generateDeliveryId($do->location_from);
 
                 $backorder = DeliveryOrder::create([
                     'id' => $boId,
@@ -272,6 +373,33 @@ class DeliveryOrderService
                 'validated_by' => $actorId,
                 'idempotency_key' => $idempotencyKey ?? $do->idempotency_key ?? uniqid('do_val_'),
             ]);
+
+            // 8. If this DO belongs to a Sales Order, check if all items are fully delivered -> update SO status to done
+            if ($do->sales_order_id) {
+                $so = SalesOrder::with('lines')->find($do->sales_order_id);
+                if ($so && $so->status === 'confirmed') {
+                    $allDelivered = true;
+                    foreach ($so->lines as $sol) {
+                        if (bccomp((string) $sol->qty_delivered, (string) $sol->qty_ordered, 3) < 0) {
+                            $allDelivered = false;
+                            break;
+                        }
+                    }
+                    if ($allDelivered) {
+                        $so->update(['status' => 'done']);
+                        AuditLog::record(
+                            action: 'SO_STATUS_DONE',
+                            status: 'SUCCESS',
+                            actorUserId: $actorId,
+                            actorUsername: $actor?->name ?? 'warehouse',
+                            actorRole: $actor?->role_id ?? 'warehouse',
+                            documentType: 'sales_order',
+                            documentId: $so->id,
+                            notes: "Sales Order {$so->id} selesai dikirim seluruhnya (Status: Done)."
+                        );
+                    }
+                }
+            }
 
             // Audit Trail
             AuditLog::record(

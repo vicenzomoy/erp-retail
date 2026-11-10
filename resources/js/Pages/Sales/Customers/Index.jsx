@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
-import { Users, Search, ArrowRight, ShieldAlert, CreditCard } from 'lucide-react';
+import { Users, Search, ArrowRight, ShieldAlert } from 'lucide-react';
 import SalesLayout from '@/Layouts/SalesLayout';
+import CrmLayout from '@/Layouts/CrmLayout';
 
 const formatRp = (value) =>
     new Intl.NumberFormat('id-ID', {
@@ -11,8 +12,11 @@ const formatRp = (value) =>
         maximumFractionDigits: 0,
     }).format(value ?? 0);
 
-export default function SalesCustomerIndex({ customers = [] }) {
+export default function SalesCustomerIndex({ customers = [], inCrm = false }) {
     const [search, setSearch] = useState('');
+    const isCrm = inCrm || route().current('crm.*');
+    const LayoutComponent = isCrm ? CrmLayout : SalesLayout;
+    const showRouteName = isCrm ? 'crm.customers.show' : 'sales.customers.show';
 
     const filteredCustomers = customers.filter((c) => {
         const q = search.toLowerCase();
@@ -32,11 +36,11 @@ export default function SalesCustomerIndex({ customers = [] }) {
     };
 
     return (
-        <SalesLayout
+        <LayoutComponent
             title="Daftar Pelanggan"
             breadcrumbs={[{ label: 'Pelanggan' }, { label: 'Daftar Pelanggan' }]}
         >
-            <Head title="Daftar Pelanggan — Sales Bara Wear" />
+            <Head title={`Daftar Pelanggan — ${isCrm ? 'CRM' : 'Sales'} Bara Wear`} />
 
             {/* Header section */}
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -99,7 +103,7 @@ export default function SalesCustomerIndex({ customers = [] }) {
                                             </td>
                                             <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
                                                 <Link
-                                                    href={route('sales.customers.show', cust.id)}
+                                                    href={route(showRouteName, cust.id)}
                                                     className="hover:text-blue-600 hover:underline"
                                                 >
                                                     {cust.name}
@@ -144,7 +148,7 @@ export default function SalesCustomerIndex({ customers = [] }) {
                                             </td>
                                             <td className="px-4 py-3 text-right whitespace-nowrap">
                                                 <Link
-                                                    href={route('sales.customers.show', cust.id)}
+                                                    href={route(showRouteName, cust.id)}
                                                     className="inline-flex items-center gap-1 rounded bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-200 transition"
                                                 >
                                                     Detail
@@ -159,7 +163,7 @@ export default function SalesCustomerIndex({ customers = [] }) {
                     </table>
                 </div>
             </div>
-        </SalesLayout>
+        </LayoutComponent>
     );
 }
 

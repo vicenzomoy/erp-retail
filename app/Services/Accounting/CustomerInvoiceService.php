@@ -12,6 +12,7 @@ use App\Models\Master\PaymentTerm;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,17 +26,20 @@ class CustomerInvoiceService
     ) {}
 
     /**
-     * Generate ID Customer Invoice berformat INV-0001 (mengabaikan INV-OPEN01).
+     * Generate ID Customer Invoice berformat INV/tahun/bulan/000X (cth: INV/2026/11/0001).
      */
-    public function generateInvoiceId(): string
+    public function generateInvoiceId(?string $date = null): string
     {
+        $dt = $date ? Carbon::parse($date) : now();
+        $prefix = sprintf('INV/%s/%s/', $dt->format('Y'), $dt->format('m'));
+
         $ids = DB::table('customer_invoices')
-            ->where('id', 'LIKE', 'INV-%')
+            ->where('id', 'LIKE', "{$prefix}%")
             ->pluck('id');
 
         $maxNumeric = 0;
         foreach ($ids as $id) {
-            if (preg_match('/^INV-(\d+)$/', $id, $m)) {
+            if (preg_match('/\/(\d+)$/', $id, $m)) {
                 $num = (int) $m[1];
                 if ($num > $maxNumeric) {
                     $maxNumeric = $num;
@@ -43,7 +47,7 @@ class CustomerInvoiceService
             }
         }
 
-        return sprintf('INV-%04d', $maxNumeric + 1);
+        return sprintf('%s%04d', $prefix, $maxNumeric + 1);
     }
 
     /**
@@ -110,16 +114,27 @@ class CustomerInvoiceService
             ];
         }
 
-        $totalInvoiceable = collect($lines)->sum('max_invoiceable_qty');
+        $totalOrdered         = (float) collect($lines)->sum('qty_ordered');
+        $totalDelivered       = (float) collect($lines)->sum('qty_delivered');
+        $totalAlreadyInvoiced = (float) collect($lines)->sum('qty_already_invoiced');
+        $totalInvoiceable     = (float) collect($lines)->sum('max_invoiceable_qty');
+        $estimatedAmount      = (float) collect($lines)->sum('default_line_total');
 
         return [
-            'sales_order_id'       => $so->id,
-            'customer_id'          => $so->customer_id,
-            'customer_name'        => $so->customer?->name,
-            'payment_terms'        => $so->payment_terms,
-            'has_done_delivery'    => $doneDeliveries->isNotEmpty() || $totalInvoiceable > 0,
-            'total_invoiceable'    => $totalInvoiceable,
-            'lines'                => $lines,
+            'sales_order_id'         => $so->id,
+            'customer_id'            => $so->customer_id,
+            'customer_name'          => $so->customer?->name,
+            'payment_terms'          => $so->payment_terms,
+            'order_date'             => $so->created_at?->format('d/m/Y'),
+            'has_done_delivery'      => $doneDeliveries->isNotEmpty() || $totalInvoiceable > 0,
+            'primary_delivery_id'    => $doneDeliveries->first()?->id,
+            'done_delivery_ids'      => $doneDeliveryIds,
+            'total_ordered'          => $totalOrdered,
+            'total_delivered'        => $totalDelivered,
+            'total_already_invoiced' => $totalAlreadyInvoiced,
+            'total_invoiceable'      => $totalInvoiceable,
+            'estimated_amount'       => $estimatedAmount,
+            'lines'                  => $lines,
         ];
     }
 
@@ -460,11 +475,11 @@ class CustomerInvoiceService
                 actorRole: $actor->role_id ?? 'finance',
                 documentType: 'customer_invoice',
                 documentId: $docId,
-                notes: "Penolakan pembuatan faktur SO {$so->id}: Delivered Qty = 0 (Kebijakan Delivered-Based SR-01 & SR-02)."
+                notes: "Penolakan pembuatan faktur SO {$so->id}: Delivered Qty = 0 (Kebijakan Delivered-Based)."
             );
 
             throw ValidationException::withMessages([
-                'delivery_policy' => "Pembuatan faktur untuk Sales Order {$so->id} ditolak (Aturan SR-01 & SR-02): Kuantitas barang yang telah dikirim (Delivered Qty) masih 0 unit. Faktur hanya boleh diterbitkan berdasarkan barang yang sudah terkirim.",
+                'delivery_policy' => "Pembuatan faktur untuk Sales Order {$so->id} ditolak: Kuantitas barang yang telah dikirim (Delivered Qty) masih 0 unit. Faktur hanya boleh diterbitkan berdasarkan barang yang sudah terkirim.",
             ]);
         }
 
@@ -504,7 +519,7 @@ class CustomerInvoiceService
                 );
 
                 throw ValidationException::withMessages([
-                    'delivery_policy' => "Kuantitas ditagih untuk {$sku} ({$requestedQty} unit) melebihi kuantitas terkirim yang belum ditagih ({$maxInvoiceable} unit dari total terkirim {$mLine['qty_delivered']} unit). Kebijakan Delivered-Based (SR-01 & SR-02) memblokir kelebihan penagihan.",
+                    'delivery_policy' => "Kuantitas ditagih untuk {$sku} ({$requestedQty} unit) melebihi kuantitas terkirim yang belum ditagih ({$maxInvoiceable} unit dari total terkirim {$mLine['qty_delivered']} unit). Kebijakan Delivered-Based memblokir kelebihan penagihan.",
                 ]);
             }
         }

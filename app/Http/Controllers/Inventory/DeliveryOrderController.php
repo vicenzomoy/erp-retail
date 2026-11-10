@@ -141,6 +141,7 @@ class DeliveryOrderController extends Controller
                 'id' => $do->sales_order_id,
                 'title' => "Pesanan Penjualan {$do->sales_order_id}",
                 'status' => $do->salesOrder?->status ?? 'confirmed',
+                'url' => route('sales.orders.show', $do->sales_order_id),
                 'info' => "Pelanggan: {$do->salesOrder?->customer?->name}",
             ];
         }
@@ -269,8 +270,7 @@ class DeliveryOrderController extends Controller
             'lines.*.qty_demand' => 'required|numeric|min:0.001',
         ]);
 
-        $doCount = DeliveryOrder::count() + 1;
-        $doId = sprintf('WH/OUT/%04d', $doCount);
+        $doId = $this->deliveryService->generateDeliveryId();
 
         $do = DeliveryOrder::create([
             'id' => $doId,

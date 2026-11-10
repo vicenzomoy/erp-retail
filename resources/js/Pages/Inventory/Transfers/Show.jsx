@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import InventoryLayout from '@/Layouts/InventoryLayout';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
@@ -16,9 +16,12 @@ import {
     Printer,
     DollarSign,
     MapPin,
+    Eye,
 } from 'lucide-react';
 
 export default function Show({ transfer, stockMoves = [], relatedDocs = [], auditLogs = [] }) {
+    const { auth } = usePage().props;
+    const isReadOnlyRole = ['procurement', 'sales'].includes(auth?.user?.role_id);
     const isDone = transfer.status === 'done';
 
     const { data, setData, post, processing, errors } = useForm({
@@ -77,15 +80,17 @@ export default function Show({ transfer, stockMoves = [], relatedDocs = [], audi
                     </Link>
 
                     {!isDone ? (
-                        <button
-                            type="button"
-                            onClick={handleValidate}
-                            disabled={processing}
-                            className="inline-flex items-center gap-1.5 rounded bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
-                        >
-                            <CheckCircle2 className="h-4 w-4" />
-                            {processing ? 'Memvalidasi...' : 'Validasi Transfer'}
-                        </button>
+                        !isReadOnlyRole && (
+                            <button
+                                type="button"
+                                onClick={handleValidate}
+                                disabled={processing}
+                                className="inline-flex items-center gap-1.5 rounded bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
+                            >
+                                <CheckCircle2 className="h-4 w-4" />
+                                {processing ? 'Memvalidasi...' : 'Validasi Transfer'}
+                            </button>
+                        )
                     ) : (
                         <span className="inline-flex items-center gap-1.5 rounded bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-semibold border border-emerald-300">
                             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />

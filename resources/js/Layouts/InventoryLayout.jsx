@@ -9,6 +9,7 @@ import {
     BarChart3,
     Activity,
     Warehouse,
+    RotateCcw,
     Menu,
     ChevronDown,
     Building2,
@@ -20,6 +21,7 @@ import {
     User,
     LogOut,
 } from 'lucide-react';
+import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
 
 export default function InventoryLayout({ title, breadcrumbs = [], children }) {
     const { auth, company, flash } = usePage().props;
@@ -60,6 +62,12 @@ export default function InventoryLayout({ title, breadcrumbs = [], children }) {
                     route: 'inventory.transfers.index',
                     icon: ArrowRightLeft,
                     active: route().current('inventory.transfers.*'),
+                },
+                {
+                    name: 'Inspeksi Retur (QC)',
+                    route: 'inventory.returns.index',
+                    icon: RotateCcw,
+                    active: route().current('inventory.returns.*'),
                 },
             ],
         },
@@ -182,82 +190,7 @@ export default function InventoryLayout({ title, breadcrumbs = [], children }) {
                 </div>
 
                 {/* Sisi Kanan: Company & User profile */}
-                <div className="flex items-center gap-2 sm:gap-4">
-                    {/* Company Badge */}
-                    <div className="hidden sm:flex items-center gap-1.5 rounded-sm bg-slate-800/80 px-2.5 py-1 text-xs text-slate-200 border border-slate-700/60">
-                        <Building2 className="h-3.5 w-3.5 text-amber-400" />
-                        <span className="font-medium truncate max-w-[170px]">
-                            {company?.name || 'PT Bara Ritel Nusantara'}
-                        </span>
-                    </div>
-
-                    {/* User Profile & Role Dropdown */}
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                            className="flex items-center gap-2 rounded-sm bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700 transition cursor-pointer"
-                        >
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-700 text-[11px] font-bold text-white uppercase">
-                                {auth?.user?.name ? auth.user.name.substring(0, 2) : 'WH'}
-                            </div>
-                            <span className="hidden md:inline font-medium text-slate-200 truncate max-w-[120px]">
-                                {auth?.user?.name || 'Warehouse User'}
-                            </span>
-                            <span className="hidden lg:inline text-[10px] bg-emerald-900/80 text-emerald-300 font-semibold px-1.5 py-0.5 rounded border border-emerald-700/50">
-                                {auth?.user?.role_name || 'Warehouse'}
-                            </span>
-                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-                        </button>
-
-                        {/* User Dropdown Menu */}
-                        {userDropdownOpen && (
-                            <>
-                                <div
-                                    className="fixed inset-0 z-40"
-                                    onClick={() => setUserDropdownOpen(false)}
-                                ></div>
-                                <div className="absolute right-0 mt-2 z-50 w-56 rounded-md bg-white p-2 shadow-xl ring-1 ring-black/5 border border-slate-200 text-slate-800">
-                                    <div className="border-b border-slate-100 px-3 py-2">
-                                        <p className="text-xs font-bold text-slate-900">
-                                            {auth?.user?.name}
-                                        </p>
-                                        <p className="text-[11px] text-slate-500 truncate">
-                                            {auth?.user?.email}
-                                        </p>
-                                        <span className="mt-1 inline-block text-[10px] font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
-                                            Role: {auth?.user?.role_name}
-                                        </span>
-                                    </div>
-
-                                    <div className="py-1">
-                                        <Link
-                                            href={route('profile.edit')}
-                                            onClick={() => setUserDropdownOpen(false)}
-                                            className="flex items-center gap-2 rounded px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 transition"
-                                        >
-                                            <User className="h-3.5 w-3.5 text-slate-400" />
-                                            Profil Saya
-                                        </Link>
-                                    </div>
-
-                                    <div className="border-t border-slate-100 pt-1">
-                                        <Link
-                                            href={route('logout')}
-                                            method="post"
-                                            as="button"
-                                            onClick={() => setUserDropdownOpen(false)}
-                                            className="flex w-full items-center gap-2 rounded px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                                        >
-                                            <LogOut className="h-3.5 w-3.5 text-rose-500" />
-                                            Log Out
-                                        </Link>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
+                <TopBarUserMenu />
             </header>
 
             {/* ========================================================= */}

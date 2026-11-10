@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import InventoryLayout from '@/Layouts/InventoryLayout';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
@@ -16,6 +16,7 @@ import {
     AlertTriangle,
     Printer,
     DollarSign,
+    Eye,
 } from 'lucide-react';
 
 export default function Show({
@@ -25,6 +26,8 @@ export default function Show({
     relatedDocs = [],
     auditLogs = [],
 }) {
+    const { auth } = usePage().props;
+    const isReadOnlyRole = ['procurement', 'sales'].includes(auth?.user?.role_id);
     // Form for partial or full delivery validation
     const { data, setData, post, processing, errors } = useForm({
         lines: delivery.lines.map((l) => ({
@@ -73,6 +76,23 @@ export default function Show({
         >
             <Head title={`Pengiriman ${delivery.id} — Bara Wear`} />
 
+            {/* Error Banner */}
+            {Object.keys(errors).length > 0 && (
+                <div className="mb-4 rounded-lg border border-rose-300 bg-rose-50 p-4 text-xs text-rose-800">
+                    <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-bold text-rose-900">Validasi Pengiriman Gagal:</p>
+                            <ul className="list-disc list-inside mt-1 space-y-0.5">
+                                {Object.values(errors).map((err, idx) => (
+                                    <li key={idx}>{err}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Odoo Form Action Header Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200">
                 <div className="flex items-center gap-2">
@@ -85,15 +105,17 @@ export default function Show({
                     </Link>
 
                     {!isDone ? (
-                        <button
-                            type="button"
-                            onClick={handleValidate}
-                            disabled={processing}
-                            className="inline-flex items-center gap-1.5 rounded bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
-                        >
-                            <CheckCircle2 className="h-4 w-4" />
-                            {processing ? 'Memvalidasi...' : 'Validasi Pengiriman'}
-                        </button>
+                        !isReadOnlyRole && (
+                            <button
+                                type="button"
+                                onClick={handleValidate}
+                                disabled={processing}
+                                className="inline-flex items-center gap-1.5 rounded bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
+                            >
+                                <CheckCircle2 className="h-4 w-4" />
+                                {processing ? 'Memvalidasi...' : 'Validasi Pengiriman'}
+                            </button>
+                        )
                     ) : (
                         <span className="inline-flex items-center gap-1.5 rounded bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-semibold border border-emerald-300">
                             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -174,9 +196,12 @@ export default function Show({
                     <div className="space-y-3">
                         <div className="flex items-baseline">
                             <span className="w-32 font-semibold text-slate-500">Sales Order Terkait:</span>
-                            <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                {delivery.sales_order_id}
-                            </span>
+                            <Link
+                                href={route('sales.orders.show', delivery.sales_order_id)}
+                                className="font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 transition"
+                            >
+                                {delivery.sales_order_id} &rarr;
+                            </Link>
                         </div>
                         <div className="flex items-baseline">
                             <span className="w-32 font-semibold text-slate-500">Pelanggan:</span>
@@ -282,7 +307,7 @@ export default function Show({
                                             {line.qty_demand} {line.unit}
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            {!isDone ? (
+                                            {!isDone && !isReadOnlyRole ? (
                                                 <input
                                                     type="number"
                                                     min="0"

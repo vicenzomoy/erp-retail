@@ -128,7 +128,7 @@ class RetailDatasetSeeder extends Seeder
         // 5. Tabel Dokumen Transaksi Awal
         DB::table('existing_documents')->insert([
             ['document_no' => 'L0007', 'document_type' => 'Lead', 'party' => 'C002', 'status' => 'New', 'variant_sku' => 'TSP-M-BLK', 'ordered_qty' => 2, 'reserved_qty' => 0, 'accepted_qty' => 0, 'financial_state' => 'No AR/no stock'],
-            ['document_no' => 'S00008', 'document_type' => 'Sales Order', 'party' => 'C005', 'status' => 'Confirmed', 'variant_sku' => 'TSP-M-BLK', 'ordered_qty' => 3, 'reserved_qty' => 3, 'accepted_qty' => 0, 'financial_state' => 'Uninvoiced; WH-PKU reservation'],
+            ['document_no' => 'SO0008', 'document_type' => 'Sales Order', 'party' => 'C005', 'status' => 'Confirmed', 'variant_sku' => 'TSP-M-BLK', 'ordered_qty' => 3, 'reserved_qty' => 3, 'accepted_qty' => 0, 'financial_state' => 'Uninvoiced; WH-PKU reservation'],
             ['document_no' => 'P00007', 'document_type' => 'Purchase Order', 'party' => 'V03', 'status' => 'Confirmed', 'variant_sku' => 'JNS-30-BLU', 'ordered_qty' => 10, 'reserved_qty' => 0, 'accepted_qty' => 0, 'financial_state' => 'No bill; no receipt'],
             ['document_no' => 'INV-OPEN01', 'document_type' => 'Customer Invoice', 'party' => 'C001', 'status' => 'Posted', 'variant_sku' => null, 'ordered_qty' => null, 'reserved_qty' => 0, 'accepted_qty' => 0, 'financial_state' => 'AR Rp2.500.000'],
             ['document_no' => 'BILL-OPEN01', 'document_type' => 'Vendor Bill', 'party' => 'V02', 'status' => 'Posted', 'variant_sku' => null, 'ordered_qty' => null, 'reserved_qty' => 0, 'accepted_qty' => 0, 'financial_state' => 'AP Rp5.000.000'],

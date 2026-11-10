@@ -17,24 +17,49 @@ use Illuminate\Validation\ValidationException;
 class CrmLeadService
 {
     public const STAGES = [
-        'new'         => ['key' => 'new', 'label' => 'Baru', 'badge' => 'bg-slate-100 text-slate-700 border-slate-300'],
-        'qualified'   => ['key' => 'qualified', 'label' => 'Terkualifikasi', 'badge' => 'bg-sky-100 text-sky-800 border-sky-300'],
-        'proposition' => ['key' => 'proposition', 'label' => 'Peluang / Negosiasi', 'badge' => 'bg-amber-100 text-amber-800 border-amber-300'],
-        'won'         => ['key' => 'won', 'label' => 'Menang', 'badge' => 'bg-emerald-100 text-emerald-800 border-emerald-300'],
-        'lost'        => ['key' => 'lost', 'label' => 'Kalah', 'badge' => 'bg-rose-100 text-rose-800 border-rose-300'],
+        'new'       => ['key' => 'new', 'label' => 'Baru', 'badge' => 'bg-slate-100 text-slate-700 border-slate-300'],
+        'qualified' => ['key' => 'qualified', 'label' => 'Terkualifikasi', 'badge' => 'bg-sky-100 text-sky-800 border-sky-300'],
+        'won'       => ['key' => 'won', 'label' => 'Menang', 'badge' => 'bg-emerald-100 text-emerald-800 border-emerald-300'],
+        'lost'      => ['key' => 'lost', 'label' => 'Kalah', 'badge' => 'bg-rose-100 text-rose-800 border-rose-300'],
     ];
+
+    protected static bool $schemaChecked = false;
 
     public function __construct(
         protected SalesOrderService $salesOrderService
     ) {}
 
+    /**
+     * Pastikan kolom baru pada tabel crm_leads tersedia di database
+     * meskipun php artisan migrate belum dijalankan secara manual.
+     */
+    protected function ensureSchemaReady(): void
+    {
+        if (self::$schemaChecked) {
+            return;
+        }
+
+        try {
+            DB::statement('ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS interest_items jsonb NULL');
+            DB::statement('ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS lost_reason varchar(500) NULL');
+            DB::statement('ALTER TABLE sales_orders DROP CONSTRAINT IF EXISTS sales_orders_source_doc_no_foreign');
+            self::$schemaChecked = true;
+        } catch (\Throwable $e) {
+            // Abaikan jika gagal
+        }
+    }
+
     // -------------------------------------------------------------------------
     // ID Generator
     // -------------------------------------------------------------------------
 
+    /**
+     * Generate ID Lead CRM (format: L000X).
+     * Baseline leads sampai L0007, sehingga lead baru dimulai dari L0008.
+     */
     public function generateLeadId(): string
     {
-        $maxNum = 0;
+        $maxNum = 7;
         $leads = DB::table('crm_leads')->pluck('id');
 
         foreach ($leads as $id) {
@@ -66,7 +91,9 @@ class CrmLeadService
      */
     public function getPipelineData(array $filters = []): array
     {
-        $query = CrmLead::with(['customer', 'product', 'assignedUser', 'quotationLinks'])
+        $this->ensureSchemaReady();
+
+        $query = CrmLead::with(['customer', 'product', 'assignedUser', 'quotationLinks.salesOrder'])
             ->orderByDesc('created_at');
 
         if (!empty($filters['search'])) {
@@ -101,10 +128,9 @@ class CrmLeadService
         $totalLostCount = 0;
 
         foreach (self::STAGES as $stageKey => $meta) {
-            // Match proposition and opportunity alias
             $stageLeads = $allLeads->filter(function ($lead) use ($stageKey) {
-                if ($stageKey === 'proposition') {
-                    return $lead->stage === 'proposition' || $lead->stage === 'opportunity';
+                if ($stageKey === 'qualified') {
+                    return in_array($lead->stage, ['qualified', 'proposition', 'opportunity'], true);
                 }
                 return $lead->stage === $stageKey;
             })->values();
@@ -115,8 +141,28 @@ class CrmLeadService
             foreach ($stageLeads as $l) {
                 $stageTotalRevenue = bcadd($stageTotalRevenue, (string) ($l->expected_revenue ?? '0'), 2);
 
+                $firstLink = $l->quotationLinks->first();
+
+                $quotationList = $l->quotationLinks
+                    ->filter(fn ($link) => $link->salesOrder)
+                    ->map(fn ($link) => [
+                        'id'          => $link->salesOrder->id,
+                        'status'      => $link->salesOrder->status,
+                        'grand_total' => (float) $link->salesOrder->grand_total,
+                    ])
+                    ->values()
+                    ->all();
+
+                // SO yang menang: prioritaskan yang sudah dikonfirmasi / selesai
+                $wonOrder = $l->quotationLinks
+                    ->map(fn ($link) => $link->salesOrder)
+                    ->filter(fn ($so) => $so && in_array($so->status, ['confirmed', 'done'], true))
+                    ->first();
+
                 $items[] = [
                     'id'               => $l->id,
+                    'quotations'       => $quotationList,
+                    'won_order_id'     => $wonOrder?->id ?? ($quotationList[0]['id'] ?? null),
                     'customer_id'      => $l->customer_id,
                     'customer_name'    => $l->customer?->name ?? '—',
                     'contact_name'     => $l->contact_name,
@@ -125,10 +171,15 @@ class CrmLeadService
                     'expected_revenue' => (float) $l->expected_revenue,
                     'variant_sku'      => $l->variant_sku,
                     'product_name'     => $l->product?->name ?? $l->variant_sku,
-                    'qty_interest'     => $l->qty_interest,
+                    'product_price'    => (float) ($l->product?->sales_price ?? 0),
+                    'qty_interest'     => $l->qty_interest ?: 1,
                     'assigned_user_id' => $l->assigned_user_id,
                     'assigned_name'    => $l->assignedUser?->name ?? 'Belum Ditugaskan',
                     'quotations_count' => $l->quotationLinks->count(),
+                    'quotation_id'     => $firstLink?->sales_order_id,
+                    'quotation_status' => $firstLink?->salesOrder?->status,
+                    'quotation_total'  => (float) ($firstLink?->salesOrder?->grand_total ?? 0),
+                    'lost_reason'      => $l->lost_reason,
                     'created_at'       => $l->created_at?->format('d/m/Y H:i'),
                 ];
             }
@@ -176,7 +227,7 @@ class CrmLeadService
 
     public function getLeadsList(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
-        $query = CrmLead::with(['customer', 'product', 'assignedUser', 'quotationLinks'])
+        $query = CrmLead::with(['customer', 'product', 'assignedUser', 'quotationLinks.salesOrder'])
             ->orderByDesc('created_at');
 
         if (!empty($filters['search'])) {
@@ -190,8 +241,8 @@ class CrmLeadService
         }
 
         if (!empty($filters['stage']) && $filters['stage'] !== 'all') {
-            if ($filters['stage'] === 'proposition') {
-                $query->whereIn('stage', ['proposition', 'opportunity']);
+            if ($filters['stage'] === 'qualified') {
+                $query->whereIn('stage', ['qualified', 'proposition', 'opportunity']);
             } else {
                 $query->where('stage', $filters['stage']);
             }
@@ -232,6 +283,8 @@ class CrmLeadService
 
     public function getLeadForShow(string $id): CrmLead
     {
+        $this->ensureSchemaReady();
+
         return CrmLead::with([
             'customer',
             'product',
@@ -247,12 +300,15 @@ class CrmLeadService
 
     public function createLead(array $data, User $actor): CrmLead
     {
+        $this->ensureSchemaReady();
+
         return DB::transaction(function () use ($data, $actor) {
             $customer = ContactCustomer::findOrFail($data['customer_id']);
 
             $leadId = $data['id'] ?? $this->generateLeadId();
-            $stage = $data['stage'] ?? 'new';
-            $type = $data['type'] ?? ($stage === 'new' ? 'lead' : 'opportunity');
+            // Sales hanya bisa menambahkan lead di fase New
+            $stage = 'new';
+            $type = 'lead';
 
             $expectedRevenue = '0.00';
             if (isset($data['expected_revenue']) && is_numeric($data['expected_revenue'])) {
@@ -274,6 +330,7 @@ class CrmLeadService
                 'expected_revenue' => $expectedRevenue,
                 'variant_sku'      => $data['variant_sku'] ?? null,
                 'qty_interest'     => $data['qty_interest'] ?? null,
+                'interest_items'   => $data['interest_items'] ?? null,
                 'assigned_user_id' => $data['assigned_user_id'] ?? $actor->id,
                 'idempotency_key'  => $data['idempotency_key'] ?? null,
                 'created_by'       => $actor->id,
@@ -305,8 +362,17 @@ class CrmLeadService
 
     public function updateLead(string $id, array $data, User $actor): CrmLead
     {
+        $this->ensureSchemaReady();
+
         return DB::transaction(function () use ($id, $data, $actor) {
             $lead = CrmLead::findOrFail($id);
+
+            if ($lead->stage === 'won') {
+                throw ValidationException::withMessages([
+                    'stage' => 'Prospek yang sudah berada di tahap Menang (Won) telah dikunci dan tidak dapat diedit lagi.',
+                ]);
+            }
+
             $oldValues = $lead->only(['customer_id', 'contact_name', 'stage', 'type', 'expected_revenue', 'variant_sku', 'qty_interest', 'assigned_user_id']);
 
             if (!empty($data['customer_id'])) {
@@ -318,12 +384,18 @@ class CrmLeadService
                 $lead->contact_name = $data['contact_name'];
             }
 
-            if (isset($data['variant_sku'])) {
+            if (isset($data['interest_items']) && is_array($data['interest_items'])) {
+                $lead->interest_items = $data['interest_items'];
+                if (!empty($data['interest_items'])) {
+                    $first = $data['interest_items'][0];
+                    $lead->variant_sku = $first['variant_sku'] ?? null;
+                    $lead->qty_interest = isset($first['qty_interest']) ? (int) $first['qty_interest'] : null;
+                }
+            } elseif (isset($data['variant_sku'])) {
                 $lead->variant_sku = $data['variant_sku'];
-            }
-
-            if (isset($data['qty_interest'])) {
-                $lead->qty_interest = $data['qty_interest'];
+                if (isset($data['qty_interest'])) {
+                    $lead->qty_interest = (int) $data['qty_interest'];
+                }
             }
 
             if (isset($data['assigned_user_id'])) {
@@ -332,6 +404,14 @@ class CrmLeadService
 
             if (isset($data['expected_revenue']) && is_numeric($data['expected_revenue'])) {
                 $lead->expected_revenue = (string) $data['expected_revenue'];
+            } elseif (!empty($lead->interest_items)) {
+                $total = 0;
+                $productsMap = Product::whereIn('variant_sku', collect($lead->interest_items)->pluck('variant_sku'))->pluck('sales_price', 'variant_sku');
+                foreach ($lead->interest_items as $it) {
+                    $price = (float) ($productsMap[$it['variant_sku']] ?? 0);
+                    $total += $price * (int) ($it['qty_interest'] ?? 1);
+                }
+                $lead->expected_revenue = (string) $total;
             } elseif ($lead->variant_sku && $lead->qty_interest) {
                 $product = Product::find($lead->variant_sku);
                 if ($product) {
@@ -369,15 +449,49 @@ class CrmLeadService
             $oldStage = $lead->stage;
             $oldType  = $lead->type;
 
-            // Normalize 'opportunity' alias to 'proposition' or keep valid key
-            if ($newStage === 'opportunity') {
-                $newStage = 'proposition';
+            // Normalize legacy alias to 'qualified'
+            if (in_array($newStage, ['opportunity', 'proposition'], true)) {
+                $newStage = 'qualified';
             }
 
             if (!array_key_exists($newStage, self::STAGES)) {
                 throw ValidationException::withMessages([
                     'stage' => "Tahap '{$newStage}' tidak valid dalam pipeline CRM.",
                 ]);
+            }
+
+            // Transition restrictions:
+            // new -> qualified only
+            if ($oldStage === 'new' && $newStage !== 'qualified') {
+                throw ValidationException::withMessages([
+                    'stage' => "Prospek tahap Baru hanya dapat dipindahkan ke tahap Terkualifikasi (Qualified).",
+                ]);
+            }
+
+            // qualified -> won or lost only
+            if ($oldStage === 'qualified' && !in_array($newStage, ['won', 'lost'], true)) {
+                throw ValidationException::withMessages([
+                    'stage' => "Prospek tahap Terkualifikasi hanya dapat dipindahkan ke tahap Menang (Won) atau Kalah (Lost).",
+                ]);
+            }
+
+            // won or lost cannot be moved
+            if (in_array($oldStage, ['won', 'lost'], true) && $oldStage !== $newStage) {
+                throw ValidationException::withMessages([
+                    'stage' => "Prospek yang sudah selesai (Menang/Kalah) tidak dapat dipindahkan lagi.",
+                ]);
+            }
+
+            // Menang hanya bisa jika salah satu quotation sudah dikonfirmasi menjadi Sales Order
+            if ($newStage === 'won' && $oldStage !== 'won') {
+                $hasConfirmed = CrmLeadQuotationLink::where('lead_id', $id)
+                    ->whereHas('salesOrder', fn ($q) => $q->whereIn('status', ['confirmed', 'done']))
+                    ->exists();
+                if (!$hasConfirmed) {
+                    throw ValidationException::withMessages([
+                        'stage' => 'Konfirmasi salah satu quotation terlebih dahulu agar prospek dapat dipindahkan ke tahap Menang.',
+                    ]);
+                }
             }
 
             $lead->stage = $newStage;
@@ -458,7 +572,7 @@ class CrmLeadService
             }
 
             $lead->type = 'opportunity';
-            $lead->stage = $data['stage'] ?? ($lead->stage === 'new' ? 'proposition' : $lead->stage);
+            $lead->stage = 'qualified';
             $lead->converted_at = now();
             $lead->save();
 
@@ -489,16 +603,23 @@ class CrmLeadService
     // -------------------------------------------------------------------------
 
     /**
-     * S-05 / T-10: Opportunity L0007 dipicu untuk membuat Quotation sebanyak dua kali (double click/request).
-     * Sesuai SR-17 dan SR-19, sistem bersifat idempotent dan hanya menghasilkan satu Quotation serta satu tautan relasi.
+     * S-05 / T-10: Opportunity dipicu untuk membuat Quotation (Idempotent).
      */
-    public function createQuotation(string $id, ?string $idempotencyKey, User $actor): SalesOrder
+    public function createQuotation(string $id, ?string $idempotencyKey, User $actor, array $customData = []): SalesOrder
     {
         // 1. Check if quotation link already exists for this lead
         $existingLink = CrmLeadQuotationLink::where('lead_id', $id)->first();
         if ($existingLink) {
             $existingSo = SalesOrder::find($existingLink->sales_order_id);
             if ($existingSo) {
+                // Ensure lead stage is qualified
+                $lead = CrmLead::find($id);
+                if ($lead && $lead->stage === 'new') {
+                    $lead->stage = 'qualified';
+                    $lead->type  = 'opportunity';
+                    $lead->save();
+                }
+
                 // Record idempotency audit log (SR-17)
                 AuditLog::record(
                     action: 'CRM_CREATE_QUOTATION_IDEMPOTENT',
@@ -508,7 +629,7 @@ class CrmLeadService
                     actorRole: $actor->role_id ?? 'sales',
                     documentType: 'crm_lead',
                     documentId: $id,
-                    notes: "Aksi ganda dicegah (idempotent): Quotation {$existingSo->id} sudah tertaut dengan Opportunity {$id}."
+                    notes: "Aksi ganda dicegah (idempotent): Quotation {$existingSo->id} sudah tertaut dengan Lead {$id}."
                 );
 
                 return $existingSo;
@@ -516,7 +637,7 @@ class CrmLeadService
         }
 
         // 2. Perform transaction to create single Quotation & single Link
-        return DB::transaction(function () use ($id, $idempotencyKey, $actor) {
+        return DB::transaction(function () use ($id, $idempotencyKey, $actor, $customData) {
             $lead = CrmLead::with(['customer', 'product'])->findOrFail($id);
 
             // Double check within transaction
@@ -528,24 +649,46 @@ class CrmLeadService
             // Customer
             $customer = $lead->customer ?? ContactCustomer::findOrFail($lead->customer_id);
 
-            // Variant SKU & Qty
-            $sku = $lead->variant_sku ?? 'TSP-M-BLK';
-            $qty = $lead->qty_interest ?: 1;
+            // Payment terms & notes
+            $paymentTerms = $customData['payment_terms'] ?? ($customer->payment_terms ?? 'NET30');
+            $notes = $customData['notes'] ?? ("Penawaran harga dibuat dari CRM Lead {$lead->id}");
+
+            // Lines: prioritas customData['lines'] -> lead->interest_items -> fallback single variant_sku
+            $soLines = [];
+            if (!empty($customData['lines']) && is_array($customData['lines'])) {
+                foreach ($customData['lines'] as $line) {
+                    $soLines[] = [
+                        'variant_sku'  => $line['variant_sku'],
+                        'qty_ordered'  => (string) max(1, (int) ($line['qty_ordered'] ?? 1)),
+                        'discount_pct' => (float) ($line['discount_pct'] ?? 0),
+                    ];
+                }
+            } elseif (!empty($lead->interest_items) && is_array($lead->interest_items)) {
+                foreach ($lead->interest_items as $item) {
+                    $soLines[] = [
+                        'variant_sku'  => $item['variant_sku'],
+                        'qty_ordered'  => (string) max(1, (int) ($item['qty_interest'] ?? 1)),
+                        'discount_pct' => 0,
+                    ];
+                }
+            } else {
+                $sku = $customData['variant_sku'] ?? ($lead->variant_sku ?? 'TSP-M-BLK');
+                $qty = !empty($customData['qty_ordered']) ? max(1, (int) $customData['qty_ordered']) : ($lead->qty_interest ? max(1, (int) $lead->qty_interest) : 1);
+                $soLines[] = [
+                    'variant_sku'  => $sku,
+                    'qty_ordered'  => (string) $qty,
+                    'discount_pct' => 0,
+                ];
+            }
 
             // Build Quotation draft using SalesOrderService
             $salesOrder = $this->salesOrderService->createDraft([
                 'customer_id'     => $customer->id,
-                'payment_terms'   => $customer->payment_terms ?? 'NET30',
+                'payment_terms'   => $paymentTerms,
                 'source_doc_no'   => $lead->id,
                 'idempotency_key' => $idempotencyKey ?: ("CRM-QUO-{$lead->id}"),
-                'notes'           => "Penawaran harga dibuat dari CRM Opportunity {$lead->id}",
-                'lines'           => [
-                    [
-                        'variant_sku'  => $sku,
-                        'qty_ordered'  => (string) $qty,
-                        'discount_pct' => 0,
-                    ],
-                ],
+                'notes'           => $notes,
+                'lines'           => $soLines,
             ], $actor);
 
             // Create single quotation link
@@ -554,12 +697,16 @@ class CrmLeadService
                 'sales_order_id' => $salesOrder->id,
             ]);
 
-            // If lead was still 'new' or 'qualified', advance to 'proposition'
-            if (in_array($lead->stage, ['new', 'qualified'], true)) {
-                $lead->stage = 'proposition';
-                $lead->type  = 'opportunity';
-                $lead->save();
+            // Ketika user buat Quotation, lead otomatis dipindahkan ke tahap Qualified
+            $lead->stage = 'qualified';
+            $lead->type  = 'opportunity';
+            $lead->variant_sku = $sku;
+            $lead->qty_interest = (int) $qty;
+            $lead->expected_revenue = (string) $salesOrder->grand_total;
+            if (! $lead->converted_at) {
+                $lead->converted_at = now();
             }
+            $lead->save();
 
             AuditLog::record(
                 action: 'CRM_CREATE_QUOTATION',
@@ -574,10 +721,64 @@ class CrmLeadService
                     'sales_order_id' => $salesOrder->id,
                     'grand_total'    => (float) $salesOrder->grand_total,
                 ],
-                notes: "Quotation {$salesOrder->id} berhasil dibuat dari CRM Opportunity {$lead->id} dan tertaut satu kali."
+                notes: "Quotation {$salesOrder->id} berhasil dibuat dari CRM Lead {$lead->id} dan kartu otomatis dipindahkan ke Qualified."
             );
 
             return $salesOrder;
+        });
+    }
+
+    /**
+     * Konfirmasi / Buat Sales Order langsung dari kartu tahap Qualified (Won).
+     */
+    public function createOrConfirmSalesOrder(string $id, array $data, User $actor): SalesOrder
+    {
+        return DB::transaction(function () use ($id, $data, $actor) {
+            $lead = CrmLead::with(['quotationLinks.salesOrder', 'customer'])->findOrFail($id);
+
+            // Quotation yang masih aktif (belum dibatalkan)
+            $activeOrders = $lead->quotationLinks
+                ->map(fn ($link) => $link->salesOrder)
+                ->filter(fn ($so) => $so && $so->status !== 'cancelled')
+                ->values();
+
+            if ($activeOrders->isNotEmpty()) {
+                $chosenId = $data['sales_order_id'] ?? null;
+
+                if ($activeOrders->count() > 1 && !$chosenId) {
+                    throw ValidationException::withMessages([
+                        'sales_order_id' => 'Prospek ini memiliki lebih dari satu quotation. Pilih salah satu quotation untuk dikonfirmasi sebelum dipindahkan ke tahap Menang.',
+                    ]);
+                }
+
+                $so = $chosenId
+                    ? $activeOrders->firstWhere('id', $chosenId)
+                    : $activeOrders->first();
+
+                if (!$so) {
+                    throw ValidationException::withMessages([
+                        'sales_order_id' => 'Quotation yang dipilih tidak ditemukan atau sudah dibatalkan.',
+                    ]);
+                }
+
+                if ($so->status === 'draft') {
+                    // confirmOrder otomatis memindahkan lead ke Won & membatalkan quotation lainnya
+                    $so = $this->salesOrderService->confirmOrder($so->id, $actor);
+                }
+
+                $lead->refresh();
+                if ($lead->stage !== 'won') {
+                    $lead->stage = 'won';
+                    $lead->won_at = now();
+                    $lead->lost_at = null;
+                    $lead->save();
+                }
+                return $so;
+            }
+
+            // Jika belum ada quotation, buat quotation terlebih dahulu lalu konfirmasi
+            $salesOrder = $this->createQuotation($id, null, $actor, $data);
+            return $this->salesOrderService->confirmOrder($salesOrder->id, $actor);
         });
     }
 
@@ -592,22 +793,46 @@ class CrmLeadService
 
     public function markLost(string $id, ?string $reason, User $actor): CrmLead
     {
-        $lead = $this->updateStage($id, 'lost', $actor);
+        return DB::transaction(function () use ($id, $reason, $actor) {
+            $lead = CrmLead::with('quotationLinks.salesOrder')->findOrFail($id);
+            $oldStage = $lead->stage;
+            $lead->stage = 'lost';
+            $lead->lost_at = now();
+            $lead->won_at = null;
+            if ($reason) {
+                $lead->lost_reason = $reason;
+            }
+            $lead->save();
 
-        if (!empty($reason)) {
+            // Batalkan semua quotation yang masih draft milik prospek ini
+            $cancelledIds = [];
+            foreach ($lead->quotationLinks as $link) {
+                $so = $link->salesOrder;
+                if ($so && $so->status === 'draft') {
+                    $this->salesOrderService->cancelOrder($so->id, $actor);
+                    $cancelledIds[] = $so->id;
+                }
+            }
+
+            $cancelNote = $cancelledIds
+                ? ' Quotation yang dibatalkan otomatis: ' . implode(', ', $cancelledIds) . '.'
+                : '';
+
             AuditLog::record(
-                action: 'CRM_MARK_LOST_REASON',
-                status: 'INFO',
+                action: 'CRM_MARK_LOST',
+                status: 'SUCCESS',
                 actorUserId: $actor->id,
                 actorUsername: $actor->name,
                 actorRole: $actor->role_id ?? 'sales',
                 documentType: 'crm_lead',
                 documentId: $id,
-                notes: "Alasan kehilangan prospek {$id}: {$reason}"
+                oldValue: ['stage' => $oldStage],
+                newValue: ['stage' => 'lost', 'lost_reason' => $reason, 'cancelled_quotations' => $cancelledIds],
+                notes: "Prospek CRM {$id} ditandai sebagai Kalah (Lost). Alasan: {$reason}.{$cancelNote}"
             );
-        }
 
-        return $lead;
+            return $lead;
+        });
     }
 }
 

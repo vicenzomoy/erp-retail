@@ -36,10 +36,10 @@ class AppInitialSeeder extends Seeder
     {
         // 1. Roles
         $roles = [
-            ['id' => 'owner', 'display_name' => 'Owner / Pemilik', 'description' => 'Akses penuh ke seluruh modul sistem'],
+            ['id' => 'owner', 'display_name' => 'Owner', 'description' => 'Akses penuh ke seluruh modul sistem'],
             ['id' => 'sales', 'display_name' => 'Sales', 'description' => 'Akses ke modul CRM dan Sales Order'],
             ['id' => 'warehouse', 'display_name' => 'Warehouse', 'description' => 'Akses ke modul Inventory, Pengiriman, Penerimaan dan Transfer'],
-            ['id' => 'finance', 'display_name' => 'Finance & Accounting', 'description' => 'Akses ke Faktur, Pembayaran, dan Buku Besar'],
+            ['id' => 'finance', 'display_name' => 'Finance', 'description' => 'Akses ke Faktur, Pembayaran, dan Buku Besar'],
             ['id' => 'cashier', 'display_name' => 'Cashier', 'description' => 'Akses operasional Point of Sale'],
             ['id' => 'procurement', 'display_name' => 'Procurement', 'description' => 'Akses ke Pembelian dan Vendor'],
         ];
@@ -67,6 +67,16 @@ class AppInitialSeeder extends Seeder
             // Finance permissions
             ['role_id' => 'finance', 'module' => 'accounting', 'action' => 'post_gl', 'is_allowed' => true],
             ['role_id' => 'finance', 'module' => 'sales', 'action' => 'edit_credit_limit', 'is_allowed' => true],
+            // Procurement permissions for inventory (read-only on overview, receipts, products, forecast, moves)
+            ['role_id' => 'procurement', 'module' => 'inventory', 'action' => 'view_overview', 'is_allowed' => true],
+            ['role_id' => 'procurement', 'module' => 'inventory', 'action' => 'view_receipts', 'is_allowed' => true],
+            ['role_id' => 'procurement', 'module' => 'inventory', 'action' => 'view_products', 'is_allowed' => true],
+            ['role_id' => 'procurement', 'module' => 'inventory', 'action' => 'view_forecast', 'is_allowed' => true],
+            ['role_id' => 'procurement', 'module' => 'inventory', 'action' => 'view_moves', 'is_allowed' => true],
+            ['role_id' => 'procurement', 'module' => 'inventory', 'action' => 'deliveries', 'is_allowed' => false],
+            ['role_id' => 'procurement', 'module' => 'inventory', 'action' => 'transfers', 'is_allowed' => false],
+            ['role_id' => 'procurement', 'module' => 'inventory', 'action' => 'locations', 'is_allowed' => false],
+            ['role_id' => 'procurement', 'module' => 'inventory', 'action' => 'validate_receipt', 'is_allowed' => false],
         ];
 
         foreach ($permissions as $p) {
@@ -79,42 +89,42 @@ class AppInitialSeeder extends Seeder
         // 3. Demo Users
         $users = [
             [
-                'name' => 'Budi Santoso (Gudang)',
+                'name' => 'Budi Santoso',
                 'email' => 'warehouse.demo@barawear.com',
                 'password' => Hash::make('password'),
                 'role_id' => 'warehouse',
                 'is_active' => true,
             ],
             [
-                'name' => 'Siti Rahma (Sales)',
+                'name' => 'Siti Rahma',
                 'email' => 'sales.demo@barawear.com',
                 'password' => Hash::make('password'),
                 'role_id' => 'sales',
                 'is_active' => true,
             ],
             [
-                'name' => 'Doni Hendra (Keuangan)',
+                'name' => 'Doni Hendra',
                 'email' => 'finance.demo@barawear.com',
                 'password' => Hash::make('password'),
                 'role_id' => 'finance',
                 'is_active' => true,
             ],
             [
-                'name' => 'Maya Sari (Kasir)',
+                'name' => 'Maya Sari',
                 'email' => 'cashier.demo@barawear.com',
                 'password' => Hash::make('password'),
                 'role_id' => 'cashier',
                 'is_active' => true,
             ],
             [
-                'name' => 'Ahmad Reza (Pengadaan)',
+                'name' => 'Ahmad Reza',
                 'email' => 'procurement.demo@barawear.com',
                 'password' => Hash::make('password'),
                 'role_id' => 'procurement',
                 'is_active' => true,
             ],
             [
-                'name' => 'H. Bara Pratama (Owner)',
+                'name' => 'H. Bara Pratama',
                 'email' => 'owner.demo@barawear.com',
                 'password' => Hash::make('password'),
                 'role_id' => 'owner',
@@ -128,6 +138,7 @@ class AppInitialSeeder extends Seeder
 
         $warehouseUser = User::where('role_id', 'warehouse')->first() ?? User::first();
         $salesUser = User::where('role_id', 'sales')->first() ?? User::first();
+        $procurementUser = User::where('role_id', 'procurement')->first() ?? $warehouseUser;
 
         // 4. Initialize stock_ledger from opening_stock baseline if empty
         if (StockLedger::count() === 0) {
@@ -173,11 +184,13 @@ class AppInitialSeeder extends Seeder
             }
         }
 
-        // 5. Existing Document S00008 (Sales Order C005, 3 TSP-M-BLK Reserved at WH-PKU)
+        // 5. Existing Document SO0008 (Sales Order C005, 3 TSP-M-BLK Reserved at WH-PKU)
+        DB::table('existing_documents')->where('document_no', 'S00008')->update(['document_no' => 'SO0008']);
+
         $so8 = SalesOrder::firstOrCreate(
-            ['id' => 'S00008'],
+            ['id' => 'SO0008'],
             [
-                'source_doc_no' => 'S00008',
+                'source_doc_no' => 'SO0008',
                 'customer_id' => 'C005',
                 'status' => 'confirmed',
                 'credit_hold' => false,
@@ -189,12 +202,12 @@ class AppInitialSeeder extends Seeder
                 'confirmed_at' => now(),
                 'confirmed_by' => $salesUser->id,
                 'created_by' => $salesUser->id,
-                'notes' => 'Existing Sales Order S00008 (Baseline)',
+                'notes' => 'Existing Sales Order SO0008 (Baseline)',
             ]
         );
 
         $so8Line = SalesOrderLine::firstOrCreate(
-            ['sales_order_id' => 'S00008', 'variant_sku' => 'TSP-M-BLK'],
+            ['sales_order_id' => 'SO0008', 'variant_sku' => 'TSP-M-BLK'],
             [
                 'qty_ordered' => 3,
                 'qty_delivered' => 0,
@@ -209,9 +222,9 @@ class AppInitialSeeder extends Seeder
             ]
         );
 
-        // Reserve 3 units for S00008 at WH-PKU
+        // Reserve 3 units for SO0008 at WH-PKU
         StockReservation::firstOrCreate(
-            ['sales_order_id' => 'S00008', 'so_line_id' => $so8Line->id],
+            ['sales_order_id' => 'SO0008', 'so_line_id' => $so8Line->id],
             [
                 'variant_sku' => 'TSP-M-BLK',
                 'location_code' => 'WH-PKU',
@@ -221,11 +234,15 @@ class AppInitialSeeder extends Seeder
             ]
         );
 
+        // Generate baseline Delivery Order for SO0008 (WH-PKU/OUT/0001)
+        $deliveryService = app(\App\Services\Inventory\DeliveryOrderService::class);
+        $deliveryService->createFromSalesOrder($so8, $salesUser, 'WH-PKU');
+
         // Update existing document P00007 -> PO0007
         DB::table('existing_documents')->where('document_no', 'P00007')->update(['document_no' => 'PO0007']);
 
         // 6. Existing Document PO0007 (PO V03, 10 JNS-30-BLU @ 168.000)
-        PurchaseOrder::firstOrCreate(
+        $po7 = PurchaseOrder::firstOrCreate(
             ['id' => 'PO0007'],
             [
                 'source_doc_no' => 'PO0007',
@@ -255,6 +272,10 @@ class AppInitialSeeder extends Seeder
                 'line_total' => 1864800,
             ]
         );
+
+        // Generate baseline Receipt for PO0007 (WH-PKU/IN/0001)
+        $poService = app(\App\Services\Purchase\PurchaseOrderService::class);
+        $poService->ensureReceiptCreated($po7, $warehouseUser);
 
         $financeUser = User::where('role_id', 'finance')->first() ?? $salesUser;
 
@@ -356,86 +377,6 @@ class AppInitialSeeder extends Seeder
                 'converted_at' => null,
                 'won_at' => null,
                 'lost_at' => null,
-            ],
-            [
-                'id' => 'L0001',
-                'source_doc_no' => 'L0001',
-                'customer_id' => 'C001',
-                'contact_name' => 'Bpk. Budi Siregar',
-                'stage' => 'new',
-                'type' => 'lead',
-                'expected_revenue' => 795000.00,
-                'variant_sku' => 'TSP-M-WHT',
-                'qty_interest' => 5,
-                'assigned_user_id' => $salesUser->id,
-                'created_by' => $salesUser->id,
-                'converted_at' => null,
-                'won_at' => null,
-                'lost_at' => null,
-            ],
-            [
-                'id' => 'L0002',
-                'source_doc_no' => 'L0002',
-                'customer_id' => 'C003',
-                'contact_name' => 'Ibu Melati',
-                'stage' => 'qualified',
-                'type' => 'opportunity',
-                'expected_revenue' => 1590000.00,
-                'variant_sku' => 'TSP-L-BLK',
-                'qty_interest' => 10,
-                'assigned_user_id' => $salesUser->id,
-                'created_by' => $salesUser->id,
-                'converted_at' => now()->subDays(2),
-                'won_at' => null,
-                'lost_at' => null,
-            ],
-            [
-                'id' => 'L0003',
-                'source_doc_no' => 'L0003',
-                'customer_id' => 'C004',
-                'contact_name' => 'Bpk. Ahmad Fauzi',
-                'stage' => 'proposition',
-                'type' => 'opportunity',
-                'expected_revenue' => 1047000.00,
-                'variant_sku' => 'JKT-M-CRM',
-                'qty_interest' => 3,
-                'assigned_user_id' => $salesUser->id,
-                'created_by' => $salesUser->id,
-                'converted_at' => now()->subDays(3),
-                'won_at' => null,
-                'lost_at' => null,
-            ],
-            [
-                'id' => 'L0004',
-                'source_doc_no' => 'L0004',
-                'customer_id' => 'C005',
-                'contact_name' => 'Bpk. Hendra Saputra',
-                'stage' => 'won',
-                'type' => 'opportunity',
-                'expected_revenue' => 477000.00,
-                'variant_sku' => 'TSP-M-BLK',
-                'qty_interest' => 3,
-                'assigned_user_id' => $salesUser->id,
-                'created_by' => $salesUser->id,
-                'converted_at' => now()->subDays(4),
-                'won_at' => now()->subDay(),
-                'lost_at' => null,
-            ],
-            [
-                'id' => 'L0005',
-                'source_doc_no' => 'L0005',
-                'customer_id' => 'C002',
-                'contact_name' => 'Bpk. Eko Prasetyo',
-                'stage' => 'lost',
-                'type' => 'lead',
-                'expected_revenue' => 129000.00,
-                'variant_sku' => 'BAG-OS-BLK',
-                'qty_interest' => 1,
-                'assigned_user_id' => $salesUser->id,
-                'created_by' => $salesUser->id,
-                'converted_at' => null,
-                'won_at' => null,
-                'lost_at' => now()->subDay(),
             ],
         ];
 
