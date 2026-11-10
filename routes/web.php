@@ -22,7 +22,6 @@ use App\Http\Controllers\Inventory\ReturnInspectionController;
 use App\Http\Controllers\Inventory\StockReportingController;
 use App\Http\Controllers\Inventory\WarehouseLocationController;
 use App\Http\Controllers\Pos\PosController;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Purchase\PurchaseOrderController;
 use App\Http\Controllers\Purchase\PurchaseOverviewController;
 use App\Http\Controllers\Purchase\PurchaseProductController;
@@ -218,10 +217,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/payments', [PaymentController::class, 'store'])->name('payments.store');
         Route::get('/payments/{id}', [PaymentController::class, 'show'])->where('id', '.+')->name('payments.show');
     });
-
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // Log Notes / Chatter Footer (Odoo Pattern — dapat dipakai lintas modul oleh seluruh peran terautentikasi)
     Route::post('/inventory/log-notes', [LogNoteController::class, 'store'])->name('inventory.log-notes.store');

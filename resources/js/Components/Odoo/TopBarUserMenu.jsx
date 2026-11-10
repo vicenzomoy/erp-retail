@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { Building2, ChevronDown, User, LogOut } from 'lucide-react';
+import { Building2, ChevronDown, LogOut } from 'lucide-react';
 
 /**
  * Komponen Sisi Kanan Top Navbar Odoo 17 (Company Badge + User & Role Dropdown).
@@ -65,18 +65,7 @@ export default function TopBarUserMenu() {
                                     </span>
                                 </div>
 
-                                <div className="py-1">
-                                    <Link
-                                        href={route('profile.edit')}
-                                        onClick={() => setOpen(false)}
-                                        className="flex items-center gap-2 rounded px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 transition"
-                                    >
-                                        <User className="h-3.5 w-3.5 text-slate-400" />
-                                        Profil Saya
-                                    </Link>
-                                </div>
-
-                                <div className="border-t border-slate-100 pt-1">
+                                <div className="pt-1">
                                     <Link
                                         href={route('logout')}
                                         method="post"
