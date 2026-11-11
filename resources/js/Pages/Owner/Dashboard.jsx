@@ -109,33 +109,45 @@ export default function OwnerDashboard({
                     </div>
                 </div>
 
-                {/* 6 High-Level Executive KPI Cards */}
+                {/* 6 High-Level Executive KPI Cards (Interactive Drill-down Links) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                     {/* 1. Pendapatan Hari Ini */}
-                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-slate-300 transition">
+                    <Link
+                        href={route('owner.reports.omset-today')}
+                        className="group block bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-emerald-400 hover:shadow-md transition cursor-pointer"
+                        title="Klik untuk melihat rincian barang yang dijual dan PT yang membeli hari ini"
+                    >
                         <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Omset Hari Ini</span>
-                            <div className="p-1.5 rounded-md bg-emerald-50 text-emerald-600">
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 group-hover:text-emerald-700 transition">Omset Hari Ini</span>
+                            <div className="p-1.5 rounded-md bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition">
                                 <DollarSign className="h-4 w-4" />
                             </div>
                         </div>
-                        <p className="text-2xl font-bold text-slate-900 mt-2">
+                        <p className="text-2xl font-bold text-slate-900 mt-2 group-hover:text-emerald-700 transition">
                             {formatRp(kpis.today_revenue)}
                         </p>
                         <p className="text-[11px] text-slate-500 mt-1">
                             Kombinasi POS Kasir &amp; SO
                         </p>
-                    </div>
+                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 group-hover:text-emerald-700 font-semibold transition">
+                            <span>Rincian Barang &amp; PT</span>
+                            <ArrowUpRight className="h-3 w-3 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
+                        </div>
+                    </Link>
 
                     {/* 2. Pendapatan Bulan Ini (MTD) */}
-                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-slate-300 transition">
+                    <Link
+                        href={route('owner.reports.omset-month')}
+                        className="group block bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-blue-400 hover:shadow-md transition cursor-pointer"
+                        title="Klik untuk melihat omset bulan ini dikelompokkan per bulan, barang, dan PT"
+                    >
                         <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Omset Bulan Ini</span>
-                            <div className="p-1.5 rounded-md bg-blue-50 text-blue-600">
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 group-hover:text-blue-700 transition">Omset Bulan Ini</span>
+                            <div className="p-1.5 rounded-md bg-blue-50 text-blue-600 group-hover:bg-blue-100 transition">
                                 <BarChart3 className="h-4 w-4" />
                             </div>
                         </div>
-                        <p className="text-2xl font-bold text-slate-900 mt-2">
+                        <p className="text-2xl font-bold text-slate-900 mt-2 group-hover:text-blue-700 transition">
                             {formatRp(kpis.mtd_revenue)}
                         </p>
                         <div className="flex items-center gap-1 mt-1">
@@ -152,71 +164,107 @@ export default function OwnerDashboard({
                             )}
                             <span className="text-[10px] text-slate-400">vs bulan lalu</span>
                         </div>
-                    </div>
+                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 group-hover:text-blue-700 font-semibold transition">
+                            <span>Rincian Bulanan &amp; PT</span>
+                            <ArrowUpRight className="h-3 w-3 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
+                        </div>
+                    </Link>
 
                     {/* 3. Estimasi Laba Kotor */}
-                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-slate-300 transition">
+                    <Link
+                        href={route('owner.reports.gross-profit')}
+                        className="group block bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-amber-400 hover:shadow-md transition cursor-pointer"
+                        title="Klik untuk melihat rincian produk yang dijual, HPP inventory, dan margin laba kotor"
+                    >
                         <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Est. Laba Kotor</span>
-                            <div className="p-1.5 rounded-md bg-amber-50 text-amber-600">
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 group-hover:text-amber-700 transition">Est. Laba Kotor</span>
+                            <div className="p-1.5 rounded-md bg-amber-50 text-amber-600 group-hover:bg-amber-100 transition">
                                 <Award className="h-4 w-4" />
                             </div>
                         </div>
-                        <p className="text-2xl font-bold text-slate-900 mt-2">
+                        <p className="text-2xl font-bold text-slate-900 mt-2 group-hover:text-amber-700 transition">
                             {formatRp(kpis.estimated_gross_profit)}
                         </p>
                         <p className="text-[11px] font-medium text-amber-700 mt-1">
                             Margin: <span className="font-bold">{kpis.gross_margin_pct}%</span>
                         </p>
-                    </div>
+                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 group-hover:text-amber-700 font-semibold transition">
+                            <span>Rincian HPP &amp; Margin</span>
+                            <ArrowUpRight className="h-3 w-3 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
+                        </div>
+                    </Link>
 
                     {/* 4. Kas & Bank Likuid */}
-                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-slate-300 transition">
+                    <Link
+                        href={route('owner.reports.cash-bank')}
+                        className="group block bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-teal-400 hover:shadow-md transition cursor-pointer"
+                        title="Klik untuk melihat mutasi kas & bank, uang masuk dari SO, dan uang keluar untuk PO"
+                    >
                         <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Kas &amp; Bank</span>
-                            <div className="p-1.5 rounded-md bg-teal-50 text-teal-600">
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 group-hover:text-teal-700 transition">Kas &amp; Bank</span>
+                            <div className="p-1.5 rounded-md bg-teal-50 text-teal-600 group-hover:bg-teal-100 transition">
                                 <Wallet className="h-4 w-4" />
                             </div>
                         </div>
-                        <p className="text-2xl font-bold text-slate-900 mt-2">
+                        <p className="text-2xl font-bold text-slate-900 mt-2 group-hover:text-teal-700 transition">
                             {formatRp(kpis.cash_bank_balance)}
                         </p>
                         <p className="text-[11px] text-slate-500 mt-1">
                             Akun 1010 Kas + 1020 Bank
                         </p>
-                    </div>
+                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 group-hover:text-teal-700 font-semibold transition">
+                            <span>Mutasi Masuk &amp; Keluar</span>
+                            <ArrowUpRight className="h-3 w-3 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
+                        </div>
+                    </Link>
 
                     {/* 5. Piutang Usaha (Open AR) */}
-                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-slate-300 transition">
+                    <Link
+                        href={route('owner.reports.receivables')}
+                        className="group block bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-indigo-400 hover:shadow-md transition cursor-pointer"
+                        title="Klik untuk melihat faktur Sales Order, PT pembeli, diskon, dan penjualan POS toko"
+                    >
                         <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Piutang (AR)</span>
-                            <div className="p-1.5 rounded-md bg-indigo-50 text-indigo-600">
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 group-hover:text-indigo-700 transition">Piutang (AR)</span>
+                            <div className="p-1.5 rounded-md bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 transition">
                                 <ArrowUpRight className="h-4 w-4" />
                             </div>
                         </div>
-                        <p className="text-2xl font-bold text-slate-900 mt-2">
+                        <p className="text-2xl font-bold text-slate-900 mt-2 group-hover:text-indigo-700 transition">
                             {formatRp(kpis.open_ar)}
                         </p>
                         <p className="text-[11px] text-slate-500 mt-1">
                             Tagihan Pelanggan Terbuka
                         </p>
-                    </div>
+                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 group-hover:text-indigo-700 font-semibold transition">
+                            <span>Faktur SO &amp; POS Toko</span>
+                            <ArrowUpRight className="h-3 w-3 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
+                        </div>
+                    </Link>
 
                     {/* 6. Utang Usaha (Open AP) */}
-                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-slate-300 transition">
+                    <Link
+                        href={route('owner.reports.payables')}
+                        className="group block bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-rose-400 hover:shadow-md transition cursor-pointer"
+                        title="Klik untuk melihat PO yang belum dibayar dan rincian utang per PT vendor"
+                    >
                         <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Utang (AP)</span>
-                            <div className="p-1.5 rounded-md bg-rose-50 text-rose-600">
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 group-hover:text-rose-700 transition">Utang (AP)</span>
+                            <div className="p-1.5 rounded-md bg-rose-50 text-rose-600 group-hover:bg-rose-100 transition">
                                 <ArrowDownLeft className="h-4 w-4" />
                             </div>
                         </div>
-                        <p className="text-2xl font-bold text-slate-900 mt-2">
+                        <p className="text-2xl font-bold text-slate-900 mt-2 group-hover:text-rose-700 transition">
                             {formatRp(kpis.open_ap)}
                         </p>
                         <p className="text-[11px] text-slate-500 mt-1">
                             Kewajiban Tagihan Vendor
                         </p>
-                    </div>
+                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 group-hover:text-rose-700 font-semibold transition">
+                            <span>PO &amp; Rincian per PT</span>
+                            <ArrowUpRight className="h-3 w-3 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
+                        </div>
+                    </Link>
                 </div>
 
                 {/* Priority Section: Pending Discount Approvals Action Hub */}

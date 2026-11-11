@@ -365,6 +365,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/approvals/discounts/{id}/reject', [OwnerDiscountApprovalController::class, 'reject'])
             ->where('id', '.+')
             ->name('approvals.discounts.reject');
+
+        // Drill-down Laporan Eksekutif (Card Dashboard Links)
+        Route::get('/reports/omset-today', [OwnerDashboardController::class, 'omsetToday'])->name('reports.omset-today');
+        Route::get('/reports/omset-month', [OwnerDashboardController::class, 'omsetMonth'])->name('reports.omset-month');
+        Route::get('/reports/gross-profit', [OwnerDashboardController::class, 'grossProfit'])->name('reports.gross-profit');
+        Route::get('/reports/cash-bank', [OwnerDashboardController::class, 'cashBank'])->name('reports.cash-bank');
+        Route::get('/reports/receivables', [OwnerDashboardController::class, 'receivables'])->name('reports.receivables');
+        Route::get('/reports/payables', [OwnerDashboardController::class, 'payables'])->name('reports.payables');
     });
 });
 

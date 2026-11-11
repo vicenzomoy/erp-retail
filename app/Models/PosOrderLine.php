@@ -46,6 +46,11 @@ class PosOrderLine extends Model
         return $this->belongsTo(PosOrder::class, 'pos_order_id');
     }
 
+    public function order(): BelongsTo
+    {
+        return $this->posOrder();
+    }
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'variant_sku', 'variant_sku');

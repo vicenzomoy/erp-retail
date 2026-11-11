@@ -12,6 +12,11 @@ import {
     AlertCircle,
     Info,
     ArrowUpRight,
+    DollarSign,
+    BarChart3,
+    Award,
+    Wallet,
+    ArrowDownLeft,
 } from 'lucide-react';
 import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
 
@@ -27,7 +32,48 @@ export default function OwnerLayout({ title, breadcrumbs = [], pendingCount = 0,
                     name: 'Executive Dashboard',
                     route: 'owner.dashboard',
                     icon: LayoutDashboard,
-                    active: route().current('owner.dashboard') || (route().current('owner.*') && !route().current('owner.approvals.*')),
+                    active: route().current('owner.dashboard'),
+                },
+            ],
+        },
+        {
+            group: 'Laporan & Rincian Eksekutif',
+            items: [
+                {
+                    name: 'Omset Hari Ini',
+                    route: 'owner.reports.omset-today',
+                    icon: DollarSign,
+                    active: route().current('owner.reports.omset-today'),
+                },
+                {
+                    name: 'Omset Bulan Ini',
+                    route: 'owner.reports.omset-month',
+                    icon: BarChart3,
+                    active: route().current('owner.reports.omset-month'),
+                },
+                {
+                    name: 'Laba Kotor & HPP',
+                    route: 'owner.reports.gross-profit',
+                    icon: Award,
+                    active: route().current('owner.reports.gross-profit'),
+                },
+                {
+                    name: 'Kas & Bank (Mutasi SO/PO)',
+                    route: 'owner.reports.cash-bank',
+                    icon: Wallet,
+                    active: route().current('owner.reports.cash-bank'),
+                },
+                {
+                    name: 'Piutang Usaha (AR)',
+                    route: 'owner.reports.receivables',
+                    icon: ArrowUpRight,
+                    active: route().current('owner.reports.receivables'),
+                },
+                {
+                    name: 'Utang Usaha (AP)',
+                    route: 'owner.reports.payables',
+                    icon: ArrowDownLeft,
+                    active: route().current('owner.reports.payables'),
                 },
             ],
         },
