@@ -17,6 +17,7 @@ import {
     XCircle,
     Package,
     AlertTriangle,
+    Eye,
     X,
 } from 'lucide-react';
 import CrmLayout from '@/Layouts/CrmLayout';
@@ -29,6 +30,16 @@ const formatRp = (value) =>
         maximumFractionDigits: 0,
     }).format(value ?? 0);
 
+function getStageBadge(stage) {
+    const map = {
+        new: { cls: 'bg-slate-100 text-slate-700 border-slate-300', label: 'Baru' },
+        qualified: { cls: 'bg-sky-100 text-sky-800 border-sky-300', label: 'Terkualifikasi' },
+        won: { cls: 'bg-emerald-100 text-emerald-800 border-emerald-300', label: 'Menang' },
+        lost: { cls: 'bg-rose-100 text-rose-800 border-rose-300', label: 'Kalah' },
+    };
+    return map[stage] ?? { cls: 'bg-slate-100 text-slate-700 border-slate-300', label: stage };
+}
+
 export default function PipelineIndex({
     pipeline = [],
     summary = {},
@@ -36,8 +47,11 @@ export default function PipelineIndex({
     customers = [],
     products = [],
     users = [],
+    initialView = 'kanban',
 }) {
     // ─── State ───────────────────────────────────────────────────────────────
+    const [viewMode, setViewMode] = useState(initialView === 'list' ? 'list' : 'kanban');
+    const [stageFilter, setStageFilter] = useState('all');
     const [stages, setStages] = useState(pipeline);
     const [draggedItem, setDraggedItem] = useState(null);
     const [dragOverStage, setDragOverStage] = useState(null);
@@ -87,9 +101,13 @@ export default function PipelineIndex({
     const handleSearchSubmit = (e) => { e.preventDefault(); applyFilters(); };
 
     const handleReset = () => {
-        setSearch(''); setType('all'); setCustomerId('all'); setAssignedUserId('all');
+        setSearch(''); setType('all'); setCustomerId('all'); setAssignedUserId('all'); setStageFilter('all');
         router.get(route('crm.pipeline'), {}, { preserveState: false });
     };
+
+    const allLeadsList = stages
+        .filter((s) => stageFilter === 'all' || s.key === stageFilter)
+        .flatMap((s) => s.items.map((it) => ({ ...it, stageKey: s.key })));
 
     // ─── Navigation helpers (redirect to Sales module) ───────────────────────
     const goToCreateQuotation = (lead) => {
@@ -280,14 +298,30 @@ export default function PipelineIndex({
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="inline-flex rounded border border-slate-200 bg-white p-0.5 shadow-2xs">
-                        <button type="button" className="flex items-center gap-1 rounded bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white shadow-xs">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('kanban')}
+                            className={`flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
+                                viewMode === 'kanban'
+                                    ? 'bg-slate-900 text-white shadow-xs'
+                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                            }`}
+                        >
                             <Columns3 className="h-3.5 w-3.5" />
                             <span className="hidden md:inline">Kanban</span>
                         </button>
-                        <Link href={route('crm.leads.index')} className="flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('list')}
+                            className={`flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
+                                viewMode === 'list'
+                                    ? 'bg-slate-900 text-white shadow-xs'
+                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                            }`}
+                        >
                             <List className="h-3.5 w-3.5" />
                             <span className="hidden md:inline">List</span>
-                        </Link>
+                        </button>
                     </div>
                     <Link href={route('crm.leads.create')} className="inline-flex items-center gap-1.5 rounded bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-sky-500 transition">
                         <Plus className="h-3.5 w-3.5" />
@@ -341,10 +375,23 @@ export default function PipelineIndex({
                         <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                         <input
                             type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Cari ID, kontak, pelanggan, atau SKU..."
+                            placeholder="Cari ID, pelanggan, atau SKU..."
                             className="w-full rounded border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:border-sky-600 focus:bg-white focus:outline-none"
                         />
                     </div>
+                    {viewMode === 'list' && (
+                        <select
+                            value={stageFilter}
+                            onChange={(e) => setStageFilter(e.target.value)}
+                            className="rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700 focus:border-sky-600 focus:bg-white focus:outline-none"
+                        >
+                            <option value="all">Semua Tahap</option>
+                            <option value="new">Baru</option>
+                            <option value="qualified">Terkualifikasi</option>
+                            <option value="won">Menang</option>
+                            <option value="lost">Kalah</option>
+                        </select>
+                    )}
                     <select value={type} onChange={(e) => { setType(e.target.value); applyFilters({ type: e.target.value }); }}
                         className="rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700 focus:border-sky-600 focus:bg-white focus:outline-none">
                         <option value="all">Semua Tipe</option>
@@ -373,7 +420,8 @@ export default function PipelineIndex({
                 </form>
             </div>
 
-            {/* Kanban Board */}
+            {/* Kanban Board vs List View */}
+            {viewMode === 'kanban' ? (
             <div className="flex gap-3 overflow-x-auto pb-6 pt-1">
                 {stages.map((stage) => {
                     const isOver = dragOverStage === stage.key;
@@ -429,8 +477,8 @@ export default function PipelineIndex({
                                                     isBeingDragged ? 'opacity-40 scale-95 border-sky-400' : ''
                                                 }`}
                                             >
-                                                {/* Card Header */}
-                                                <div className="flex items-center justify-between mb-1.5">
+                                                {/* Card Header (Tinggi tetap 20px) */}
+                                                <div className="flex items-center justify-between h-5 mb-1.5">
                                                     <div className="flex items-center gap-1.5">
                                                         {isDraggable
                                                             ? <GripVertical className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 cursor-grab" />
@@ -438,56 +486,69 @@ export default function PipelineIndex({
                                                         }
                                                         <span className="font-mono text-xs font-bold text-slate-900">{lead.id}</span>
                                                     </div>
-                                                    {stage.key === 'won' ? (
-                                                        <span />
-                                                    ) : (
-                                                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                                                            lead.type === 'opportunity' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
-                                                        }`}>{lead.type}</span>
-                                                    )}
+                                                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider leading-none ${
+                                                        stage.key === 'won'
+                                                            ? 'bg-emerald-100 text-emerald-800'
+                                                            : stage.key === 'lost'
+                                                            ? 'bg-rose-100 text-rose-800'
+                                                            : lead.type === 'opportunity'
+                                                            ? 'bg-amber-100 text-amber-800'
+                                                            : 'bg-slate-100 text-slate-700'
+                                                    }`}>
+                                                        {stage.key === 'won' ? 'won' : stage.key === 'lost' ? 'lost' : lead.type}
+                                                    </span>
                                                 </div>
 
-                                                {/* Customer */}
-                                                <div className="text-xs font-semibold text-slate-800 line-clamp-1 mb-1">{lead.customer_name}</div>
-                                                {lead.contact_name && (
-                                                    <div className="text-[11px] text-slate-500 line-clamp-1 mb-2">{lead.contact_name}</div>
-                                                )}
+                                                {/* Customer (Tinggi tetap 1 baris) */}
+                                                <div className="text-xs font-semibold text-slate-800 truncate h-4 leading-4 mb-2">
+                                                    {lead.customer_name}
+                                                </div>
 
-                                                {/* Product SKU */}
-                                                {lead.variant_sku && (
-                                                    <div className="mb-2 flex items-center gap-1 text-[11px] text-slate-600 bg-slate-50 rounded px-2 py-1 border border-slate-100">
-                                                        <Package className="h-3 w-3 text-slate-400 shrink-0" />
-                                                        <span className="truncate">
-                                                            {lead.qty_interest ? `${lead.qty_interest}x ` : ''}{lead.variant_sku}
-                                                        </span>
-                                                    </div>
-                                                )}
+                                                {/* Daftar Produk Peminatan (1 baris per jenis produk; tinggi kartu otomatis bertambah hanya jika jenis produk > 1) */}
+                                                <div className="mb-2 space-y-1">
+                                                    {(lead.interest_items && lead.interest_items.length > 0
+                                                        ? lead.interest_items
+                                                        : lead.variant_sku
+                                                        ? [{ variant_sku: lead.variant_sku, qty_interest: lead.qty_interest || 1 }]
+                                                        : []
+                                                    ).map((it, idx) => (
+                                                        <div
+                                                            key={`${it.variant_sku}-${idx}`}
+                                                            className="flex items-center gap-1.5 h-[26px] text-[11px] text-slate-600 bg-slate-50 rounded px-2 border border-slate-100"
+                                                        >
+                                                            <Package className="h-3 w-3 text-slate-400 shrink-0" />
+                                                            <span className="truncate font-mono">
+                                                                {it.qty_interest ? `${it.qty_interest}x ` : ''}{it.variant_sku}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
 
-                                                {/* Revenue & Quotation Badge */}
-                                                <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
+                                                {/* Revenue & Quotation Badge (Tinggi tetap 26px) */}
+                                                <div className="flex items-center justify-between h-[26px] border-t border-slate-100 pt-1.5 text-xs">
                                                     <span className="font-bold text-sky-900 tabular-nums">{formatRp(lead.expected_revenue)}</span>
                                                     {lead.quotations_count > 0 ? (
                                                         <span
-                                                            className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200"
+                                                            className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200 leading-none"
                                                         >
                                                             <FileText className="h-3 w-3" />
                                                             {lead.quotations_count} Quo
                                                         </span>
                                                     ) : (
-                                                        <span className="text-[10px] text-slate-400">{lead.assigned_name}</span>
+                                                        <span className="text-[10px] text-slate-400 truncate max-w-[110px]">{lead.assigned_name}</span>
                                                     )}
                                                 </div>
 
-                                                {/* Lost Reason */}
+                                                {/* Hover Detail: LOST Reason (Hanya muncul saat di-hover) */}
                                                 {stage.key === 'lost' && lead.lost_reason && (
-                                                    <div className="mt-2 rounded bg-rose-50 p-1.5 text-[10px] text-rose-700 border border-rose-100">
+                                                    <div className="hidden group-hover:block mt-2 rounded bg-rose-50 p-1.5 text-[10px] text-rose-700 border border-rose-100">
                                                         <span className="font-semibold">Alasan:</span> {lead.lost_reason}
                                                     </div>
                                                 )}
 
-                                                {/* Won: tampilkan kode dokumen SO terkait */}
+                                                {/* Hover Detail: WON Sales Order Link (Hanya muncul saat di-hover) */}
                                                 {stage.key === 'won' && (
-                                                    <div className="mt-2 flex items-center justify-between rounded bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800 border border-emerald-100">
+                                                    <div className="hidden group-hover:flex mt-2 items-center justify-between rounded bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800 border border-emerald-100">
                                                         <span className="flex items-center gap-1">
                                                             <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                                                             Kesepakatan Menang
@@ -505,9 +566,9 @@ export default function PipelineIndex({
                                                     </div>
                                                 )}
 
-                                                {/* Hover Buttons: NEW */}
+                                                {/* Hover Buttons: NEW (Hanya muncul saat di-hover) */}
                                                 {stage.key === 'new' && (
-                                                    <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="hidden group-hover:flex mt-2.5 pt-2 border-t border-slate-100 items-center gap-1.5">
                                                         <button
                                                             type="button"
                                                             onClick={(e) => { e.stopPropagation(); goToCreateQuotation(lead); }}
@@ -527,9 +588,9 @@ export default function PipelineIndex({
                                                     </div>
                                                 )}
 
-                                                {/* Hover Buttons: QUALIFIED */}
+                                                {/* Hover Buttons: QUALIFIED (Hanya muncul saat di-hover) */}
                                                 {stage.key === 'qualified' && (
-                                                    <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="hidden group-hover:flex mt-2.5 pt-2 border-t border-slate-100 flex-wrap items-center gap-1.5">
                                                         {(lead.quotations?.length ?? 0) > 0 && (
                                                             <button
                                                                 type="button"
@@ -567,6 +628,121 @@ export default function PipelineIndex({
                     );
                 })}
             </div>
+            ) : (
+            /* ── Table / List View (Dalam Halaman yang Sama) ── */
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xs mb-6">
+                {allLeadsList.length === 0 ? (
+                    <div className="p-10 text-center text-slate-400">
+                        <Users className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+                        <p className="text-xs font-semibold text-slate-600">Tidak ada prospek ditemukan</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                            <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-600">
+                                <tr>
+                                    <th className="px-4 py-3">ID Prospek</th>
+                                    <th className="px-4 py-3">Pelanggan</th>
+                                    <th className="px-4 py-3">Peminatan Produk</th>
+                                    <th className="px-4 py-3 text-right">Expected Revenue</th>
+                                    <th className="px-4 py-3 text-center">Tipe</th>
+                                    <th className="px-4 py-3 text-center">Tahap</th>
+                                    <th className="px-4 py-3">Sales Person</th>
+                                    <th className="px-4 py-3">Dibuat</th>
+                                    <th className="px-4 py-3 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {allLeadsList.map((lead) => {
+                                    const badge = getStageBadge(lead.stageKey || lead.stage);
+                                    const itemsList =
+                                        lead.interest_items && lead.interest_items.length > 0
+                                            ? lead.interest_items
+                                            : lead.variant_sku
+                                            ? [{ variant_sku: lead.variant_sku, qty_interest: lead.qty_interest || 1 }]
+                                            : [];
+
+                                    return (
+                                        <tr
+                                            key={lead.id}
+                                            onClick={() => router.visit(route('crm.leads.show', lead.id))}
+                                            className="hover:bg-slate-50 cursor-pointer transition"
+                                        >
+                                            <td className="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                                                {lead.id}
+                                            </td>
+                                            <td className="px-4 py-3 font-semibold text-slate-800">
+                                                <div>{lead.customer_name}</div>
+                                                <div className="text-[10px] text-slate-400">{lead.customer_id}</div>
+                                            </td>
+                                            <td className="px-4 py-3 text-slate-700">
+                                                {itemsList.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {itemsList.map((it, idx) => (
+                                                            <span
+                                                                key={`${it.variant_sku}-${idx}`}
+                                                                className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[11px] font-mono text-slate-700"
+                                                            >
+                                                                <Package className="h-3 w-3 text-slate-400" />
+                                                                {it.qty_interest}x {it.variant_sku}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400">—</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-bold text-sky-950 tabular-nums whitespace-nowrap">
+                                                {formatRp(lead.expected_revenue)}
+                                            </td>
+                                            <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                <span
+                                                    className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                                        lead.type === 'opportunity'
+                                                            ? 'bg-amber-100 text-amber-800'
+                                                            : 'bg-slate-100 text-slate-700'
+                                                    }`}
+                                                >
+                                                    {lead.type}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                <span
+                                                    className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${badge.cls}`}
+                                                >
+                                                    {badge.label}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                                                {lead.assigned_name}
+                                            </td>
+                                            <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                                                {lead.created_at ?? '—'}
+                                            </td>
+                                            <td
+                                                className="px-4 py-3 text-center whitespace-nowrap"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <Link
+                                                    href={route('crm.leads.show', lead.id)}
+                                                    className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 transition shadow-2xs"
+                                                >
+                                                    <Eye className="h-3 w-3 text-slate-500" />
+                                                    Buka
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                        <div className="border-t border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-500">
+                            Menampilkan <span className="font-semibold text-slate-700">{allLeadsList.length}</span> prospek
+                        </div>
+                    </div>
+                )}
+            </div>
+            )}
 
             {/* MODAL: PILIH QUOTATION UNTUK DIKONFIRMASI (MENANG) */}
             {pickLead && (

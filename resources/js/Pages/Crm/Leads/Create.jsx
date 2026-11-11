@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import CrmLayout from '@/Layouts/CrmLayout';
 import { ArrowLeft, Plus, Trash2, Save, AlertCircle, Info } from 'lucide-react';
 
@@ -20,12 +20,14 @@ function createEmptyItem() {
     };
 }
 
-export default function LeadCreate({ customers = [], products = [], users = [] }) {
-    // Form dimulai tanpa autofill barang maupun pelanggan
+export default function LeadCreate({ customers = [], products = [] }) {
+    const { auth } = usePage().props;
+    const currentUser = auth?.user;
+
+    // Form dimulai tanpa autofill barang maupun pelanggan; Sales Person otomatis user yang menginput
     const { data, setData, post, processing, errors } = useForm({
         customer_id: '',
-        contact_name: '',
-        assigned_user_id: users[0]?.id || '',
+        assigned_user_id: currentUser?.id || '',
         notes: '',
         items: [createEmptyItem()],
     });
@@ -212,47 +214,26 @@ export default function LeadCreate({ customers = [], products = [], users = [] }
                             )}
                         </div>
 
-                        {/* Kontak Person (PIC) */}
-                        <div>
-                            <label className="block font-bold text-slate-700 mb-1">
-                                Kontak Person / PIC Calon Pembeli
-                            </label>
-                            <input
-                                type="text"
-                                value={data.contact_name}
-                                onChange={(e) => setData('contact_name', e.target.value)}
-                                placeholder="Contoh: Ibu Dewi (Purchasing) / Bpk. Rudi"
-                                className="w-full rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-800 focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-                            />
-                            {errors.contact_name && (
-                                <p className="text-rose-600 text-[11px] mt-1">{errors.contact_name}</p>
-                            )}
-                        </div>
-
-                        {/* Sales Person Ditugaskan */}
+                        {/* Sales Person Ditugaskan (Otomatis User yang Menginput & Tidak Bisa Diedit) */}
                         <div>
                             <label className="block font-bold text-slate-700 mb-1">
                                 Sales Person Ditugaskan
                             </label>
-                            <select
-                                value={data.assigned_user_id}
-                                onChange={(e) => setData('assigned_user_id', e.target.value)}
-                                className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-                            >
-                                <option value="">-- Pilih Sales Person --</option>
-                                {users.map((u) => (
-                                    <option key={u.id} value={u.id}>
-                                        {u.name} ({u.role_id})
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.assigned_user_id && (
-                                <p className="text-rose-600 text-[11px] mt-1">{errors.assigned_user_id}</p>
-                            )}
+                            <input
+                                type="text"
+                                readOnly
+                                disabled
+                                value={
+                                    currentUser
+                                        ? `${currentUser.name} (${currentUser.role_id})`
+                                        : '—'
+                                }
+                                className="w-full rounded border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 cursor-not-allowed"
+                            />
                         </div>
 
                         {/* Catatan Kebutuhan */}
-                        <div>
+                        <div className="md:col-span-2">
                             <label className="block font-bold text-slate-700 mb-1">
                                 Catatan Prospek
                             </label>

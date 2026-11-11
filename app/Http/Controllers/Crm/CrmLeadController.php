@@ -42,36 +42,23 @@ class CrmLeadController extends Controller
             ->get(['id', 'name', 'role_id']);
 
         return Inertia::render('Crm/Pipeline/Index', [
-            'pipeline'  => $pipelineData['stages'],
-            'summary'   => $pipelineData['summary'],
-            'filters'   => $filters,
-            'customers' => $customers,
-            'products'  => $products,
-            'users'     => $users,
+            'pipeline'    => $pipelineData['stages'],
+            'summary'     => $pipelineData['summary'],
+            'filters'     => $filters,
+            'customers'   => $customers,
+            'products'    => $products,
+            'users'       => $users,
+            'initialView' => $request->query('view', 'kanban'),
         ]);
     }
 
     // -------------------------------------------------------------------------
-    // List View (Table View)
+    // List View (Redirects to Unified Pipeline Page in List Mode)
     // -------------------------------------------------------------------------
 
-    public function index(Request $request): Response
+    public function index(Request $request): RedirectResponse
     {
-        $filters = [
-            'search'      => $request->query('search'),
-            'stage'       => $request->query('stage', 'all'),
-            'type'        => $request->query('type', 'all'),
-            'customer_id' => $request->query('customer_id', 'all'),
-        ];
-
-        $leads     = $this->service->getLeadsList($filters, 15);
-        $customers = ContactCustomer::orderBy('name')->get(['id', 'name']);
-
-        return Inertia::render('Crm/Leads/Index', [
-            'leads'     => $leads,
-            'filters'   => $filters,
-            'customers' => $customers,
-        ]);
+        return redirect()->route('crm.pipeline', array_merge($request->query(), ['view' => 'list']));
     }
 
     // -------------------------------------------------------------------------
@@ -140,11 +127,12 @@ class CrmLeadController extends Controller
         }
 
         // Simpan lead: variant_sku + qty_interest = item pertama (backward compat)
+        // Sales Person Ditugaskan otomatis menjadi user yang menginput
         $firstItem = $interestItems[0];
         $payload = [
             'customer_id'      => $validated['customer_id'],
-            'contact_name'     => $validated['contact_name'] ?? null,
-            'assigned_user_id' => $validated['assigned_user_id'] ?? null,
+            'contact_name'     => null,
+            'assigned_user_id' => $request->user()->id,
             'stage'            => 'new',
             'type'             => 'lead',
             'expected_revenue' => $totalRevenue,

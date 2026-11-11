@@ -46,12 +46,6 @@ export default function SalesLayout({ title, breadcrumbs = [], children }) {
                     active: route().current('sales.orders.*'),
                 },
                 {
-                    name: 'Prospek CRM (Pipeline)',
-                    route: 'crm.pipeline',
-                    icon: Plus,
-                    active: route().current('crm.*'),
-                },
-                {
                     name: 'Retur Pelanggan (RMA)',
                     route: 'sales.returns.index',
                     icon: RotateCcw,
@@ -185,14 +179,14 @@ export default function SalesLayout({ title, breadcrumbs = [], children }) {
                                                     key={item.name}
                                                     href={route(item.route)}
                                                     className={`group flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-all ${item.active
-                                                            ? 'bg-slate-900 text-white shadow-xs font-semibold'
-                                                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                                        ? 'bg-slate-900 text-white shadow-xs font-semibold'
+                                                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                                                         }`}
                                                 >
                                                     <Icon
                                                         className={`h-4 w-4 shrink-0 transition-colors ${item.active
-                                                                ? 'text-blue-400'
-                                                                : 'text-slate-400 group-hover:text-slate-700'
+                                                            ? 'text-blue-400'
+                                                            : 'text-slate-400 group-hover:text-slate-700'
                                                             }`}
                                                     />
                                                     <span className="truncate">{item.name}</span>

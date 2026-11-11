@@ -170,6 +170,7 @@ export default function LeadShow({ lead, customers = [], products = [], users = 
     };
 
     const firstQuotationId = lead.quotations?.[0]?.id;
+    const hasQuotations = (lead.quotations?.length ?? 0) > 0;
 
     // Items peminatan untuk mode tampilan
     const displayItems = lead.interest_items && lead.interest_items.length > 0
@@ -317,15 +318,11 @@ export default function LeadShow({ lead, customers = [], products = [], users = 
                                 <div className="flex items-baseline">
                                     <span className="w-36 font-semibold text-slate-500">Calon Pelanggan:</span>
                                     <Link
-                                        href={route('sales.customers.show', lead.customer_id)}
+                                        href={route('crm.customers.show', lead.customer_id)}
                                         className="font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 transition"
                                     >
                                         {lead.customer_name} ({lead.customer_id}) &rarr;
                                     </Link>
-                                </div>
-                                <div className="flex items-baseline">
-                                    <span className="w-36 font-semibold text-slate-500">Kontak Person (PIC):</span>
-                                    <span className="font-medium text-slate-800">{lead.contact_name || '—'}</span>
                                 </div>
                                 <div className="flex items-baseline">
                                     <span className="w-36 font-semibold text-slate-500">Sales Ditugaskan:</span>
@@ -415,67 +412,63 @@ export default function LeadShow({ lead, customers = [], products = [], users = 
                     /* ── Mode Edit (Formulir CRUD Persis Inventaris) ── */
                     <form onSubmit={handleSave} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-xs">
-                            {/* Pelanggan */}
+                            {/* Pelanggan: Bisa diedit jika belum ada Quotation; terkunci jika sudah ada Quotation */}
                             <div>
                                 <label className="block font-bold text-slate-700 mb-1">
                                     Calon Pelanggan *
                                 </label>
-                                <select
-                                    required
-                                    value={data.customer_id}
-                                    onChange={(e) => setData('customer_id', e.target.value)}
-                                    className={`w-full rounded border px-3 py-1.5 text-xs text-slate-800 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 ${
-                                        errors.customer_id ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
-                                    }`}
-                                >
-                                    {customers.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.id} — {c.name}
-                                        </option>
-                                    ))}
-                                </select>
-                                {errors.customer_id && (
-                                    <p className="text-rose-600 text-[11px] mt-1">{errors.customer_id}</p>
+                                {hasQuotations ? (
+                                    <>
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            disabled
+                                            value={`${lead.customer_id} — ${lead.customer_name || ''}`}
+                                            className="w-full rounded border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 cursor-not-allowed"
+                                        />
+                                        <p className="text-[10px] text-slate-500 mt-1">
+                                            Pelanggan tidak dapat diubah karena sudah terdapat Quotation.
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <select
+                                            required
+                                            value={data.customer_id}
+                                            onChange={(e) => setData('customer_id', e.target.value)}
+                                            className={`w-full rounded border px-3 py-1.5 text-xs text-slate-800 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 ${
+                                                errors.customer_id ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                                            }`}
+                                        >
+                                            {customers.map((c) => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.id} — {c.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {errors.customer_id && (
+                                            <p className="text-rose-600 text-[11px] mt-1">{errors.customer_id}</p>
+                                        )}
+                                    </>
                                 )}
                             </div>
 
-                            {/* Kontak Person */}
-                            <div>
-                                <label className="block font-bold text-slate-700 mb-1">
-                                    Kontak Person / PIC Calon Pembeli
-                                </label>
-                                <input
-                                    type="text"
-                                    value={data.contact_name}
-                                    onChange={(e) => setData('contact_name', e.target.value)}
-                                    className="w-full rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-800 focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-                                />
-                                {errors.contact_name && (
-                                    <p className="text-rose-600 text-[11px] mt-1">{errors.contact_name}</p>
-                                )}
-                            </div>
-
-                            {/* Sales Person Ditugaskan */}
+                            {/* Sales Person Ditugaskan (Tidak Bisa Diedit) */}
                             <div>
                                 <label className="block font-bold text-slate-700 mb-1">
                                     Sales Person Ditugaskan
                                 </label>
-                                <select
-                                    value={data.assigned_user_id}
-                                    onChange={(e) => setData('assigned_user_id', e.target.value)}
-                                    className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-                                >
-                                    <option value="">-- Pilih Sales Person --</option>
-                                    {users.map((u) => (
-                                        <option key={u.id} value={u.id}>
-                                            {u.name} ({u.role_id})
-                                        </option>
-                                    ))}
-                                </select>
+                                <input
+                                    type="text"
+                                    readOnly
+                                    disabled
+                                    value={lead.assigned_name || '—'}
+                                    className="w-full rounded border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 cursor-not-allowed"
+                                />
                             </div>
 
                             {/* Catatan */}
-                            <div>
+                            <div className="md:col-span-2">
                                 <label className="block font-bold text-slate-700 mb-1">
                                     Catatan Prospek
                                 </label>

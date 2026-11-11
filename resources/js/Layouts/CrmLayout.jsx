@@ -28,16 +28,13 @@ export default function CrmLayout({ title, breadcrumbs = [], children }) {
             group: 'Pipeline',
             items: [
                 {
-                    name: 'Pipeline (Kanban)',
+                    name: 'Pipeline',
                     route: 'crm.pipeline',
                     icon: Columns3,
-                    active: route().current('crm.pipeline') || route().current('crm.overview'),
-                },
-                {
-                    name: 'Daftar Prospek (List)',
-                    route: 'crm.leads.index',
-                    icon: ListFilter,
-                    active: route().current('crm.leads.index'),
+                    active:
+                        route().current('crm.pipeline') ||
+                        route().current('crm.overview') ||
+                        route().current('crm.leads.index'),
                 },
                 {
                     name: 'Tambah Prospek',

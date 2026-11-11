@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import {
-    Crown,
     LayoutDashboard,
     Percent,
     ShoppingCart,
@@ -9,13 +8,9 @@ import {
     ReceiptText,
     Store,
     Menu,
-    ChevronDown,
-    Building2,
     CheckCircle2,
     AlertCircle,
     Info,
-    User,
-    LogOut,
     ArrowUpRight,
 } from 'lucide-react';
 import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
@@ -23,7 +18,6 @@ import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
 export default function OwnerLayout({ title, breadcrumbs = [], pendingCount = 0, children }) {
     const { auth, company, flash } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
     const navigation = [
         {
@@ -33,7 +27,7 @@ export default function OwnerLayout({ title, breadcrumbs = [], pendingCount = 0,
                     name: 'Executive Dashboard',
                     route: 'owner.dashboard',
                     icon: LayoutDashboard,
-                    active: route().current('owner.dashboard') || route().current('owner.'),
+                    active: route().current('owner.dashboard') || (route().current('owner.*') && !route().current('owner.approvals.*')),
                 },
             ],
         },
@@ -80,21 +74,20 @@ export default function OwnerLayout({ title, breadcrumbs = [], pendingCount = 0,
         },
     ];
 
-    const handleLogout = () => {
-        router.post(route('logout'));
-    };
-
     return (
-        <div className="min-h-screen bg-slate-100 font-sans antialiased text-slate-800 flex flex-col">
-            {/* Odoo Web Top Bar (Odoo 17 Dark Navigation Header) */}
-            <header className="h-12 bg-slate-900 border-b border-amber-900/30 text-white flex items-center justify-between px-3 sticky top-0 z-40 select-none shadow-sm">
-                <div className="flex items-center gap-3">
+        <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans">
+            {/* ========================================================= */}
+            {/* TOP NAVBAR (Odoo 17 Style) */}
+            {/* ========================================================= */}
+            <header className="sticky top-0 z-40 flex h-12 w-full items-center justify-between border-b border-slate-200 bg-slate-900 px-3 sm:px-4 text-white shadow-sm">
+                {/* Sisi Kiri: Apps Switcher | Dashboard & Breadcrumbs */}
+                <div className="flex items-center gap-2 sm:gap-3">
                     {/* App Switcher (Odoo 9-dots icon) */}
                     <button
                         type="button"
                         onClick={() => router.visit(route('home'))}
                         title="Kembali ke Beranda Aplikasi"
-                        className="flex h-8 w-8 items-center justify-center rounded-sm bg-slate-800 text-slate-200 hover:bg-amber-600 hover:text-white transition cursor-pointer"
+                        className="flex h-8 w-8 items-center justify-center rounded-sm bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white transition cursor-pointer"
                     >
                         <div className="grid grid-cols-3 gap-0.5 p-1">
                             <span className="h-1 w-1 rounded-full bg-white"></span>
@@ -123,12 +116,10 @@ export default function OwnerLayout({ title, breadcrumbs = [], pendingCount = 0,
                     {/* App Name */}
                     <Link
                         href={route('owner.dashboard')}
-                        className="flex items-center gap-2 font-bold tracking-tight text-white hover:text-amber-400 transition"
+                        className="flex items-center gap-1.5 font-bold tracking-tight text-white hover:text-amber-400 transition"
                     >
-                        <div className="flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-sm">
-                            <LayoutDashboard className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="text-sm font-bold tracking-wide">Dashboard</span>
+                        <LayoutDashboard className="h-4 w-4 text-amber-400" />
+                        <span className="text-sm font-semibold tracking-wide">Dashboard</span>
                     </Link>
 
                     {/* Breadcrumbs */}
@@ -140,12 +131,12 @@ export default function OwnerLayout({ title, breadcrumbs = [], pendingCount = 0,
                                     {crumb.href ? (
                                         <Link
                                             href={crumb.href}
-                                            className="hover:text-amber-300 transition font-medium"
+                                            className="hover:text-slate-200 transition font-medium"
                                         >
                                             {crumb.label}
                                         </Link>
                                     ) : (
-                                        <span className="text-slate-200 font-semibold truncate max-w-[220px]">
+                                        <span className="text-slate-200 font-semibold truncate max-w-[200px]">
                                             {crumb.label}
                                         </span>
                                     )}
@@ -155,61 +146,44 @@ export default function OwnerLayout({ title, breadcrumbs = [], pendingCount = 0,
                     )}
                 </div>
 
-                {/* Right Profile & Company */}
+                {/* Sisi Kanan: Profile & Company */}
                 <TopBarUserMenu />
             </header>
 
-            {/* Flash Messages Alert */}
-            {flash?.success && (
-                <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-2.5 text-xs text-emerald-800 flex items-center justify-between shadow-xs">
-                    <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                        <span className="font-medium">{flash.success}</span>
-                    </div>
-                </div>
-            )}
-            {flash?.error && (
-                <div className="bg-rose-50 border-b border-rose-200 px-4 py-2.5 text-xs text-rose-800 flex items-center justify-between shadow-xs">
-                    <div className="flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
-                        <span className="font-medium">{flash.error}</span>
-                    </div>
-                </div>
-            )}
-
-            <div className="flex-1 flex overflow-hidden">
-                {/* Collapsible Left Sidebar */}
+            {/* ========================================================= */}
+            {/* BODY CONTAINER: SIDEBAR + CONTENT */}
+            {/* ========================================================= */}
+            <div className="flex flex-1 overflow-hidden">
+                {/* Collapsible Left Sidebar (Odoo 17 Light Theme) */}
                 <aside
-                    className={`${
-                        sidebarOpen ? 'w-60' : 'w-0'
-                    } transition-all duration-200 bg-slate-900 border-r border-slate-800 text-slate-200 flex flex-col shrink-0 overflow-y-auto select-none`}
+                    className={`${sidebarOpen ? 'w-60' : 'w-0 -translate-x-full'
+                        } transition-all duration-200 ease-in-out shrink-0 bg-white border-r border-slate-200 flex flex-col z-30 overflow-y-auto shadow-xs`}
                 >
-                    <div className="p-3 space-y-4">
-                        {navigation.map((section, sIdx) => (
-                            <div key={sIdx}>
-                                <h3 className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                    {section.group}
-                                </h3>
-                                <ul className="mt-1 space-y-0.5">
-                                    {section.items.map((item, iIdx) => {
-                                        const Icon = item.icon;
-                                        return (
-                                            <li key={iIdx}>
+                    <div className="p-3">
+                        <nav className="space-y-4">
+                            {navigation.map((section) => (
+                                <div key={section.group} className="space-y-1">
+                                    <div className="px-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                                        {section.group}
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        {section.items.map((item) => {
+                                            const Icon = item.icon;
+                                            return (
                                                 <Link
+                                                    key={item.name}
                                                     href={route(item.route)}
-                                                    className={`flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-sm text-xs font-medium transition ${
-                                                        item.active
-                                                            ? 'bg-amber-600 text-white shadow-xs font-semibold'
-                                                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                                                    }`}
+                                                    className={`group flex items-center justify-between gap-2.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-all ${item.active
+                                                        ? 'bg-slate-900 text-white shadow-xs font-semibold'
+                                                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                                        }`}
                                                 >
                                                     <div className="flex items-center gap-2.5 truncate">
                                                         <Icon
-                                                            className={`h-4 w-4 shrink-0 ${
-                                                                item.active
-                                                                    ? 'text-white'
-                                                                    : 'text-slate-400'
-                                                            }`}
+                                                            className={`h-4 w-4 shrink-0 transition-colors ${item.active
+                                                                ? 'text-amber-400'
+                                                                : 'text-slate-400 group-hover:text-slate-700'
+                                                                }`}
                                                         />
                                                         <span className="truncate">{item.name}</span>
                                                     </div>
@@ -219,25 +193,59 @@ export default function OwnerLayout({ title, breadcrumbs = [], pendingCount = 0,
                                                         </span>
                                                     )}
                                                     {item.external && (
-                                                        <ArrowUpRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                        <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 shrink-0" />
                                                     )}
                                                 </Link>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            </div>
-                        ))}
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </nav>
                     </div>
 
-                    <div className="mt-auto p-3 border-t border-slate-800 text-[11px] text-slate-500">
-                        <p className="font-semibold text-slate-400">Executive Control Room</p>
-                        <p className="text-[10px] text-slate-500">Odoo 17 Web Standard ERP</p>
+                    {/* Bottom Sidebar Info */}
+                    <div className="mt-auto border-t border-slate-100 p-3 bg-slate-50/50 text-[11px] text-slate-500">
+                        <div className="flex items-center gap-1.5 text-slate-700 font-medium mb-0.5">
+                            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+                            <span>Modul Dashboard</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                            Ringkasan Eksekutif &amp; Kebijakan
+                        </div>
                     </div>
                 </aside>
 
                 {/* Main Content Area */}
-                <main className="flex-1 overflow-y-auto bg-slate-50">
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8fafc]">
+                    {/* Flash messages banner */}
+                    {flash?.success && (
+                        <div className="mb-4 flex items-center justify-between rounded border border-emerald-300 bg-emerald-50 px-4 py-3 text-xs text-emerald-800 shadow-xs animate-fadeIn">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                <span className="font-medium">{flash.success}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {flash?.error && (
+                        <div className="mb-4 flex items-center justify-between rounded border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-800 shadow-xs animate-fadeIn">
+                            <div className="flex items-center gap-2">
+                                <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                                <span className="font-medium">{flash.error}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {flash?.info && (
+                        <div className="mb-4 flex items-center justify-between rounded border border-blue-300 bg-blue-50 px-4 py-3 text-xs text-blue-800 shadow-xs animate-fadeIn">
+                            <div className="flex items-center gap-2">
+                                <Info className="h-4 w-4 text-blue-600 shrink-0" />
+                                <span className="font-medium">{flash.info}</span>
+                            </div>
+                        </div>
+                    )}
+
                     {children}
                 </main>
             </div>

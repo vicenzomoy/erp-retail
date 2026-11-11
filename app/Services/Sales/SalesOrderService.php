@@ -81,17 +81,17 @@ class SalesOrderService
 
         return DB::transaction(function () use ($data, $actor) {
 
-            // --- Idempotency double-check inside transaction ---
+            // --- Kunci baris pelanggan terlebih dahulu untuk menserialisasi request paralel (mencegah race condition saat koneksi lambat / double submit) ---
+            /** @var ContactCustomer $customer */
+            $customer = ContactCustomer::where('id', $data['customer_id'])->lockForUpdate()->firstOrFail();
+
+            // --- Idempotency double-check inside transaction setelah lock diperoleh ---
             if (!empty($data['idempotency_key'])) {
                 $existing = SalesOrder::where('idempotency_key', $data['idempotency_key'])->lockForUpdate()->first();
                 if ($existing) {
                     return $existing->load(['lines', 'customer']);
                 }
             }
-
-            // --- Customer validation ---
-            /** @var ContactCustomer $customer */
-            $customer = ContactCustomer::findOrFail($data['customer_id']);
 
             if (bccomp((string) $customer->credit_limit, '0', 2) < 0) {
                 throw ValidationException::withMessages([

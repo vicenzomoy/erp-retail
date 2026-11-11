@@ -111,25 +111,53 @@ class SalesOrderController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'customer_id'   => ['required', 'string', 'exists:contacts_customers,id'],
-            'payment_terms' => ['nullable', 'string', 'exists:payment_terms,term_id'],
-            'notes'         => ['nullable', 'string'],
-            'source_doc_no' => ['nullable', 'string', 'max:50'],
-            'lead_id'       => ['nullable', 'string', 'max:50'],
-            'discount_pct'  => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'lines'         => ['required', 'array', 'min:1'],
+            'idempotency_key' => ['nullable', 'string', 'max:100'],
+            'customer_id'     => ['required', 'string', 'exists:contacts_customers,id'],
+            'payment_terms'   => ['nullable', 'string', 'exists:payment_terms,term_id'],
+            'notes'           => ['nullable', 'string'],
+            'source_doc_no'   => ['nullable', 'string', 'max:50'],
+            'lead_id'         => ['nullable', 'string', 'max:50'],
+            'discount_pct'    => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'lines'           => ['required', 'array', 'min:1'],
             'lines.*.variant_sku'   => ['required', 'string', 'exists:products,variant_sku'],
             'lines.*.qty_ordered'   => ['required', 'integer', 'min:1'],
             'lines.*.discount_pct'  => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
-        $idempotencyKey = $request->header('X-Idempotency-Key');
-        if ($idempotencyKey) {
-            $existing = SalesOrder::where('idempotency_key', $idempotencyKey)->first();
-            if ($existing) {
-                return redirect()->route('sales.orders.show', $existing->id);
-            }
-            $validated['idempotency_key'] = $idempotencyKey;
+        // Pastikan customer_id wajib mengikuti data Lead jika Quotation dibuat dari Lead
+        $leadId = $validated['lead_id'] ?? $validated['source_doc_no'] ?? null;
+        $lead = $leadId ? CrmLead::find($leadId) : null;
+        if ($lead) {
+            $validated['customer_id'] = $lead->customer_id;
+        }
+
+        // Ambil idempotency_key dari header atau body form; jika kosong, buat fingerprint deterministik per request window
+        $idempotencyKey = $request->header('X-Idempotency-Key') ?: ($validated['idempotency_key'] ?? null);
+        if (!$idempotencyKey) {
+            $payloadSignature = json_encode([
+                'u' => $request->user()?->id,
+                'c' => $validated['customer_id'],
+                'l' => $validated['lead_id'] ?? $validated['source_doc_no'] ?? '',
+                'p' => $validated['payment_terms'] ?? '',
+                'n' => $validated['notes'] ?? '',
+                'i' => array_map(fn ($ln) => [
+                    'sku'  => $ln['variant_sku'],
+                    'qty'  => (int) $ln['qty_ordered'],
+                    'disc' => (float) ($ln['discount_pct'] ?? 0),
+                ], $validated['lines']),
+                // Window 15 detik untuk mencegah klik ganda bila tanpa header/key eksplisit
+                'w' => (int) floor(time() / 15),
+            ]);
+            $idempotencyKey = 'QUO-AUTO-' . substr(hash('sha256', (string) $payloadSignature), 0, 32);
+        }
+
+        $validated['idempotency_key'] = $idempotencyKey;
+
+        $existing = SalesOrder::where('idempotency_key', $idempotencyKey)->first();
+        if ($existing) {
+            return redirect()
+                ->route('sales.orders.show', $existing->id)
+                ->with('success', "Quotation {$existing->id} berhasil dibuat.");
         }
 
         try {

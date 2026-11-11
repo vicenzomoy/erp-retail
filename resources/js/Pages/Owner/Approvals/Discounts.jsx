@@ -91,17 +91,17 @@ export default function DiscountApprovals({
         >
             <Head title="Persetujuan Diskon Penjualan - PT Bara Ritel Nusantara" />
 
-            <div className="p-6 space-y-6 max-w-7xl mx-auto">
+            <div className="space-y-6">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+                        <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                             Persetujuan Diskon Penjualan
-                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
                                 Batas Sales: Maks 10%
                             </span>
                         </h1>
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-slate-500 mt-0.5">
                             Sesuai SOP Perusahaan, setiap diskon yang melampaui 10% (baik tingkat order maupun per baris produk) wajib ditinjau dan disetujui langsung oleh Owner.
                         </p>
                     </div>
@@ -114,7 +114,7 @@ export default function DiscountApprovals({
                             placeholder="Cari order, pelanggan, sales..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-1.5 rounded-md border border-slate-300 text-xs focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full pl-9 pr-3 py-1.5 rounded-md border border-slate-300 text-xs focus:ring-slate-500 focus:border-slate-500"
                         />
                     </div>
                 </div>
@@ -124,8 +124,8 @@ export default function DiscountApprovals({
                     <button
                         type="button"
                         onClick={() => setActiveTab('pending')}
-                        className={`flex items-center gap-2 px-4 py-2.5 border-b-2 transition cursor-pointer ${activeTab === 'pending'
-                                ? 'border-amber-600 text-amber-800 font-bold'
+                        className={`flex items-center gap-2 px-3 py-2 border-b-2 transition cursor-pointer ${activeTab === 'pending'
+                                ? 'border-slate-900 text-slate-900 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                             }`}
                     >
@@ -141,8 +141,8 @@ export default function DiscountApprovals({
                     <button
                         type="button"
                         onClick={() => setActiveTab('history')}
-                        className={`flex items-center gap-2 px-4 py-2.5 border-b-2 transition cursor-pointer ${activeTab === 'history'
-                                ? 'border-amber-600 text-amber-800 font-bold'
+                        className={`flex items-center gap-2 px-3 py-2 border-b-2 transition cursor-pointer ${activeTab === 'history'
+                                ? 'border-slate-900 text-slate-900 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                             }`}
                     >
@@ -175,7 +175,7 @@ export default function DiscountApprovals({
                                 return (
                                     <div
                                         key={order.id}
-                                        className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden hover:border-amber-400 transition"
+                                        className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden hover:border-slate-300 transition"
                                     >
                                         {/* Card Top Banner */}
                                         <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -187,12 +187,12 @@ export default function DiscountApprovals({
                                                     <div className="flex items-center gap-2">
                                                         <Link
                                                             href={route('sales.orders.show', order.id)}
-                                                            className="text-sm font-bold text-slate-900 hover:text-amber-600 flex items-center gap-1"
+                                                            className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 font-mono"
                                                         >
                                                             <span>{order.id}</span>
                                                             <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
                                                         </Link>
-                                                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                                                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                                                             Draft Quotation
                                                         </span>
                                                         <span className="text-xs text-slate-400">
@@ -256,7 +256,7 @@ export default function DiscountApprovals({
                                                 </h4>
                                                 <div className="overflow-x-auto border border-slate-200 rounded-md">
                                                     <table className="w-full text-left text-xs">
-                                                        <thead className="bg-slate-50 text-[11px] text-slate-500 border-b border-slate-200">
+                                                        <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200">
                                                             <tr>
                                                                 <th className="px-3 py-2">SKU &amp; Produk</th>
                                                                 <th className="px-3 py-2 text-center">Qty</th>
@@ -274,7 +274,7 @@ export default function DiscountApprovals({
                                                                 </tr>
                                                             ) : (
                                                                 order.high_discount_lines.map((line, idx) => (
-                                                                    <tr key={idx} className="hover:bg-amber-50/30">
+                                                                    <tr key={idx} className="hover:bg-slate-50">
                                                                         <td className="px-3 py-2">
                                                                             <span className="font-semibold text-slate-900">
                                                                                 {line.product_name}
@@ -328,7 +328,7 @@ export default function DiscountApprovals({
                                                         </div>
                                                         <div className="flex justify-between font-bold text-slate-900 text-sm pt-1.5 border-t border-slate-200">
                                                             <span>Nilai Akhir Order:</span>
-                                                            <span className="text-amber-800">{formatRp(order.grand_total)}</span>
+                                                            <span className="text-slate-900">{formatRp(order.grand_total)}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -375,7 +375,7 @@ export default function DiscountApprovals({
 
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-xs">
-                                <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                                <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200">
                                     <tr>
                                         <th className="px-4 py-3">No. Penawaran</th>
                                         <th className="px-4 py-3">Status Dokumen</th>
@@ -399,7 +399,7 @@ export default function DiscountApprovals({
                                                 <td className="px-4 py-3 font-semibold text-slate-900">
                                                     <Link
                                                         href={route('sales.orders.show', item.id)}
-                                                        className="text-amber-700 hover:text-amber-900 flex items-center gap-1"
+                                                        className="text-blue-600 hover:text-blue-800 flex items-center gap-1 font-mono"
                                                     >
                                                         <span>{item.id}</span>
                                                         <ExternalLink className="h-3 w-3" />
@@ -452,8 +452,8 @@ export default function DiscountApprovals({
 
             {/* Modal: Setujui Diskon */}
             {approvalModal.open && approvalModal.order && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+                    <div className="bg-white rounded-lg border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -503,7 +503,7 @@ export default function DiscountApprovals({
                                     value={approvalModal.notes}
                                     onChange={(e) => setApprovalModal({ ...approvalModal, notes: e.target.value })}
                                     placeholder="Contoh: Disetujui khusus untuk promo kemitraan Q4."
-                                    className="w-full rounded border-slate-300 text-xs focus:ring-amber-500 focus:border-amber-500"
+                                    className="w-full rounded border-slate-300 text-xs focus:ring-slate-500 focus:border-slate-500"
                                 />
                             </div>
                         </div>
@@ -531,8 +531,8 @@ export default function DiscountApprovals({
 
             {/* Modal: Tolak Diskon */}
             {rejectModal.open && rejectModal.order && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+                    <div className="bg-white rounded-lg border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                                 <AlertTriangle className="h-4 w-4 text-rose-600" />
@@ -565,7 +565,7 @@ export default function DiscountApprovals({
                                     step="1"
                                     value={rejectModal.adjustedDiscount}
                                     onChange={(e) => setRejectModal({ ...rejectModal, adjustedDiscount: parseFloat(e.target.value) || 0 })}
-                                    className="w-full rounded border-slate-300 text-xs focus:ring-amber-500 focus:border-amber-500"
+                                    className="w-full rounded border-slate-300 text-xs focus:ring-slate-500 focus:border-slate-500"
                                 />
                                 <p className="text-[10px] text-slate-500 mt-0.5">
                                     Maksimal 10% (sesuai kewenangan standar sales tanpa persetujuan).
@@ -581,7 +581,7 @@ export default function DiscountApprovals({
                                     value={rejectModal.reason}
                                     onChange={(e) => setRejectModal({ ...rejectModal, reason: e.target.value })}
                                     placeholder="Contoh: Margin terlalu tipis untuk kuantitas pesanan ini."
-                                    className="w-full rounded border-slate-300 text-xs focus:ring-amber-500 focus:border-amber-500"
+                                    className="w-full rounded border-slate-300 text-xs focus:ring-slate-500 focus:border-slate-500"
                                 />
                             </div>
                         </div>

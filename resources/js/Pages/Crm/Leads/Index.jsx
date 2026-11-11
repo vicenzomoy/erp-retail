@@ -134,7 +134,7 @@ export default function LeadsIndex({ leads, filters = {}, customers = [] }) {
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Cari ID, kontak, pelanggan, atau SKU..."
+                            placeholder="Cari ID, pelanggan, atau SKU..."
                             className="w-full rounded border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:border-sky-600 focus:bg-white focus:outline-none"
                         />
                     </div>
@@ -217,7 +217,6 @@ export default function LeadsIndex({ leads, filters = {}, customers = [] }) {
                                 <tr>
                                     <th className="px-4 py-3">ID Prospek</th>
                                     <th className="px-4 py-3">Pelanggan</th>
-                                    <th className="px-4 py-3">Kontak</th>
                                     <th className="px-4 py-3">Peminatan Produk</th>
                                     <th className="px-4 py-3 text-right">Expected Revenue</th>
                                     <th className="px-4 py-3 text-center">Tipe</th>
@@ -243,9 +242,6 @@ export default function LeadsIndex({ leads, filters = {}, customers = [] }) {
                                             <td className="px-4 py-3 font-semibold text-slate-800">
                                                 <div>{lead.customer_name}</div>
                                                 <div className="text-[10px] text-slate-400">{lead.customer_id}</div>
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-600">
-                                                {lead.contact_name || '—'}
                                             </td>
                                             <td className="px-4 py-3 text-slate-700">
                                                 {lead.variant_sku ? (

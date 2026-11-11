@@ -159,6 +159,25 @@ class CrmLeadService
                     ->filter(fn ($so) => $so && in_array($so->status, ['confirmed', 'done'], true))
                     ->first();
 
+                // Daftar item peminatan (multi-produk atau fallback 1 produk)
+                $interestItems = [];
+                if (!empty($l->interest_items) && is_array($l->interest_items)) {
+                    foreach ($l->interest_items as $it) {
+                        if (!empty($it['variant_sku'])) {
+                            $interestItems[] = [
+                                'variant_sku'  => $it['variant_sku'],
+                                'qty_interest' => (int) ($it['qty_interest'] ?? 1),
+                            ];
+                        }
+                    }
+                }
+                if (empty($interestItems) && $l->variant_sku) {
+                    $interestItems[] = [
+                        'variant_sku'  => $l->variant_sku,
+                        'qty_interest' => (int) ($l->qty_interest ?: 1),
+                    ];
+                }
+
                 $items[] = [
                     'id'               => $l->id,
                     'quotations'       => $quotationList,
@@ -173,6 +192,7 @@ class CrmLeadService
                     'product_name'     => $l->product?->name ?? $l->variant_sku,
                     'product_price'    => (float) ($l->product?->sales_price ?? 0),
                     'qty_interest'     => $l->qty_interest ?: 1,
+                    'interest_items'   => $interestItems,
                     'assigned_user_id' => $l->assigned_user_id,
                     'assigned_name'    => $l->assignedUser?->name ?? 'Belum Ditugaskan',
                     'quotations_count' => $l->quotationLinks->count(),
@@ -324,14 +344,14 @@ class CrmLeadService
                 'id'               => $leadId,
                 'source_doc_no'    => $data['source_doc_no'] ?? $leadId,
                 'customer_id'      => $customer->id,
-                'contact_name'     => $data['contact_name'] ?? $customer->name,
+                'contact_name'     => $data['contact_name'] ?? null,
                 'stage'            => $stage,
                 'type'             => $type,
                 'expected_revenue' => $expectedRevenue,
                 'variant_sku'      => $data['variant_sku'] ?? null,
                 'qty_interest'     => $data['qty_interest'] ?? null,
                 'interest_items'   => $data['interest_items'] ?? null,
-                'assigned_user_id' => $data['assigned_user_id'] ?? $actor->id,
+                'assigned_user_id' => $actor->id,
                 'idempotency_key'  => $data['idempotency_key'] ?? null,
                 'created_by'       => $actor->id,
             ]);
@@ -375,7 +395,10 @@ class CrmLeadService
 
             $oldValues = $lead->only(['customer_id', 'contact_name', 'stage', 'type', 'expected_revenue', 'variant_sku', 'qty_interest', 'assigned_user_id']);
 
-            if (!empty($data['customer_id'])) {
+            $hasQuotations = CrmLeadQuotationLink::where('lead_id', $lead->id)->exists();
+
+            // Pelanggan hanya dapat diubah jika belum ada Quotation sama sekali
+            if (!empty($data['customer_id']) && !$hasQuotations) {
                 ContactCustomer::findOrFail($data['customer_id']);
                 $lead->customer_id = $data['customer_id'];
             }

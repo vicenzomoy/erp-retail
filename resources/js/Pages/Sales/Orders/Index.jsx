@@ -65,14 +65,6 @@ export default function SalesOrderIndex({ orders, filters = {} }) {
                         {meta.total != null ? `${meta.total} order ditemukan` : ''}
                     </p>
                 </div>
-                <Link
-                    href={route('crm.pipeline')}
-                    title="Quotation baru dibuat melalui alur Prospek CRM"
-                    className="flex items-center gap-1.5 rounded bg-slate-900 text-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-700 transition shadow-2xs"
-                >
-                    <Plus className="h-3.5 w-3.5" />
-                    Buat Quotation (via CRM)
-                </Link>
             </div>
 
             {/* ── Filter Bar ── */}
@@ -84,11 +76,10 @@ export default function SalesOrderIndex({ orders, filters = {} }) {
                             key={f.key}
                             type="button"
                             onClick={() => handleStatusFilter(f.key)}
-                            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                                currentStatus === f.key
+                            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${currentStatus === f.key
                                     ? 'bg-slate-900 text-white'
                                     : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                            }`}
+                                }`}
                         >
                             {f.label}
                         </button>
@@ -223,11 +214,10 @@ export default function SalesOrderIndex({ orders, filters = {} }) {
                                 key={idx}
                                 onClick={() => link.url && router.visit(link.url)}
                                 disabled={!link.url}
-                                className={`flex h-8 w-8 items-center justify-center rounded text-xs font-semibold transition ${
-                                    link.active
+                                className={`flex h-8 w-8 items-center justify-center rounded text-xs font-semibold transition ${link.active
                                         ? 'bg-slate-900 text-white'
                                         : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
-                                }`}
+                                    }`}
                                 dangerouslySetInnerHTML={{ __html: link.label }}
                             />
                         );

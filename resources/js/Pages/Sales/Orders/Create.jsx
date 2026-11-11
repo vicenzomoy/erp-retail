@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Plus, Trash2, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, AlertCircle, ArrowLeft } from 'lucide-react';
 import SalesLayout from '@/Layouts/SalesLayout';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 
@@ -93,7 +93,19 @@ export default function SalesOrderCreate({
         return [blankLine()];
     };
 
+    // Kunci idempotensi per sesi form agar klik ganda / koneksi lambat tidak membuat 2 Quotation
+    const [formIdempotencyKey] = useState(
+        () =>
+            'QUO-' +
+            (prefill?.lead_id ? `${prefill.lead_id}-` : '') +
+            Date.now() +
+            '-' +
+            Math.random().toString(36).substring(2, 10)
+    );
+    const submittingRef = useRef(false);
+
     const { data, setData, post, processing, errors } = useForm({
+        idempotency_key: formIdempotencyKey,
         customer_id: prefill?.customer_id || '',
         payment_terms: initialCustomer?.payment_terms || '',
         notes: prefill?.lead_id
@@ -168,7 +180,21 @@ export default function SalesOrderCreate({
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route('sales.orders.store'));
+        if (processing || submittingRef.current) {
+            return;
+        }
+        submittingRef.current = true;
+        post(route('sales.orders.store'), {
+            headers: {
+                'X-Idempotency-Key': data.idempotency_key,
+            },
+            onError: () => {
+                submittingRef.current = false;
+            },
+            onFinish: () => {
+                submittingRef.current = false;
+            },
+        });
     };
 
     const stages = [
@@ -239,23 +265,24 @@ export default function SalesOrderCreate({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5">
                         {/* Left column */}
                         <div className="space-y-4">
-                            {/* Pelanggan */}
+                            {/* Pelanggan (Otomatis Mengikuti Data Lead & Tidak Bisa Diedit) */}
                             <div>
                                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                                     Pelanggan <span className="text-rose-500">*</span>
                                 </label>
-                                <select
-                                    value={data.customer_id}
-                                    onChange={(e) => handleCustomerChange(e.target.value)}
-                                    className="w-full rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-200 bg-white"
-                                >
-                                    <option value="">— Pilih Pelanggan —</option>
-                                    {customers.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.id} — {c.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <input
+                                    type="text"
+                                    readOnly
+                                    disabled
+                                    value={
+                                        selectedCustomer
+                                            ? `${selectedCustomer.id} — ${selectedCustomer.name}`
+                                            : lead?.customer_id
+                                            ? `${lead.customer_id} — ${lead.customer_name || ''}`
+                                            : data.customer_id || '—'
+                                    }
+                                    className="w-full rounded border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 cursor-not-allowed"
+                                />
                                 <InputError message={errors.customer_id} />
                             </div>
 
@@ -469,14 +496,11 @@ export default function SalesOrderCreate({
                                             </td>
                                             <td className="px-3 py-2">
                                                 <input
-                                                    type="number"
-                                                    min="0"
-                                                    step="1000"
-                                                    value={line.unit_price}
-                                                    onChange={(e) =>
-                                                        updateLine(line._id, 'unit_price', e.target.value)
-                                                    }
-                                                    className="w-full rounded border border-slate-200 px-2 py-1 text-xs text-right tabular-nums text-slate-800 focus:border-blue-400 focus:outline-none"
+                                                    type="text"
+                                                    readOnly
+                                                    disabled
+                                                    value={formatRp(line.unit_price)}
+                                                    className="w-full rounded border border-slate-200 bg-slate-100 px-2 py-1 text-xs text-right tabular-nums font-medium text-slate-600 cursor-not-allowed"
                                                 />
                                             </td>
                                             <td className="px-3 py-2">

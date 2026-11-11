@@ -78,17 +78,17 @@ export default function OwnerDashboard({
         >
             <Head title="Executive Dashboard - PT Bara Ritel Nusantara" />
 
-            <div className="p-6 space-y-6 max-w-7xl mx-auto">
+            <div className="space-y-6">
                 {/* Header Banner */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+                        <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2.5">
                             Executive Dashboard
-                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
                                 Realtime PT Bara Ritel Nusantara
                             </span>
                         </h1>
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-slate-500 mt-0.5">
                             Laporan metrik operasional, profitabilitas, kas, piutang, dan pusat kendali persetujuan diskon penjualan.
                         </p>
                     </div>
@@ -96,12 +96,12 @@ export default function OwnerDashboard({
                     <div className="flex items-center gap-2">
                         <Link
                             href={route('owner.approvals.discounts')}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md bg-amber-600 text-white hover:bg-amber-700 shadow-sm transition"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-slate-900 text-white hover:bg-slate-800 shadow-xs transition"
                         >
-                            <Percent className="h-3.5 w-3.5" />
+                            <Percent className="h-3.5 w-3.5 text-amber-400" />
                             <span>Persetujuan Diskon</span>
                             {kpis.pending_discounts_count > 0 && (
-                                <span className="ml-1 bg-white text-amber-700 font-bold px-1.5 py-0.2 rounded-full text-[10px]">
+                                <span className="ml-1 bg-rose-500 text-white font-bold px-1.5 py-0.2 rounded-full text-[10px]">
                                     {kpis.pending_discounts_count}
                                 </span>
                             )}
@@ -110,32 +110,32 @@ export default function OwnerDashboard({
                 </div>
 
                 {/* 6 High-Level Executive KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                     {/* 1. Pendapatan Hari Ini */}
-                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-amber-300 transition">
+                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-slate-300 transition">
                         <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-xs font-semibold uppercase tracking-wider">Omset Hari Ini</span>
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Omset Hari Ini</span>
                             <div className="p-1.5 rounded-md bg-emerald-50 text-emerald-600">
                                 <DollarSign className="h-4 w-4" />
                             </div>
                         </div>
-                        <p className="text-xl font-bold text-slate-900 mt-2">
+                        <p className="text-2xl font-bold text-slate-900 mt-2">
                             {formatRp(kpis.today_revenue)}
                         </p>
                         <p className="text-[11px] text-slate-500 mt-1">
-                            Kombinasi POS Kasir & SO Konfirmasi
+                            Kombinasi POS Kasir &amp; SO
                         </p>
                     </div>
 
                     {/* 2. Pendapatan Bulan Ini (MTD) */}
-                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-amber-300 transition">
+                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-slate-300 transition">
                         <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-xs font-semibold uppercase tracking-wider">Omset Bulan Ini</span>
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Omset Bulan Ini</span>
                             <div className="p-1.5 rounded-md bg-blue-50 text-blue-600">
                                 <BarChart3 className="h-4 w-4" />
                             </div>
                         </div>
-                        <p className="text-xl font-bold text-slate-900 mt-2">
+                        <p className="text-2xl font-bold text-slate-900 mt-2">
                             {formatRp(kpis.mtd_revenue)}
                         </p>
                         <div className="flex items-center gap-1 mt-1">
@@ -155,14 +155,14 @@ export default function OwnerDashboard({
                     </div>
 
                     {/* 3. Estimasi Laba Kotor */}
-                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-amber-300 transition">
+                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-slate-300 transition">
                         <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-xs font-semibold uppercase tracking-wider">Est. Laba Kotor</span>
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Est. Laba Kotor</span>
                             <div className="p-1.5 rounded-md bg-amber-50 text-amber-600">
                                 <Award className="h-4 w-4" />
                             </div>
                         </div>
-                        <p className="text-xl font-bold text-slate-900 mt-2">
+                        <p className="text-2xl font-bold text-slate-900 mt-2">
                             {formatRp(kpis.estimated_gross_profit)}
                         </p>
                         <p className="text-[11px] font-medium text-amber-700 mt-1">
@@ -171,14 +171,14 @@ export default function OwnerDashboard({
                     </div>
 
                     {/* 4. Kas & Bank Likuid */}
-                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-amber-300 transition">
+                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-slate-300 transition">
                         <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-xs font-semibold uppercase tracking-wider">Kas & Bank</span>
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Kas &amp; Bank</span>
                             <div className="p-1.5 rounded-md bg-teal-50 text-teal-600">
                                 <Wallet className="h-4 w-4" />
                             </div>
                         </div>
-                        <p className="text-xl font-bold text-slate-900 mt-2">
+                        <p className="text-2xl font-bold text-slate-900 mt-2">
                             {formatRp(kpis.cash_bank_balance)}
                         </p>
                         <p className="text-[11px] text-slate-500 mt-1">
@@ -187,14 +187,14 @@ export default function OwnerDashboard({
                     </div>
 
                     {/* 5. Piutang Usaha (Open AR) */}
-                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-amber-300 transition">
+                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-slate-300 transition">
                         <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-xs font-semibold uppercase tracking-wider">Piutang (AR)</span>
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Piutang (AR)</span>
                             <div className="p-1.5 rounded-md bg-indigo-50 text-indigo-600">
                                 <ArrowUpRight className="h-4 w-4" />
                             </div>
                         </div>
-                        <p className="text-xl font-bold text-slate-900 mt-2">
+                        <p className="text-2xl font-bold text-slate-900 mt-2">
                             {formatRp(kpis.open_ar)}
                         </p>
                         <p className="text-[11px] text-slate-500 mt-1">
@@ -203,14 +203,14 @@ export default function OwnerDashboard({
                     </div>
 
                     {/* 6. Utang Usaha (Open AP) */}
-                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-amber-300 transition">
+                    <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs hover:border-slate-300 transition">
                         <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-xs font-semibold uppercase tracking-wider">Utang (AP)</span>
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Utang (AP)</span>
                             <div className="p-1.5 rounded-md bg-rose-50 text-rose-600">
                                 <ArrowDownLeft className="h-4 w-4" />
                             </div>
                         </div>
-                        <p className="text-xl font-bold text-slate-900 mt-2">
+                        <p className="text-2xl font-bold text-slate-900 mt-2">
                             {formatRp(kpis.open_ap)}
                         </p>
                         <p className="text-[11px] text-slate-500 mt-1">
@@ -221,22 +221,22 @@ export default function OwnerDashboard({
 
                 {/* Priority Section: Pending Discount Approvals Action Hub */}
                 <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
-                    <div className="p-4 bg-gradient-to-r from-amber-500/10 via-amber-50 to-transparent border-b border-amber-200/60 flex items-center justify-between">
+                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex items-center gap-3">
                             <div className="p-2 rounded-md bg-amber-500 text-white shadow-xs">
-                                <ShieldAlert className="h-5 w-5" />
+                                <ShieldAlert className="h-4 w-4" />
                             </div>
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <h2 className="text-sm font-bold text-slate-900">
+                                    <h2 className="text-sm font-semibold text-slate-900">
                                         Pusat Persetujuan Diskon Penjualan (&gt; 10%)
                                     </h2>
                                     {pendingApprovals.length > 0 ? (
-                                        <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[11px] font-bold animate-pulse">
+                                        <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold animate-pulse">
                                             {pendingApprovals.length} Butuh Approval
                                         </span>
                                     ) : (
-                                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-semibold flex items-center gap-1">
+                                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold flex items-center gap-1">
                                             <CheckCircle2 className="h-3 w-3" /> Semua Disetujui
                                         </span>
                                     )}
@@ -250,7 +250,7 @@ export default function OwnerDashboard({
                         {pendingApprovals.length > 0 && (
                             <Link
                                 href={route('owner.approvals.discounts')}
-                                className="text-xs font-semibold text-amber-700 hover:text-amber-800 flex items-center gap-1 transition"
+                                className="text-xs font-semibold text-slate-700 hover:text-slate-900 flex items-center gap-1 transition shrink-0"
                             >
                                 <span>Lihat Semua Antrian</span>
                                 <ArrowUpRight className="h-3.5 w-3.5" />
@@ -273,7 +273,7 @@ export default function OwnerDashboard({
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-xs text-slate-700">
-                                <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                                <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200">
                                     <tr>
                                         <th className="px-4 py-3">No. Penawaran</th>
                                         <th className="px-4 py-3">Pelanggan</th>
@@ -287,11 +287,11 @@ export default function OwnerDashboard({
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {pendingApprovals.slice(0, 5).map((order) => (
-                                        <tr key={order.id} className="hover:bg-amber-50/40 transition">
+                                        <tr key={order.id} className="hover:bg-slate-50 transition">
                                             <td className="px-4 py-3 font-semibold text-slate-900">
                                                 <Link
                                                     href={route('sales.orders.show', order.id)}
-                                                    className="text-amber-700 hover:text-amber-900 flex items-center gap-1"
+                                                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 font-mono"
                                                 >
                                                     <span>{order.id}</span>
                                                     <ExternalLink className="h-3 w-3" />
@@ -352,9 +352,9 @@ export default function OwnerDashboard({
                     <div className="space-y-6">
                         {/* Omnichannel Channel Breakdown */}
                         <div className="bg-white rounded-lg p-5 border border-slate-200 shadow-xs">
-                            <h2 className="text-sm font-bold text-slate-900 flex items-center justify-between pb-3 border-b border-slate-100">
+                            <h2 className="text-sm font-semibold text-slate-900 flex items-center justify-between pb-3 border-b border-slate-100">
                                 <span className="flex items-center gap-2">
-                                    <Store className="h-4 w-4 text-amber-600" />
+                                    <Store className="h-4 w-4 text-slate-600" />
                                     Komposisi Kanal Penjualan (Omnichannel MTD)
                                 </span>
                                 <span className="text-xs font-bold text-slate-900">
@@ -417,9 +417,9 @@ export default function OwnerDashboard({
 
                         {/* Sales Team Performance & Average Discount */}
                         <div className="bg-white rounded-lg p-5 border border-slate-200 shadow-xs">
-                            <h2 className="text-sm font-bold text-slate-900 flex items-center justify-between pb-3 border-b border-slate-100">
+                            <h2 className="text-sm font-semibold text-slate-900 flex items-center justify-between pb-3 border-b border-slate-100">
                                 <span className="flex items-center gap-2">
-                                    <Percent className="h-4 w-4 text-amber-600" />
+                                    <Percent className="h-4 w-4 text-slate-600" />
                                     Kinerja Sales &amp; Rata-rata Diskon Diberikan
                                 </span>
                                 <span className="text-xs text-slate-400">Monitoring Disiplin Margin</span>
@@ -427,7 +427,7 @@ export default function OwnerDashboard({
 
                             <div className="mt-3 overflow-x-auto">
                                 <table className="w-full text-left text-xs">
-                                    <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                                    <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200">
                                         <tr>
                                             <th className="px-3 py-2.5">Nama Sales</th>
                                             <th className="px-3 py-2.5 text-center">Jumlah Order</th>
@@ -476,9 +476,9 @@ export default function OwnerDashboard({
 
                     {/* Column 2: Top Selling Products */}
                     <div className="bg-white rounded-lg p-5 border border-slate-200 shadow-xs flex flex-col">
-                        <h2 className="text-sm font-bold text-slate-900 flex items-center justify-between pb-3 border-b border-slate-100">
+                        <h2 className="text-sm font-semibold text-slate-900 flex items-center justify-between pb-3 border-b border-slate-100">
                             <span className="flex items-center gap-2">
-                                <Award className="h-4 w-4 text-amber-600" />
+                                <Award className="h-4 w-4 text-slate-600" />
                                 Top 5 Produk Terlaris (Kontribusi Omset)
                             </span>
                             <span className="text-xs text-slate-400">B2B Wholesale</span>
@@ -486,7 +486,7 @@ export default function OwnerDashboard({
 
                         <div className="mt-3 flex-1 overflow-x-auto">
                             <table className="w-full text-left text-xs">
-                                <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                                <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200">
                                     <tr>
                                         <th className="px-3 py-2.5">Produk &amp; SKU</th>
                                         <th className="px-3 py-2.5 text-center">Qty Terjual</th>
@@ -532,8 +532,8 @@ export default function OwnerDashboard({
 
             {/* Modal: Setujui Diskon */}
             {approvalModal.open && approvalModal.order && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+                    <div className="bg-white rounded-lg border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -597,8 +597,8 @@ export default function OwnerDashboard({
 
             {/* Modal: Tolak Diskon */}
             {rejectModal.open && rejectModal.order && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+                    <div className="bg-white rounded-lg border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                                 <AlertTriangle className="h-4 w-4 text-rose-600" />
@@ -631,7 +631,7 @@ export default function OwnerDashboard({
                                     step="1"
                                     value={rejectModal.adjustedDiscount}
                                     onChange={(e) => setRejectModal({ ...rejectModal, adjustedDiscount: parseFloat(e.target.value) || 0 })}
-                                    className="w-full rounded border-slate-300 text-xs focus:ring-amber-500 focus:border-amber-500"
+                                    className="w-full rounded border-slate-300 text-xs focus:ring-slate-500 focus:border-slate-500"
                                 />
                                 <p className="text-[10px] text-slate-500 mt-0.5">
                                     Maksimal 10% (sesuai kewenangan standar sales tanpa persetujuan).
@@ -647,7 +647,7 @@ export default function OwnerDashboard({
                                     value={rejectModal.reason}
                                     onChange={(e) => setRejectModal({ ...rejectModal, reason: e.target.value })}
                                     placeholder="Contoh: Margin terlalu tipis untuk kuantitas pesanan ini."
-                                    className="w-full rounded border-slate-300 text-xs focus:ring-amber-500 focus:border-amber-500"
+                                    className="w-full rounded border-slate-300 text-xs focus:ring-slate-500 focus:border-slate-500"
                                 />
                             </div>
                         </div>
