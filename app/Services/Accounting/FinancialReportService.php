@@ -4,6 +4,7 @@ namespace App\Services\Accounting;
 
 use App\Models\CreditNote;
 use App\Models\CustomerInvoice;
+use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\VendorBill;
 use Illuminate\Support\Facades\DB;
@@ -397,9 +398,35 @@ class FinancialReportService
 
         $invoiceTaxTotal    = round((float) $invoices->sum('total_tax'), 2);
         $creditNoteTaxTotal = round((float) $creditNotes->sum('total_tax'), 2);
-        $posOutputTaxTotal  = round(max(0, $glOutputVat - ($invoiceTaxTotal - $creditNoteTaxTotal)), 2);
 
-        $netTaxPayable = round($glOutputVat - $glInputVat, 2);
+        // Total PPN Keluaran terutang = dari semua faktur - retur (berdasarkan dokumen, bukan hanya GL)
+        $outputVatFromInvoices = round($invoiceTaxTotal - $creditNoteTaxTotal, 2);
+
+        // PPN yang sudah dibayar ke negara = debit movements di GL 2200 dari tax_payment entries
+        $paidOutputVat = (float) (JournalLine::where('account_code', '2200')
+            ->whereHas('journalEntry', fn ($q) => $q->where('entry_type', 'tax_payment')->where('status', 'posted'))
+            ->sum('debit') ?: 0);
+
+        // Sisa PPN Keluaran yang belum dibayar ke negara
+        $remainingOutputVat = round($outputVatFromInvoices - $paidOutputVat, 2);
+
+        // PPN dari POS (selisih GL 2200 credit dari non-invoice entries, jika ada)
+        // Untuk saat ini: POS tax sudah tercatat via GL, cukup tampilkan 0
+        $posOutputTaxTotal = 0;
+
+        // Riwayat pembayaran PPN ke negara
+        $taxPayments = JournalEntry::where('entry_type', 'tax_payment')
+            ->where('status', 'posted')
+            ->orderByDesc('entry_date')
+            ->get()
+            ->map(fn ($je) => [
+                'entry_no'    => $je->entry_no,
+                'date'        => $je->entry_date?->format('d/m/Y'),
+                'amount'      => (float) $je->total_debit,
+                'description' => $je->description,
+            ]);
+
+        $netTaxPayable = round($remainingOutputVat - $glInputVat, 2);
 
         return [
             'tax_policy' => [
@@ -410,7 +437,10 @@ class FinancialReportService
                 'rounding_policy' => $taxRate->rounding_policy ?? 'Per invoice line; rupiah terdekat',
             ],
             'summary' => [
-                'output_vat_gl'       => $glOutputVat,
+                'output_vat_total'    => $outputVatFromInvoices,   // Total PPN keluaran dari semua faktur (neto)
+                'output_vat_paid'     => $paidOutputVat,            // Sudah dibayar ke negara
+                'output_vat_remaining'=> $remainingOutputVat,       // Sisa yang belum dibayar
+                'output_vat_gl'       => $glOutputVat,              // GL 2200 balance (referensi)
                 'input_vat_gl'        => $glInputVat,
                 'invoice_dpp_total'   => round((float) $invoices->sum('subtotal_before_tax'), 2),
                 'invoice_tax_total'   => $invoiceTaxTotal,
@@ -426,6 +456,7 @@ class FinancialReportService
             'invoices'     => $invoices->values()->all(),
             'credit_notes' => $creditNotes->values()->all(),
             'vendor_bills' => $vendorBills->values()->all(),
+            'tax_payments' => $taxPayments->values()->all(),
         ];
     }
 }

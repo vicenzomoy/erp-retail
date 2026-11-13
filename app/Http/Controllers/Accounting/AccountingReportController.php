@@ -3,9 +3,14 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
+use App\Models\JournalEntry;
+use App\Models\JournalLine;
 use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\GeneralLedgerService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -95,6 +100,88 @@ class AccountingReportController extends Controller
         return Inertia::render('Accounting/Reports/TaxReport', [
             'report' => $this->reportService->getTaxReport(),
         ]);
+    }
+
+    /**
+     * 7. Bayar PPN Keluaran ke Negara.
+     *    Jurnal: Dr 2200 (PPN Keluaran) / Cr 1020 (Bank)
+     *    Idempoten: cek entry_no unik per tanggal + amount sebelum insert.
+     */
+    public function payOutputVat(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'amount'       => 'required|numeric|min:1',
+            'payment_date' => 'required|date',
+            'notes'        => 'nullable|string|max:500',
+        ]);
+
+        $actor = auth()->user();
+
+        DB::transaction(function () use ($request, $actor) {
+            $seq = str_pad(
+                JournalEntry::where('entry_type', 'tax_payment')->count() + 1,
+                4,
+                '0',
+                STR_PAD_LEFT
+            );
+            $entryNo = 'TAX/' . now()->format('Y/m') . '/' . $seq;
+
+            // Idempotency guard: jika entry_no sudah ada, skip
+            if (JournalEntry::where('entry_no', $entryNo)->exists()) {
+                return;
+            }
+
+            $je = JournalEntry::create([
+                'entry_no'             => $entryNo,
+                'entry_type'           => 'tax_payment',
+                'source_document_type' => 'tax_payment',
+                'source_document_id'   => $entryNo,
+                'entry_date'           => $request->payment_date,
+                'description'          => 'Pembayaran PPN Keluaran ke Negara'
+                    . ($request->notes ? ' — ' . $request->notes : ''),
+                'status'               => 'posted',
+                'is_balanced'          => true,
+                'total_debit'          => $request->amount,
+                'total_credit'         => $request->amount,
+                'posted_at'            => now(),
+                'posted_by'            => $actor->id,
+                'created_by'           => $actor->id,
+            ]);
+
+            // Dr 2200 — mengurangi kewajiban PPN Keluaran
+            JournalLine::create([
+                'journal_entry_id' => $je->id,
+                'account_code'     => '2200',
+                'description'      => 'Pelunasan PPN Keluaran ke Kas Negara — ' . $entryNo,
+                'debit'            => $request->amount,
+                'credit'           => 0.00,
+                'created_at'       => now(),
+            ]);
+
+            // Cr 1020 — uang keluar dari Bank ke pemerintah
+            JournalLine::create([
+                'journal_entry_id' => $je->id,
+                'account_code'     => '1020',
+                'description'      => 'Pembayaran PPN ke Negara — ' . $entryNo,
+                'debit'            => 0.00,
+                'credit'           => $request->amount,
+                'created_at'       => now(),
+            ]);
+
+            AuditLog::record(
+                action: 'PAY_OUTPUT_VAT',
+                status: 'SUCCESS',
+                actorUserId: $actor->id,
+                actorUsername: $actor->name,
+                actorRole: $actor->role_id,
+                documentType: 'tax_payment',
+                documentId: $entryNo,
+                newValue: ['amount' => $request->amount, 'entry_no' => $entryNo, 'date' => $request->payment_date],
+            );
+        });
+
+        return redirect()->route('accounting.reports.tax')
+            ->with('success', 'Pembayaran PPN Keluaran ke negara berhasil dicatat.');
     }
 }
 

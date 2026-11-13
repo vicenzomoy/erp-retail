@@ -191,6 +191,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/trial-balance', [AccountingReportController::class, 'trialBalance'])->name('trial-balance');
             Route::get('/general-ledger', [AccountingReportController::class, 'generalLedger'])->name('general-ledger');
             Route::get('/tax', [AccountingReportController::class, 'taxReport'])->name('tax');
+            Route::post('/tax/pay-vat', [AccountingReportController::class, 'payOutputVat'])->name('tax.pay-vat');
         });
     });
 

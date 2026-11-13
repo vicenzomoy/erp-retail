@@ -279,7 +279,9 @@ class AppInitialSeeder extends Seeder
 
         $financeUser = User::where('role_id', 'finance')->first() ?? $salesUser;
 
-        // 8b. Opening Balance Journal Entry (Baseline GL: Bank Rp50jt, AR Rp2,5jt, Inventory Rp24.531.000, AP Rp5jt)
+        // 8b. Opening Balance Journal Entry
+        // Total: Debit = Bank50jt + AR2.5jt + Inventory24.531jt + PPN_Masukan495.5k = 77.526.495,50
+        //        Credit = AP5jt + PPN_Keluaran247.75k + Modal72.278.747,75 = 77.526.495,50
         $openJe = JournalEntry::firstOrCreate(
             ['entry_no' => 'JE/OPEN/0001'],
             [
@@ -287,30 +289,72 @@ class AppInitialSeeder extends Seeder
                 'source_document_type' => 'opening_balance',
                 'source_document_id'   => 'OPENING',
                 'entry_date'           => now()->subDays(5)->toDateString(),
-                'description'          => 'Saldo Awal Buku Besar (Bank, Piutang INV-OPEN01, Persediaan, Utang BILL-OPEN01, Modal)',
+                'description'          => 'Saldo Awal Buku Besar (Bank, Piutang INV-OPEN01, Persediaan, PPN, Utang BILL-OPEN01, Modal)',
                 'status'               => 'posted',
                 'is_balanced'          => true,
-                'total_debit'          => 77031000.00,
-                'total_credit'         => 77031000.00,
+                'total_debit'          => 77526495.50,
+                'total_credit'         => 77526495.50,
                 'posted_at'            => now()->subDays(5),
                 'posted_by'            => $financeUser->id,
                 'created_by'           => $financeUser->id,
             ]
         );
 
+        // Update totals if JE already exists with wrong amounts (fix existing data)
+        if ($openJe->total_debit != 77526495.50) {
+            $openJe->update([
+                'total_debit'  => 77526495.50,
+                'total_credit' => 77526495.50,
+                'description'  => 'Saldo Awal Buku Besar (Bank, Piutang INV-OPEN01, Persediaan, PPN, Utang BILL-OPEN01, Modal)',
+            ]);
+        }
+
         if ($openJe->lines()->count() === 0) {
             $openLines = [
                 ['account_code' => '1020', 'description' => 'Saldo Awal Bank Operasional', 'debit' => 50000000.00, 'credit' => 0.00],
                 ['account_code' => '1100', 'description' => 'Saldo Awal Piutang Usaha (INV-OPEN01 - PT Riau Mode Bersama)', 'debit' => 2500000.00, 'credit' => 0.00],
                 ['account_code' => '1200', 'description' => 'Saldo Awal Persediaan Barang Dagang (219 pcs)', 'debit' => 24531000.00, 'credit' => 0.00],
+                ['account_code' => '1300', 'description' => 'Saldo Awal PPN Masukan (BILL-OPEN01 - CV Jaket Nusantara Rp5jt)', 'debit' => 495495.50, 'credit' => 0.00],
                 ['account_code' => '2100', 'description' => 'Saldo Awal Utang Usaha (BILL-OPEN01 - CV Jaket Nusantara)', 'debit' => 0.00, 'credit' => 5000000.00],
-                ['account_code' => '3000', 'description' => 'Modal Awal PT Bara Ritel Nusantara', 'debit' => 0.00, 'credit' => 72031000.00],
+                ['account_code' => '2200', 'description' => 'Saldo Awal PPN Keluaran (INV-OPEN01 - PT Riau Mode Bersama Rp2,5jt)', 'debit' => 0.00, 'credit' => 247747.75],
+                ['account_code' => '3000', 'description' => 'Modal Awal PT Bara Ritel Nusantara', 'debit' => 0.00, 'credit' => 72278747.75],
             ];
             foreach ($openLines as $ol) {
                 JournalLine::create(array_merge($ol, [
                     'journal_entry_id' => $openJe->id,
                     'created_at'       => now()->subDays(5),
                 ]));
+            }
+        } else {
+            // Fix existing lines: add 1300 and 2200 lines if missing, adjust 3000
+            $existingCodes = $openJe->lines()->pluck('account_code')->toArray();
+
+            if (!in_array('1300', $existingCodes)) {
+                JournalLine::create([
+                    'journal_entry_id' => $openJe->id,
+                    'account_code'     => '1300',
+                    'description'      => 'Saldo Awal PPN Masukan (BILL-OPEN01 - CV Jaket Nusantara Rp5jt)',
+                    'debit'            => 495495.50,
+                    'credit'           => 0.00,
+                    'created_at'       => now()->subDays(5),
+                ]);
+            }
+
+            if (!in_array('2200', $existingCodes)) {
+                JournalLine::create([
+                    'journal_entry_id' => $openJe->id,
+                    'account_code'     => '2200',
+                    'description'      => 'Saldo Awal PPN Keluaran (INV-OPEN01 - PT Riau Mode Bersama Rp2,5jt)',
+                    'debit'            => 0.00,
+                    'credit'           => 247747.75,
+                    'created_at'       => now()->subDays(5),
+                ]);
+            }
+
+            // Fix modal: adjust 3000 from 72031000 → 72278747.75 if still old value
+            $modalLine = $openJe->lines()->where('account_code', '3000')->first();
+            if ($modalLine && abs((float)$modalLine->credit - 72031000.00) < 1) {
+                $modalLine->update(['credit' => 72278747.75]);
             }
         }
 
