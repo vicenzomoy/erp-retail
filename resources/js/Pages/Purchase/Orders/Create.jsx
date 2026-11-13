@@ -10,7 +10,6 @@ import {
     AlertCircle,
     Info,
     CheckCircle2,
-    Lock,
 } from 'lucide-react';
 
 export default function Create({
@@ -39,6 +38,15 @@ export default function Create({
         return false;
     };
 
+    // Helper: Ambil harga beli satuan dari pricelist vendor (fallback ke master cost)
+    const getVendorUnitPrice = (prod, vId) => {
+        if (!prod) return 0;
+        if (vId && prod.vendor_prices && prod.vendor_prices[vId] !== undefined) {
+            return Number(prod.vendor_prices[vId]);
+        }
+        return Number(prod.cost || 0);
+    };
+
     // Produk awal hanya jika datang dari link katalog dengan defaultSku yang valid
     const initialVendorProducts = initialVendor
         ? products.filter((p) => isProductSuppliedByVendor(p, initialVendor.id))
@@ -59,7 +67,7 @@ export default function Create({
                 {
                     variant_sku: initialProduct.variant_sku,
                     qty_ordered: 1,
-                    unit_price: initialProduct.cost || 0,
+                    unit_price: getVendorUnitPrice(initialProduct, initialVendor?.id),
                     tax_id: 'VAT-NONLUX',
                 },
             ]
@@ -107,10 +115,16 @@ export default function Create({
                 .map((p) => p.variant_sku)
         );
 
-        // Hanya pertahankan baris produk yang memang disediakan oleh vendor baru
-        const filteredLines = data.lines.filter((l) =>
-            validSkusForNewVendor.has(l.variant_sku)
-        );
+        // Hanya pertahankan baris produk yang memang disediakan oleh vendor baru dan perbarui harga sesuai pricelist vendor baru
+        const filteredLines = data.lines
+            .filter((l) => validSkusForNewVendor.has(l.variant_sku))
+            .map((l) => {
+                const prod = products.find((p) => p.variant_sku === l.variant_sku);
+                return {
+                    ...l,
+                    unit_price: getVendorUnitPrice(prod, vendorId),
+                };
+            });
 
         setData({
             ...data,
@@ -129,7 +143,7 @@ export default function Create({
             {
                 variant_sku: nextAvailableProduct.variant_sku,
                 qty_ordered: 1, // Minimal 1 dan integer
-                unit_price: nextAvailableProduct.cost || 0,
+                unit_price: getVendorUnitPrice(nextAvailableProduct, data.vendor_id),
                 tax_id: 'VAT-NONLUX',
             },
         ]);
@@ -153,11 +167,11 @@ export default function Create({
             value = isNaN(intVal) || intVal < 1 ? 1 : intVal;
         }
 
-        // Jika mengubah SKU, update unit price dari master cost
+        // Jika mengubah SKU, update unit price dari pricelist vendor / master cost
         if (field === 'variant_sku') {
             const prod = currentVendorProducts.find((p) => p.variant_sku === value);
             if (prod) {
-                updated[index].unit_price = prod.cost || 0;
+                updated[index].unit_price = getVendorUnitPrice(prod, data.vendor_id);
             }
         }
 
@@ -228,9 +242,9 @@ export default function Create({
                         type="button"
                         onClick={handleSubmit}
                         disabled={isSubmitDisabled}
-                        className={`inline-flex items-center gap-1.5 rounded px-3.5 py-1.5 text-xs font-semibold shadow-xs transition ${isSubmitDisabled
+                        className={`inline-flex items-center gap-1.5 rounded px-4 py-1.5 text-xs font-bold shadow-xs transition-all duration-150 ${isSubmitDisabled
                             ? 'border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
-                            : 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 cursor-pointer'
+                            : 'border border-slate-900 bg-slate-900 text-white hover:bg-black hover:border-black hover:shadow-md active:scale-[0.98] cursor-pointer'
                             }`}
                         title={
                             !data.vendor_id
@@ -240,7 +254,7 @@ export default function Create({
                                     : 'Simpan sebagai Draft RFQ'
                         }
                     >
-                        <Save className="h-4 w-4 text-slate-600" />
+                        <Save className="h-4 w-4 transition-colors" />
                         Simpan Draft (RFQ)
                     </button>
                 </div>
@@ -290,7 +304,7 @@ export default function Create({
                         <select
                             value={data.vendor_id}
                             onChange={(e) => handleVendorChange(e.target.value)}
-                            className="w-full rounded border border-slate-300 bg-white font-medium text-slate-900 py-1.5 px-3 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            className="w-full rounded border border-slate-300 bg-white font-medium text-slate-900 py-1.5 px-3 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
                         >
                             <option value="">-- Pilih Pemasok (Vendor) --</option>
                             {sortedVendors.map((v) => (
@@ -309,7 +323,7 @@ export default function Create({
                         <select
                             value={data.payment_terms}
                             onChange={(e) => setData('payment_terms', e.target.value)}
-                            className="w-full rounded border border-slate-300 bg-white font-medium text-slate-900 py-1.5 px-3 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            className="w-full rounded border border-slate-300 bg-white font-medium text-slate-900 py-1.5 px-3 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
                         >
                             <option value="">-- Pilih Termin Pembayaran --</option>
                             {paymentTerms.map((pt) => (
@@ -329,8 +343,8 @@ export default function Create({
                             type="text"
                             value={data.source_doc_no}
                             onChange={(e) => setData('source_doc_no', e.target.value)}
-                            placeholder="Contoh: P00007 / Surat Penawaran..."
-                            className="w-full rounded border border-slate-300 bg-white py-1.5 px-3 focus:border-amber-500 focus:outline-none"
+                            placeholder="Contoh: SO000X"
+                            className="w-full rounded border border-slate-300 bg-white py-1.5 px-3 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
                         />
                     </div>
 
@@ -344,7 +358,7 @@ export default function Create({
                             value={data.notes}
                             onChange={(e) => setData('notes', e.target.value)}
                             placeholder="Catatan pengadaan, estimasi tiba di gudang..."
-                            className="w-full rounded border border-slate-300 bg-white py-1.5 px-3 focus:border-amber-500 focus:outline-none"
+                            className="w-full rounded border border-slate-300 bg-white py-1.5 px-3 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
                         />
                     </div>
                 </div>
@@ -375,11 +389,11 @@ export default function Create({
                                 currentVendorProducts.length === 0 ||
                                 isAllVendorProductsSelected
                             }
-                            className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold transition ${!data.vendor_id ||
+                            className={`inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${!data.vendor_id ||
                                 isAllVendorProductsSelected ||
                                 currentVendorProducts.length === 0
                                 ? 'border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
-                                : 'border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 cursor-pointer'
+                                : 'border border-slate-300 bg-slate-200 text-slate-800 hover:bg-slate-300 hover:border-slate-400 hover:text-slate-900 cursor-pointer'
                                 }`}
                             title={
                                 !data.vendor_id
@@ -460,7 +474,7 @@ export default function Create({
                                                         onChange={(e) =>
                                                             updateLine(idx, 'variant_sku', e.target.value)
                                                         }
-                                                        className="w-full rounded border border-slate-300 bg-white py-1 px-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none"
+                                                        className="w-full rounded border border-slate-300 bg-white py-1 px-2 text-xs text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
                                                     >
                                                         {currentVendorProducts.map((p) => {
                                                             const isAlreadySelectedElsewhere =
@@ -509,23 +523,19 @@ export default function Create({
                                                         onChange={(e) =>
                                                             updateLine(idx, 'qty_ordered', e.target.value)
                                                         }
-                                                        className="w-full rounded border border-slate-300 py-1 px-2 text-center font-bold text-slate-900 focus:border-amber-500 focus:outline-none"
+                                                        className="w-full rounded border border-slate-300 py-1 px-2 text-center font-bold text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
                                                         title="Kuantitas harus berupa bilangan bulat minimal 1"
                                                     />
                                                 </td>
 
-                                                {/* Harga Beli Satuan */}
-                                                <td className="py-2.5 px-3">
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="1000"
-                                                        value={line.unit_price}
-                                                        onChange={(e) =>
-                                                            updateLine(idx, 'unit_price', e.target.value)
-                                                        }
-                                                        className="w-full rounded border border-slate-300 py-1 px-2 text-right font-mono text-slate-900 focus:border-amber-500 focus:outline-none"
-                                                    />
+                                                {/* Harga Beli Satuan — Dikunci (sesuai pricelist vendor / master produk) */}
+                                                <td className="py-2.5 px-3 text-right">
+                                                    <div
+                                                        className="w-full rounded border border-slate-200 bg-slate-50 py-1.5 px-3 text-right font-mono font-semibold text-slate-700 cursor-not-allowed select-none"
+                                                        title="Harga beli satuan dikunci otomatis sesuai harga vendor (tidak dapat diedit)"
+                                                    >
+                                                        {formatRp(line.unit_price)}
+                                                    </div>
                                                 </td>
 
                                                 {/* PPN */}
@@ -563,27 +573,24 @@ export default function Create({
                 {/* Financial Summary Calculation (Right-aligned) */}
                 <div className="flex flex-col sm:flex-row justify-end items-end gap-6 pt-4 border-t border-slate-200">
                     <div className="w-full sm:w-80 space-y-2 text-xs">
-                        <div className="flex justify-between text-slate-600">
+                        <div className="flex justify-between text-slate-500">
                             <span>Dasar Pengenaan Pajak (DPP):</span>
-                            <span className="font-mono font-bold text-slate-900">
+                            <span className="font-mono font-semibold text-slate-600">
                                 {formatRp(subtotal)}
                             </span>
                         </div>
-                        <div className="flex justify-between text-slate-600">
+                        <div className="flex justify-between text-slate-500">
                             <span>Pajak Pertambahan Nilai (PPN 11%):</span>
-                            <span className="font-mono font-bold text-amber-700">
+                            <span className="font-mono font-semibold text-slate-600">
                                 {formatRp(taxAmount)}
                             </span>
                         </div>
                         <div className="border-t border-slate-200 pt-2 flex justify-between text-sm font-black text-slate-900">
-                            <span>Total Perkiraan Tagihan:</span>
-                            <span className="font-mono text-base text-amber-900">
+                            <span>Total Tagihan:</span>
+                            <span className="font-mono text-base text-slate-900">
                                 {formatRp(grandTotal)}
                             </span>
                         </div>
-                        <p className="text-[10px] text-slate-400 text-right">
-                            * Pajak dihitung per baris dan dibulatkan ke rupiah terdekat (F-23).
-                        </p>
                     </div>
                 </div>
             </div>

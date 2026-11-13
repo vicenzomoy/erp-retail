@@ -38,17 +38,21 @@ class PurchaseOverviewController extends Controller
 
         $topVendors = ContactVendor::withCount('purchaseOrders')
             ->withSum('purchaseOrders', 'grand_total')
-            ->orderByDesc('purchase_orders_sum_grand_total')
-            ->limit(5)
             ->get()
             ->map(fn (ContactVendor $v) => [
                 'id' => $v->id,
                 'name' => $v->name,
                 'city' => $v->city,
                 'payment_terms' => $v->payment_terms,
-                'orders_count' => $v->purchase_orders_count,
+                'orders_count' => (int) $v->purchase_orders_count,
                 'total_spent' => (float) ($v->purchase_orders_sum_grand_total ?? 0),
-            ]);
+            ])
+            ->sortBy([
+                ['total_spent', 'desc'],
+                ['orders_count', 'desc'],
+            ])
+            ->take(5)
+            ->values();
 
         return Inertia::render('Purchase/Overview', [
             'kpis' => $kpis,

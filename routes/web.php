@@ -94,6 +94,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/vendors/{id}', [PurchaseVendorController::class, 'show'])
             ->where('id', '.+')
             ->name('vendors.show');
+        Route::delete('/vendors/{id}', [PurchaseVendorController::class, 'destroy'])
+            ->where('id', '.+')
+            ->name('vendors.destroy');
 
         // Products & Stock for Procurement
         Route::get('/products', [PurchaseProductController::class, 'index'])->name('products.index');

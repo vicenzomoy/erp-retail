@@ -249,6 +249,36 @@ class PaymentService
                     'status'          => $newStatus,
                 ]);
             } else {
+                // Lock akun kas/bank dan validasi kecukupan saldo sebelum pembayaran keluar (Outbound / AP)
+                $accountRow = DB::table('chart_of_accounts')
+                    ->where('code', $bankCode)
+                    ->lockForUpdate()
+                    ->first();
+
+                $balanceRow = DB::table('journal_lines')
+                    ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+                    ->where('journal_entries.status', 'posted')
+                    ->where('journal_lines.account_code', $bankCode)
+                    ->selectRaw('COALESCE(SUM(journal_lines.debit), 0) AS sum_debit, COALESCE(SUM(journal_lines.credit), 0) AS sum_credit')
+                    ->first();
+
+                $sumDebit       = number_format((float) ($balanceRow->sum_debit ?? 0), 2, '.', '');
+                $sumCredit      = number_format((float) ($balanceRow->sum_credit ?? 0), 2, '.', '');
+                $currentBalance = bcsub($sumDebit, $sumCredit, 2);
+
+                if (bccomp($requestedAmount, $currentBalance, 2) > 0) {
+                    $accountLabel = $accountRow?->account_name ?? $bankCode;
+                    throw ValidationException::withMessages([
+                        'amount' => sprintf(
+                            'Saldo %s (%s) tidak mencukupi untuk pembayaran ini. Saldo tersedia: Rp %s, nominal pembayaran: Rp %s.',
+                            $accountLabel,
+                            $bankCode,
+                            number_format(max(0, (float) $currentBalance), 0, ',', '.'),
+                            number_format((float) $requestedAmount, 0, ',', '.')
+                        ),
+                    ]);
+                }
+
                 /** @var VendorBill $doc */
                 $doc = VendorBill::lockForUpdate()->with('vendor')->findOrFail($documentId);
                 $partyType = 'vendor';

@@ -184,7 +184,7 @@ export default function SalesOrderShow({ order, products = [] }) {
                 { label: order.id },
             ]}
         >
-            <Head title={`${isDraft ? 'Quotation' : 'Sales Order'} ${order.id}`} />
+            <Head title={order.id} />
 
             {/* ── Smart Buttons ── */}
             <div className="mb-4 flex flex-wrap gap-2">
@@ -223,7 +223,7 @@ export default function SalesOrderShow({ order, products = [] }) {
                         <OdooStatusBar status={order.status === 'credit_hold' ? 'confirmed' : order.status} stages={stages} />
                         <div className="flex items-center gap-3">
                             <h1 className="text-xl font-bold text-slate-900">
-                                {isDraft ? 'Quotation' : 'Sales Order'} {order.id}
+                                {order.id}
                             </h1>
                             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusCls}`}>
                                 {statusLabel}
@@ -265,47 +265,6 @@ export default function SalesOrderShow({ order, products = [] }) {
                         )}
                     </div>
                 </div>
-
-                {/* Status Notice: Confirmed Locked */}
-                {!isDraft && order.status !== 'cancelled' && (
-                    <div className="mt-4 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-700">
-                        <Lock className="h-4 w-4 text-slate-500 shrink-0" />
-                        <span>
-                            <strong>Sales Order Terkunci:</strong> Dokumen ini telah dikonfirmasi menjadi Sales Order resmi. Kuantitas dan diskon tidak dapat diubah lagi.
-                        </span>
-                    </div>
-                )}
-
-                {/* Delivery Order Badges / Links */}
-                {deliveryList.length > 0 && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 text-xs">
-                        <span className="font-semibold text-slate-600 flex items-center gap-1.5">
-                            <Truck className="h-4 w-4 text-slate-500" />
-                            Dokumen Pengiriman Warehouse:
-                        </span>
-                        {deliveryList.map((del) => (
-                            <Link
-                                key={del.id}
-                                href={route('inventory.deliveries.show', del.id)}
-                                className={`inline-flex items-center gap-1.5 rounded font-bold px-2.5 py-1 border transition text-xs ${
-                                    del.status === 'done'
-                                        ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
-                                        : 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-300'
-                                }`}
-                            >
-                                <span>{del.id}</span>
-                                {del.is_backorder && (
-                                    <span className="text-[10px] bg-purple-200 text-purple-900 px-1 py-0.2 rounded font-black">
-                                        Backorder
-                                    </span>
-                                )}
-                                <span className="text-[11px] font-normal opacity-80">
-                                    ({del.status === 'done' ? 'Telah Dikirim' : del.status === 'ready' ? 'Siap Validasi' : del.status})
-                                </span>
-                            </Link>
-                        ))}
-                    </div>
-                )}
 
                 {/* Credit Hold Warning */}
                 {order.credit_hold && (
@@ -370,7 +329,7 @@ export default function SalesOrderShow({ order, products = [] }) {
                     <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs text-emerald-800">
                         <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                         <span>
-                            <strong>Diskon Disetujui Owner:</strong> Pengajuan diskon &gt; 10% telah disetujui resmi oleh Owner ({order.discountApprovedBy?.name || order.discount_approved_by?.name || 'Owner'}).
+                            <strong>Diskon Disetujui Owner:</strong> Pengajuan diskon &gt; 10% telah disetujui resmi oleh Owner.
                         </span>
                     </div>
                 )}
@@ -457,14 +416,9 @@ export default function SalesOrderShow({ order, products = [] }) {
                 <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <h2 className="text-sm font-semibold text-slate-900">Baris Order</h2>
-                        {isDraft ? (
+                        {isDraft && (
                             <span className="rounded bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 border border-sky-200">
                                 Diskon &amp; Quantity Dapat Diubah
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 border border-slate-200">
-                                <Lock className="h-3 w-3" />
-                                Terkunci
                             </span>
                         )}
                     </div>

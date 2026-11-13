@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Master\ContactVendor;
 use App\Models\Master\PaymentTerm;
+use App\Models\Master\Product;
+use App\Models\Master\VendorPricelist;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -50,8 +53,161 @@ class PurchaseVendorController extends Controller
 
     public function create(): Response
     {
+        $nextId = $this->generateNextVendorId();
+
+        $paymentTerms = PaymentTerm::all(['term_id', 'description'])->toArray();
+        $products = Product::orderBy('name')
+            ->orderBy('variant_sku')
+            ->get(['variant_sku', 'name', 'size', 'color', 'unit', 'cost'])
+            ->toArray();
+
+        return Inertia::render('Purchase/Vendors/Create', [
+            'nextId' => $nextId,
+            'paymentTerms' => $paymentTerms,
+            'products' => $products,
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $idempotencyKey = $request->input('idempotency_key')
+            ?: md5(json_encode([
+                $request->input('name'),
+                $request->input('city'),
+                $request->input('payment_terms'),
+                $request->input('lines'),
+            ]));
+
+        $cacheKey = "idempotency_create_vendor_{$idempotencyKey}";
+
+        // Idempotency: Jika request sudah pernah diproses, kembalikan vendor yang sudah dibuat
+        if ($existingId = Cache::get($cacheKey)) {
+            $existingVendor = ContactVendor::find($existingId);
+            if ($existingVendor) {
+                return redirect()->route('purchase.vendors.show', $existingVendor->id)
+                    ->with('success', "Vendor {$existingVendor->name} ({$existingVendor->id}) telah berhasil dibuat sebelumnya.");
+            }
+        }
+
+        $validated = $request->validate([
+            'idempotency_key' => 'nullable|string|max:64',
+            'name' => 'required|string|max:100',
+            'city' => 'required|string|max:100',
+            'payment_terms' => 'required|string|exists:payment_terms,term_id',
+            'lines' => 'required|array|min:1',
+            'lines.*.variant_sku' => 'required|string|exists:products,variant_sku|distinct',
+            'lines.*.min_qty' => 'required|integer|min:1',
+            'lines.*.unit_price' => 'required|numeric|min:1',
+        ], [
+            'name.required' => 'Nama perusahaan / pemasok wajib diisi.',
+            'city.required' => 'Kota domisili / pabrik wajib diisi.',
+            'payment_terms.required' => 'Termin pembayaran standar wajib dipilih.',
+            'lines.required' => 'Wajib mendaftarkan minimal 1 barang yang dijual oleh vendor ini.',
+            'lines.min' => 'Wajib mendaftarkan minimal 1 barang yang dijual oleh vendor ini.',
+            'lines.*.variant_sku.required' => 'Barang / produk wajib dipilih.',
+            'lines.*.variant_sku.distinct' => 'Produk tidak boleh dipilih lebih dari sekali (duplikat).',
+            'lines.*.min_qty.required' => 'Min qty order wajib diisi.',
+            'lines.*.min_qty.integer' => 'Min qty order harus berupa bilangan bulat.',
+            'lines.*.min_qty.min' => 'Min qty order minimal 1 unit.',
+            'lines.*.unit_price.required' => 'Harga satuan (price per unit) wajib diisi.',
+            'lines.*.unit_price.min' => 'Harga satuan (price per unit) minimal Rp 1.',
+        ]);
+
+        // Race condition protection: Atomic lock saat membuat vendor baru
+        $vendor = Cache::lock('create_vendor_lock', 10)->block(5, function () use ($validated, $request, $cacheKey) {
+            // Check double-submit inside lock
+            if ($existingId = Cache::get($cacheKey)) {
+                $existingVendor = ContactVendor::find($existingId);
+                if ($existingVendor) {
+                    return $existingVendor;
+                }
+            }
+
+            return DB::transaction(function () use ($validated, $request, $cacheKey) {
+                $vendorId = $this->generateNextVendorId(true);
+
+                $vendor = ContactVendor::create([
+                    'id' => $vendorId,
+                    'name' => $validated['name'],
+                    'city' => $validated['city'],
+                    'payment_terms' => $validated['payment_terms'],
+                ]);
+
+                foreach ($validated['lines'] as $line) {
+                    VendorPricelist::create([
+                        'vendor_id' => $vendor->id,
+                        'variant_sku' => $line['variant_sku'],
+                        'min_qty' => (int) $line['min_qty'],
+                        'unit_price' => (int) $line['unit_price'],
+                        'currency' => 'IDR',
+                    ]);
+                }
+
+                Cache::put($cacheKey, $vendor->id, now()->addMinutes(10));
+
+                AuditLog::record(
+                    action: 'CREATE_VENDOR',
+                    status: 'SUCCESS',
+                    actorUserId: $request->user()?->id,
+                    actorUsername: $request->user()?->name ?? 'system',
+                    actorRole: $request->user()?->role_id ?? 'procurement',
+                    documentType: 'vendor',
+                    documentId: $vendor->id,
+                    notes: "Vendor baru {$vendor->name} ({$vendor->id}) berhasil ditambahkan beserta " . count($validated['lines']) . " item pricelist barang."
+                );
+
+                return $vendor;
+            });
+        });
+
+        return redirect()->route('purchase.vendors.show', $vendor->id)
+            ->with('success', "Vendor {$vendor->name} ({$vendor->id}) berhasil ditambahkan beserta katalog produknya.");
+    }
+
+    public function destroy(Request $request, string $id): RedirectResponse
+    {
+        $vendor = ContactVendor::findOrFail($id);
+
+        $hasActiveOrders = $vendor->purchaseOrders()
+            ->whereIn('status', ['draft', 'confirmed'])
+            ->exists();
+
+        if ($hasActiveOrders) {
+            return redirect()->back()
+                ->with('error', "Vendor {$vendor->name} ({$vendor->id}) tidak dapat dihapus karena masih memiliki pesanan pembelian (PO) aktif.");
+        }
+
+        $vendorName = $vendor->name;
+        $vendorId = $vendor->id;
+
+        DB::transaction(function () use ($vendor, $request, $vendorId, $vendorName) {
+            $vendor->delete(); // Soft deletes (updates deleted_at)
+
+            AuditLog::record(
+                action: 'DELETE_VENDOR',
+                status: 'SUCCESS',
+                actorUserId: $request->user()?->id,
+                actorUsername: $request->user()?->name ?? 'system',
+                actorRole: $request->user()?->role_id ?? 'procurement',
+                documentType: 'vendor',
+                documentId: $vendorId,
+                notes: "Vendor {$vendorName} ({$vendorId}) berhasil di-soft delete oleh user."
+            );
+        });
+
+        return redirect()->route('purchase.vendors.index')
+            ->with('success', "Vendor {$vendorName} ({$vendorId}) berhasil dihapus.");
+    }
+
+    protected function generateNextVendorId(bool $forUpdate = false): string
+    {
+        $query = ContactVendor::withTrashed();
+        if ($forUpdate && DB::transactionLevel() > 0) {
+            $query->lockForUpdate();
+        }
+
         $maxNum = 0;
-        foreach (ContactVendor::pluck('id') as $id) {
+        foreach ($query->pluck('id') as $id) {
             if (preg_match('/^V(\d+)$/i', $id, $m)) {
                 $num = (int) $m[1];
                 if ($num > $maxNum) {
@@ -59,40 +215,7 @@ class PurchaseVendorController extends Controller
                 }
             }
         }
-        $nextId = sprintf('V%02d', $maxNum + 1);
-
-        $paymentTerms = PaymentTerm::all(['term_id', 'description'])->toArray();
-
-        return Inertia::render('Purchase/Vendors/Create', [
-            'nextId' => $nextId,
-            'paymentTerms' => $paymentTerms,
-        ]);
-    }
-
-    public function store(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'id' => 'required|string|max:10|unique:contacts_vendors,id',
-            'name' => 'required|string|max:100',
-            'city' => 'required|string|max:100',
-            'payment_terms' => 'required|string|exists:payment_terms,term_id',
-        ]);
-
-        $vendor = ContactVendor::create($validated);
-
-        AuditLog::record(
-            action: 'CREATE_VENDOR',
-            status: 'SUCCESS',
-            actorUserId: $request->user()?->id,
-            actorUsername: $request->user()?->name ?? 'system',
-            actorRole: $request->user()?->role_id ?? 'procurement',
-            documentType: 'vendor',
-            documentId: $vendor->id,
-            notes: "Vendor baru {$vendor->name} ({$vendor->id}) berhasil ditambahkan."
-        );
-
-        return redirect()->route('purchase.vendors.show', $vendor->id)
-            ->with('success', "Vendor {$vendor->name} berhasil ditambahkan.");
+        return sprintf('V%02d', $maxNum + 1);
     }
 
     public function show(string $id): Response

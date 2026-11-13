@@ -171,10 +171,28 @@ class PurchaseOrderService
 
             $preparedLines = [];
 
+            $requestedSkus = collect($data['lines'])->pluck('variant_sku')->unique()->all();
+            $productsBySku = Product::with('pricelists')
+                ->whereIn('variant_sku', $requestedSkus)
+                ->get()
+                ->keyBy('variant_sku');
+
             foreach ($data['lines'] as $lineData) {
                 $sku = $lineData['variant_sku'];
                 $qty = (float) $lineData['qty_ordered'];
-                $unitPrice = (float) $lineData['unit_price'];
+
+                $product = $productsBySku->get($sku);
+                if (! $product) {
+                    throw ValidationException::withMessages([
+                        'lines' => "Produk {$sku} tidak ditemukan.",
+                    ]);
+                }
+
+                // Kunci harga beli satuan dari pricelist vendor (fallback ke master cost produk)
+                $vendorPricelist = $product->pricelists->firstWhere('vendor_id', $vendor->id);
+                $unitPrice = $vendorPricelist
+                    ? (float) $vendorPricelist->unit_price
+                    : (float) $product->cost;
 
                 if ($qty <= 0) {
                     throw ValidationException::withMessages([
@@ -559,6 +577,10 @@ class PurchaseOrderService
                 'unit' => $p->unit,
                 'cost' => (float) $p->cost,
                 'default_vendor' => $p->default_vendor,
+                'vendor_prices' => $p->pricelists
+                    ->pluck('unit_price', 'vendor_id')
+                    ->map(fn ($price) => (float) $price)
+                    ->toArray(),
                 'vendor_ids' => array_values(array_unique(array_filter([
                     $p->default_vendor,
                     ...$p->pricelists->pluck('vendor_id')->all(),

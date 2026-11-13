@@ -6,9 +6,12 @@ use App\Models\PurchaseOrder;
 use App\Models\VendorBill;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ContactVendor extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'contacts_vendors';
     public $incrementing = false;
     protected $keyType = 'string';
@@ -34,6 +37,11 @@ class ContactVendor extends Model
     public function vendorBills(): HasMany
     {
         return $this->hasMany(VendorBill::class, 'vendor_id', 'id');
+    }
+
+    public function pricelists(): HasMany
+    {
+        return $this->hasMany(VendorPricelist::class, 'vendor_id', 'id');
     }
 
     /**

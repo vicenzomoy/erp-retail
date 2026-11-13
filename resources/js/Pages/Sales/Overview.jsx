@@ -6,9 +6,9 @@ import {
     CheckCircle2,
     CheckCircle,
     AlertTriangle,
-    Plus,
     ArrowRight,
     TrendingUp,
+    Users,
 } from 'lucide-react';
 import SalesLayout from '@/Layouts/SalesLayout';
 
@@ -135,20 +135,6 @@ export default function SalesOverview({ kpis }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div className="rounded-lg border border-slate-200 bg-white shadow-xs p-5 flex items-center justify-between">
                     <div>
-                        <p className="text-sm font-semibold text-slate-900">Buat Quotation Baru</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Tambah order penjualan baru</p>
-                    </div>
-                    <Link
-                        href={route('sales.orders.create')}
-                        className="flex items-center gap-1.5 rounded bg-slate-900 text-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-700 transition"
-                    >
-                        <Plus className="h-3.5 w-3.5" />
-                        Buat
-                    </Link>
-                </div>
-
-                <div className="rounded-lg border border-slate-200 bg-white shadow-xs p-5 flex items-center justify-between">
-                    <div>
                         <p className="text-sm font-semibold text-slate-900">Lihat Semua Order</p>
                         <p className="text-xs text-slate-500 mt-0.5">Daftar seluruh quotation &amp; order</p>
                     </div>
@@ -158,6 +144,20 @@ export default function SalesOverview({ kpis }) {
                     >
                         Lihat
                         <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white shadow-xs p-5 flex items-center justify-between">
+                    <div>
+                        <p className="text-sm font-semibold text-slate-900">Pipeline CRM</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Quotation baru wajib dibuat melalui Prospek (Lead) di CRM</p>
+                    </div>
+                    <Link
+                        href={route('crm.pipeline')}
+                        className="flex items-center gap-1.5 rounded bg-slate-900 text-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-800 transition"
+                    >
+                        <Users className="h-3.5 w-3.5" />
+                        Buka CRM
                     </Link>
                 </div>
             </div>
