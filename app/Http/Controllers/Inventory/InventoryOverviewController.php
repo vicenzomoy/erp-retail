@@ -25,6 +25,7 @@ class InventoryOverviewController extends Controller
     {
         $kpis = $this->stockService->getInventoryKPIs();
         $lowStockAlerts = $this->stockService->getLowStockAlerts(10);
+        $storeLowStockAlerts = $this->stockService->getStoreLowStockAlerts('TOKO-PKU', 'WH-PKU', 10);
 
         $recentMoves = StockMove::with(['product', 'fromLocation', 'toLocation'])
             ->orderBy('id', 'desc')
@@ -49,6 +50,7 @@ class InventoryOverviewController extends Controller
             'kpis' => $kpis,
             'recentMoves' => $recentMoves,
             'lowStockAlerts' => $lowStockAlerts,
+            'storeLowStockAlerts' => $storeLowStockAlerts,
         ]);
     }
 }

@@ -211,14 +211,32 @@ class InternalTransferController extends Controller
     /**
      * Create view for Internal Transfer.
      */
-    public function create(): Response
+    public function create(Request $request): Response
     {
         $locations = WarehouseLocation::all();
         $products = Product::all();
 
+        // Optional prefill (e.g. from the store low-stock alert on the Overview).
+        $prefill = null;
+        $sku = $request->query('sku');
+        if ($sku && $products->contains('variant_sku', $sku)) {
+            $codes = $locations->pluck('location_code');
+            $from = $request->query('from');
+            $to = $request->query('to');
+
+            $prefill = [
+                'variant_sku' => $sku,
+                'qty_demand' => max(1, (int) $request->query('qty', 1)),
+                'location_from' => $codes->contains($from) ? $from : null,
+                'location_to' => $codes->contains($to) ? $to : null,
+                'notes' => $request->query('notes'),
+            ];
+        }
+
         return Inertia::render('Inventory/Transfers/Create', [
             'locations' => $locations,
             'products' => $products,
+            'prefill' => $prefill,
         ]);
     }
 

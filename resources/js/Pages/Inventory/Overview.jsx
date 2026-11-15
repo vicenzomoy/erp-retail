@@ -1,6 +1,7 @@
-import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
 import InventoryLayout from '@/Layouts/InventoryLayout';
+import Modal from '@/Components/Modal';
 import {
     ArrowDownLeft,
     Truck,
@@ -16,9 +17,39 @@ import {
     ExternalLink,
     ArrowRight,
     XCircle,
+    Store,
+    Warehouse,
 } from 'lucide-react';
 
-export default function Overview({ kpis = {}, recentMoves = [], lowStockAlerts = [] }) {
+const STORE_CODE = 'TOKO-PKU';
+const WAREHOUSE_CODE = 'WH-PKU';
+
+const fmtQty = (n) => {
+    const v = Number(n ?? 0);
+    return v % 1 === 0 ? Math.round(v).toLocaleString('id-ID') : v.toLocaleString('id-ID');
+};
+
+export default function Overview({ kpis = {}, recentMoves = [], lowStockAlerts = [], storeLowStockAlerts = [] }) {
+    const [warnItem, setWarnItem] = useState(null);
+
+    const goToTransfer = (item) => {
+        router.get(route('inventory.transfers.create'), {
+            sku: item.sku,
+            qty: Math.max(1, item.suggested_qty || 1),
+            from: WAREHOUSE_CODE,
+            to: STORE_CODE,
+            notes: `Replenishment gerai ${STORE_CODE} — stok menipis ${item.sku}`,
+        });
+    };
+
+    const handleTransferClick = (item) => {
+        if (item.company_low) {
+            setWarnItem(item);
+            return;
+        }
+        goToTransfer(item);
+    };
+
     const getDocTypeBadge = (type) => {
         switch (type) {
             case 'receipt':
@@ -443,6 +474,200 @@ export default function Overview({ kpis = {}, recentMoves = [], lowStockAlerts =
                     </div>
                 )}
             </div>
+
+            {/* Peringatan Stok Menipis per Gerai (TOKO-PKU) + Aksi Transfer Internal */}
+            <div className="mb-6 rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/70 px-5 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Store className="h-4 w-4 text-indigo-600" />
+                        <h3 className="text-sm font-bold text-slate-900">
+                            Stok Menipis di Gerai {STORE_CODE}
+                        </h3>
+                        {storeLowStockAlerts.length > 0 && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
+                                {storeLowStockAlerts.length} SKU perlu diisi ulang
+                            </span>
+                        )}
+                    </div>
+                    <span className="text-[11px] text-slate-500">
+                        Sumber pengisian: <span className="font-mono font-semibold text-slate-700">{WAREHOUSE_CODE}</span>
+                    </span>
+                </div>
+
+                {storeLowStockAlerts.length === 0 ? (
+                    <div className="p-6 text-center">
+                        <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500 mb-2" />
+                        <p className="text-xs font-semibold text-slate-800">
+                            Stok gerai {STORE_CODE} dalam kondisi aman
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                            Tidak ada produk dengan stok siap jual gerai di bawah ambang batas (&le; 10 pcs).
+                        </p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs text-slate-700">
+                            <thead className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                                <tr>
+                                    <th className="px-4 py-2.5">SKU Varian</th>
+                                    <th className="px-4 py-2.5">Nama Produk</th>
+                                    <th className="px-4 py-2.5 text-center">Ukuran / Warna</th>
+                                    <th className="px-4 py-2.5 text-center">Stok Gerai (ATP)</th>
+                                    <th className="px-4 py-2.5 text-center">Stok Gudang (ATP)</th>
+                                    <th className="px-4 py-2.5 text-center">Total Perusahaan</th>
+                                    <th className="px-4 py-2.5 text-center">Status Gerai</th>
+                                    <th className="px-4 py-2.5 text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {storeLowStockAlerts.map((item) => {
+                                    const warehouseEmpty = item.warehouse_available <= 0;
+                                    return (
+                                        <tr key={item.sku} className="hover:bg-indigo-50/30 transition">
+                                            <td className="px-4 py-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">
+                                                {item.sku}
+                                            </td>
+                                            <td className="px-4 py-2.5 font-medium text-slate-800 whitespace-nowrap">
+                                                {item.name}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                <span className="bg-slate-100 px-2 py-0.5 rounded font-semibold text-slate-700 text-[11px]">
+                                                    {item.size}
+                                                </span>
+                                                <span className="ml-1 text-slate-500 text-[11px]">{item.color}</span>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                <span className={`font-black text-xs px-2 py-0.5 rounded border ${
+                                                    item.store_available <= 0
+                                                        ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                                        : item.store_available <= 5
+                                                        ? 'bg-orange-100 text-orange-800 border-orange-300'
+                                                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                                                }`}>
+                                                    {fmtQty(item.store_available)} {item.unit}
+                                                </span>
+                                            </td>
+                                            <td className={`px-4 py-2.5 text-center font-bold whitespace-nowrap ${
+                                                warehouseEmpty ? 'text-rose-700' : item.company_low ? 'text-amber-700' : 'text-slate-800'
+                                            }`}>
+                                                {fmtQty(item.warehouse_available)} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                <span className={`font-semibold ${item.company_low ? 'text-rose-700' : 'text-slate-600'}`}>
+                                                    {fmtQty(item.company_available)} {item.unit}
+                                                </span>
+                                                {item.company_low && (
+                                                    <div className="text-[10px] font-semibold text-rose-600">Ikut menipis</div>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                {getAlertBadge(item.status)}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                                                {warehouseEmpty ? (
+                                                    <span
+                                                        title={`Stok ${WAREHOUSE_CODE} kosong — tidak ada yang bisa ditransfer. Lakukan pembelian (PO).`}
+                                                        className="inline-flex items-center gap-1 rounded bg-slate-100 text-slate-400 px-2 py-1 text-[11px] font-semibold cursor-not-allowed"
+                                                    >
+                                                        <XCircle className="h-3 w-3" />
+                                                        Gudang Kosong
+                                                    </span>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleTransferClick(item)}
+                                                        title={item.company_low ? `Peringatan: stok di gudang ${WAREHOUSE_CODE} sedikit` : undefined}
+                                                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold transition cursor-pointer ${
+                                                            item.company_low
+                                                                ? 'bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300'
+                                                                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                                        }`}
+                                                    >
+                                                        {item.company_low ? (
+                                                            <AlertTriangle className="h-3 w-3" />
+                                                        ) : (
+                                                            <ArrowRightLeft className="h-3 w-3" />
+                                                        )}
+                                                        Transfer Internal
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* Modal Peringatan: stok keseluruhan juga menipis → stok gudang sedikit */}
+            <Modal show={!!warnItem} maxWidth="md" onClose={() => setWarnItem(null)}>
+                {warnItem && (
+                    <div className="p-5">
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900">
+                                    Stok di gudang sedikit
+                                </h3>
+                                <p className="mt-1 text-xs text-slate-600">
+                                    Stok keseluruhan <span className="font-mono font-semibold">{warnItem.sku}</span> ({warnItem.name}) juga
+                                    termasuk dalam peringatan stok menipis. Transfer ke gerai akan semakin mengurangi stok di
+                                    gudang {WAREHOUSE_CODE}. Pertimbangkan untuk melakukan pembelian (PO) ke vendor.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                            <div className="rounded border border-slate-200 bg-slate-50 p-2">
+                                <div className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase text-slate-500">
+                                    <Store className="h-3 w-3" /> Gerai
+                                </div>
+                                <div className="text-base font-black text-slate-900">{fmtQty(warnItem.store_available)}</div>
+                            </div>
+                            <div className="rounded border border-amber-200 bg-amber-50 p-2">
+                                <div className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase text-amber-700">
+                                    <Warehouse className="h-3 w-3" /> Gudang
+                                </div>
+                                <div className="text-base font-black text-amber-800">{fmtQty(warnItem.warehouse_available)}</div>
+                            </div>
+                            <div className="rounded border border-rose-200 bg-rose-50 p-2">
+                                <div className="text-[10px] font-semibold uppercase text-rose-700">Total</div>
+                                <div className="text-base font-black text-rose-800">{fmtQty(warnItem.company_available)}</div>
+                            </div>
+                        </div>
+
+                        <p className="mt-3 text-[11px] text-slate-500">
+                            Kuantitas yang disarankan: <span className="font-bold text-slate-800">{fmtQty(warnItem.suggested_qty)} {warnItem.unit}</span> (dapat diubah di form transfer).
+                        </p>
+
+                        <div className="mt-5 flex justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setWarnItem(null)}
+                                className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const item = warnItem;
+                                    setWarnItem(null);
+                                    goToTransfer(item);
+                                }}
+                                className="inline-flex items-center gap-1 rounded bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 cursor-pointer"
+                            >
+                                <ArrowRightLeft className="h-3.5 w-3.5" />
+                                Tetap Transfer
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
 
             {/* Recent Stock Moves Table (Aktivitas Pergerakan Gudang - Tanpa Nilai Uang) */}
             <div className="rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">

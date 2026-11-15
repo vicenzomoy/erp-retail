@@ -267,5 +267,87 @@ class StockService
 
         return $alerts;
     }
+
+    /**
+     * Low-stock alerts for a specific retail store (e.g. TOKO-PKU), enriched with
+     * the replenishment source (warehouse) stock so the user can trigger an
+     * internal transfer. If the company-wide ATP is itself under the threshold,
+     * the row is flagged `company_low` so the UI can warn that the warehouse
+     * cannot really cover it (a purchase is needed instead).
+     */
+    public function getStoreLowStockAlerts(
+        string $storeCode = 'TOKO-PKU',
+        string $warehouseCode = 'WH-PKU',
+        int $threshold = 10
+    ): array {
+        // Aggregate in 2 queries instead of N*M per-product queries.
+        $onHandBy = StockLedger::select('variant_sku', 'location_code', DB::raw('SUM(qty_change) as qty'))
+            ->groupBy('variant_sku', 'location_code')
+            ->get()
+            ->groupBy('variant_sku');
+
+        $reservedBy = StockReservation::where('status', 'active')
+            ->select('variant_sku', 'location_code', DB::raw('SUM(qty_reserved) as qty'))
+            ->groupBy('variant_sku', 'location_code')
+            ->get()
+            ->groupBy('variant_sku');
+
+        $sumFor = function ($rows, ?string $location = null): float {
+            if (! $rows) {
+                return 0.0;
+            }
+
+            return (float) $rows
+                ->when($location, fn ($c) => $c->where('location_code', $location))
+                ->sum('qty');
+        };
+
+        $targetLevel = $threshold * 2; // isi ulang gerai sampai 2x ambang batas
+        $alerts = [];
+
+        foreach (Product::orderBy('name')->get() as $p) {
+            $onHandRows = $onHandBy->get($p->variant_sku);
+            $reservedRows = $reservedBy->get($p->variant_sku);
+
+            $storeOnHand = $sumFor($onHandRows, $storeCode);
+            $storeAvailable = $storeOnHand - $sumFor($reservedRows, $storeCode);
+
+            if ($storeAvailable > $threshold) {
+                continue;
+            }
+
+            $warehouseAvailable = $sumFor($onHandRows, $warehouseCode) - $sumFor($reservedRows, $warehouseCode);
+            $companyAvailable = $sumFor($onHandRows) - $sumFor($reservedRows);
+
+            $status = 'warning';
+            if ($storeAvailable <= 0) {
+                $status = 'out_of_stock';
+            } elseif ($storeAvailable <= 5) {
+                $status = 'critical';
+            }
+
+            $needed = max(0, $targetLevel - $storeAvailable);
+            $suggestedQty = (int) floor(min($needed, max(0, $warehouseAvailable)));
+
+            $alerts[] = [
+                'sku' => $p->variant_sku,
+                'name' => $p->name,
+                'size' => $p->size,
+                'color' => $p->color,
+                'unit' => $p->unit,
+                'store_on_hand' => $storeOnHand,
+                'store_available' => $storeAvailable,
+                'warehouse_available' => $warehouseAvailable,
+                'company_available' => $companyAvailable,
+                'company_low' => $companyAvailable <= $threshold,
+                'suggested_qty' => $suggestedQty,
+                'status' => $status,
+            ];
+        }
+
+        usort($alerts, fn ($a, $b) => $a['store_available'] <=> $b['store_available']);
+
+        return $alerts;
+    }
 }
 

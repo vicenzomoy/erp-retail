@@ -3,16 +3,16 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import InventoryLayout from '@/Layouts/InventoryLayout';
 import { ArrowLeft, Plus, Trash2, Save, ArrowRightLeft } from 'lucide-react';
 
-export default function Create({ locations, products }) {
+export default function Create({ locations, products, prefill = null }) {
     const { data, setData, post, processing, errors } = useForm({
-        location_from: 'WH-PKU',
-        location_to: 'TOKO-PKU',
+        location_from: prefill?.location_from || 'WH-PKU',
+        location_to: prefill?.location_to || 'TOKO-PKU',
         scheduled_date: new Date().toISOString().split('T')[0],
-        notes: '',
+        notes: prefill?.notes || '',
         lines: [
             {
-                variant_sku: 'CAP-OS-BLK',
-                qty_demand: 3,
+                variant_sku: prefill?.variant_sku || 'CAP-OS-BLK',
+                qty_demand: prefill?.qty_demand || 3,
             },
         ],
     });
