@@ -8,6 +8,7 @@ import {
     Store,
     Settings,
     LayoutDashboard,
+    ShieldCheck,
 } from 'lucide-react';
 
 // Ikon & warna tile per app (daftar & hak akses datang dari server: props.apps).
@@ -15,6 +16,7 @@ import {
 // Class ditulis utuh agar terdeteksi Tailwind.
 export const APP_META = {
     owner: { icon: LayoutDashboard, color: 'bg-gradient-to-br from-amber-500 to-amber-700', glow: 'shadow-amber-500/40' },
+    auditor: { icon: ShieldCheck, color: 'bg-gradient-to-br from-slate-700 to-slate-900', glow: 'shadow-slate-700/40' },
     sales: { icon: ShoppingCart, color: 'bg-gradient-to-br from-indigo-400 to-indigo-600', glow: 'shadow-indigo-500/40' },
     crm: { icon: Users, color: 'bg-gradient-to-br from-sky-400 to-blue-600', glow: 'shadow-blue-500/40' },
     inventory: { icon: Package, color: 'bg-gradient-to-br from-emerald-400 to-emerald-600', glow: 'shadow-emerald-500/40' },

@@ -293,16 +293,12 @@ class SalesAnalyticsService
     }
 
     /**
-     * Penjualan harian per SKU dari arsip + POS live + SO live.
+     * Penjualan harian per SKU dari POS (termasuk historis) + Sales Order (termasuk historis).
      */
     protected function dailySalesBySku(CarbonInterface $from, CarbonInterface $to)
     {
         $fromDate = $from->format('Y-m-d');
         $toDate = $to->format('Y-m-d');
-
-        $history = DB::table('sales_history')
-            ->whereBetween('sale_date', [$fromDate, $toDate])
-            ->selectRaw('sale_date::text as sale_date, variant_sku, qty, subtotal_before_tax as revenue, cogs_total as cogs');
 
         $pos = DB::table('pos_order_lines')
             ->join('pos_orders', 'pos_orders.id', '=', 'pos_order_lines.pos_order_id')
@@ -319,7 +315,7 @@ class SalesAnalyticsService
             ->whereRaw('DATE(sales_orders.confirmed_at) BETWEEN ? AND ?', [$fromDate, $toDate])
             ->selectRaw('DATE(sales_orders.confirmed_at)::text as sale_date, sales_order_lines.variant_sku, sales_order_lines.qty_ordered as qty, sales_order_lines.subtotal_before_tax as revenue, sales_order_lines.qty_ordered * products.cost as cogs');
 
-        $union = $history->unionAll($pos)->unionAll($so);
+        $union = $pos->unionAll($so);
 
         return DB::query()->fromSub($union, 'lines')
             ->groupBy('sale_date', 'variant_sku')

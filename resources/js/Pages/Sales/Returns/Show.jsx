@@ -1,6 +1,8 @@
 import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import SalesLayout from '@/Layouts/SalesLayout';
+import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
+import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
 import {
     ArrowLeft,
     RotateCcw,
@@ -21,19 +23,15 @@ const formatRp = (val) =>
         maximumFractionDigits: 0,
     }).format(val ?? 0);
 
-export default function Show({ customerReturn }) {
-    const steps = [
-        { key: 'pending_inspection', label: '1. Diajukan Sales' },
-        { key: 'inspected', label: '2. QC Gudang Selesai' },
-        { key: 'completed', label: '3. Credit Note Selesai' },
-    ];
+export default function Show({ customerReturn, relatedDocs = [], auditLogs = [] }) {
+    const { auth } = usePage().props;
+    const isAuditor = auth?.user?.role_id === 'auditor';
 
-    const currentStepIndex =
-        customerReturn.status === 'completed'
-            ? 2
-            : customerReturn.status === 'inspected'
-            ? 1
-            : 0;
+    const steps = [
+        { key: 'pending_inspection', label: 'Diajukan Sales' },
+        { key: 'inspected', label: 'QC Gudang Selesai' },
+        { key: 'completed', label: 'Credit Note Selesai' },
+    ];
 
     return (
         <SalesLayout
@@ -58,14 +56,24 @@ export default function Show({ customerReturn }) {
                             Daftar Retur
                         </Link>
 
-                        {/* Smart Button ke Customer Invoice */}
-                        <Link
-                            href={route('accounting.invoices.show', customerReturn.customer_invoice_id)}
-                            className="inline-flex items-center gap-1.5 rounded border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100 transition"
-                        >
-                            <FileText className="h-3.5 w-3.5 text-teal-600" />
-                            <span>Faktur: {customerReturn.customer_invoice_id}</span>
-                        </Link>
+                        {/* Smart Button ke Customer Invoice (hanya Auditor yang bisa klik) */}
+                        {isAuditor ? (
+                            <Link
+                                href={route('accounting.invoices.show', customerReturn.customer_invoice_id)}
+                                className="inline-flex items-center gap-1.5 rounded border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100 transition"
+                            >
+                                <FileText className="h-3.5 w-3.5 text-teal-600" />
+                                <span>Faktur: {customerReturn.customer_invoice_id}</span>
+                            </Link>
+                        ) : (
+                            <span
+                                title="Hanya Auditor yang dapat membuka detail faktur akuntansi"
+                                className="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 cursor-not-allowed select-none"
+                            >
+                                <FileText className="h-3.5 w-3.5 text-slate-400" />
+                                <span>Faktur: {customerReturn.customer_invoice_id}</span>
+                            </span>
+                        )}
 
                         {/* Smart Button ke Credit Note jika sudah dibuat */}
                         {customerReturn.credit_note_id && (
@@ -80,22 +88,7 @@ export default function Show({ customerReturn }) {
                     </div>
 
                     {/* Odoo Status Pipeline */}
-                    <div className="flex items-center gap-1 text-xs font-semibold">
-                        {steps.map((st, idx) => (
-                            <div
-                                key={st.key}
-                                className={`flex items-center px-2.5 py-1 rounded-sm text-[11px] ${
-                                    idx === currentStepIndex
-                                        ? 'bg-slate-900 text-white shadow-xs'
-                                        : idx < currentStepIndex
-                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                        : 'bg-slate-100 text-slate-400'
-                                }`}
-                            >
-                                <span>{st.label}</span>
-                            </div>
-                        ))}
-                    </div>
+                    <OdooStatusBar status={customerReturn.status} stages={steps} />
                 </div>
 
                 {/* Main Card */}
@@ -221,6 +214,13 @@ export default function Show({ customerReturn }) {
                     </div>
                 </div>
             </div>
+
+            <OdooFormFooter
+                documentType="customer_return"
+                documentId={customerReturn.id}
+                relatedDocs={relatedDocs}
+                auditLogs={auditLogs}
+            />
         </SalesLayout>
     );
 }

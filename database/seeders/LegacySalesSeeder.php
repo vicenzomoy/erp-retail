@@ -62,6 +62,10 @@ class LegacySalesSeeder extends Seeder
     private array $posLines = [];
     private array $salesOrders = [];
     private array $soLines = [];
+    private array $invoices = [];
+    private array $invoiceLines = [];
+    private array $payments = [];
+    private array $paymentAllocations = [];
 
     public function run(): void
     {
@@ -85,6 +89,8 @@ class LegacySalesSeeder extends Seeder
 
         DB::transaction(function () {
             // Bersihkan data historis lama (baris anak ikut terhapus via cascade)
+            DB::table('payments')->where('id', 'like', 'LPAY/%')->delete();
+            DB::table('customer_invoices')->where('id', 'like', 'LINV/%')->delete();
             DB::table('pos_orders')->where('is_legacy', true)->delete();
             DB::table('pos_sessions')->where('is_legacy', true)->delete();
             DB::table('sales_orders')->where('is_legacy', true)->delete();
@@ -100,10 +106,36 @@ class LegacySalesSeeder extends Seeder
                     DB::table($table)->insert($chunk);
                 }
             }
+
+            // Hubungkan so_line_id pada baris faktur agar matrix penagihan mengenali seluruh LSO sudah difakturkan
+            if (! empty($this->salesOrders)) {
+                $soLineLookup = DB::table('sales_order_lines')
+                    ->whereIn('sales_order_id', array_column($this->salesOrders, 'id'))
+                    ->get(['id', 'sales_order_id', 'variant_sku'])
+                    ->keyBy(fn ($r) => "{$r->sales_order_id}|{$r->variant_sku}");
+
+                foreach ($this->invoiceLines as &$il) {
+                    $soId = $il['_sales_order_id'];
+                    unset($il['_sales_order_id']);
+                    $il['so_line_id'] = $soLineLookup["{$soId}|{$il['variant_sku']}"]->id ?? null;
+                }
+                unset($il);
+            }
+
+            foreach ([
+                'customer_invoices' => $this->invoices,
+                'customer_invoice_lines' => $this->invoiceLines,
+                'payments' => $this->payments,
+                'payment_allocations' => $this->paymentAllocations,
+            ] as $table => $rows) {
+                foreach (array_chunk($rows, 500) as $chunk) {
+                    DB::table($table)->insert($chunk);
+                }
+            }
         });
 
         $this->command?->info(sprintf(
-            'Data historis %s s.d. %s: %d sesi POS, %d struk POS, %d Sales Order grosir.',
+            'Data historis %s s.d. %s: %d sesi POS, %d struk POS, %d Sales Order grosir (semua berfaktur & lunas).',
             $start->format('d/m/Y'),
             $end->format('d/m/Y'),
             count($this->sessions),
@@ -254,9 +286,12 @@ class LegacySalesSeeder extends Seeder
         $monthKey = $day->format('ym');
         $seq = 1 + count(array_filter($this->salesOrders, fn ($so) => str_starts_with($so['id'], "LSO/{$monthKey}/")));
         $soId = sprintf('LSO/%s/%02d', $monthKey, $seq);
+        $invId = sprintf('LINV/%s/%02d', $monthKey, $seq);
+        $payId = sprintf('LPAY/%s/%02d', $monthKey, $seq);
         $customerId = self::B2B_CUSTOMERS[array_rand(self::B2B_CUSTOMERS)];
         $orderedAt = $day->copy()->setTime(mt_rand(9, 16), mt_rand(0, 59));
         $disc = mt_rand(1, 100) <= 60 ? 5.0 : 10.0;
+        $paymentTerms = $customers[$customerId]->payment_terms ?? 'NET14';
 
         $pool = ['TSP-M-BLK', 'TSP-L-BLK', 'TSP-M-WHT', 'JNS-30-BLU', 'JNS-32-BLU', 'JNS-32-BLK', 'BAG-OS-BLK'];
         if ($season === 'hujan' || $season === 'akhir_tahun') {
@@ -290,7 +325,26 @@ class LegacySalesSeeder extends Seeder
                 'created_at' => $orderedAt,
                 'updated_at' => $orderedAt,
             ];
+
+            $this->invoiceLines[] = [
+                '_sales_order_id' => $soId,
+                'customer_invoice_id' => $invId,
+                'delivery_order_line_id' => null,
+                'so_line_id' => null,
+                'variant_sku' => $sku,
+                'description' => $p->name,
+                'qty_invoiced' => $q,
+                'unit_price' => $p->sales_price,
+                'discount_pct' => $disc,
+                'tax_id' => 'VAT-NONLUX',
+                'subtotal_before_tax' => $lineSub,
+                'tax_amount' => $lineTax,
+                'line_total' => $lineSub + $lineTax,
+                'created_at' => $orderedAt,
+            ];
         }
+
+        $grandTotal = $subtotal + $tax;
 
         $this->salesOrders[] = [
             'id' => $soId,
@@ -302,10 +356,10 @@ class LegacySalesSeeder extends Seeder
             'discount_pct' => 0,
             'discount_approved_by' => null,
             'discount_approved_at' => null,
-            'payment_terms' => $customers[$customerId]->payment_terms ?? 'NET14',
+            'payment_terms' => $paymentTerms,
             'subtotal_before_tax' => $subtotal,
             'total_tax' => $tax,
-            'grand_total' => $subtotal + $tax,
+            'grand_total' => $grandTotal,
             'confirmed_at' => $orderedAt,
             'confirmed_by' => $salesId,
             'notes' => 'Data historis sebelum go-live ERP (dikirim & difakturkan di sistem lama).',
@@ -314,6 +368,59 @@ class LegacySalesSeeder extends Seeder
             'is_legacy' => true,
             'created_at' => $orderedAt,
             'updated_at' => $orderedAt,
+        ];
+
+        $this->invoices[] = [
+            'id' => $invId,
+            'source_doc_no' => null,
+            'sales_order_id' => $soId,
+            'customer_id' => $customerId,
+            'status' => 'paid',
+            'invoice_date' => $orderedAt->toDateString(),
+            'due_date' => $orderedAt->toDateString(),
+            'payment_terms' => $paymentTerms,
+            'subtotal_before_tax' => $subtotal,
+            'total_tax' => $tax,
+            'grand_total' => $grandTotal,
+            'amount_paid' => $grandTotal,
+            'amount_residual' => 0,
+            'posted_at' => $orderedAt,
+            'posted_by' => $salesId,
+            'journal_entry_id' => null,
+            'idempotency_key' => "LEGACY-{$invId}",
+            'notes' => "Faktur historis {$soId} (sudah lunas sebelum go-live ERP).",
+            'created_by' => $salesId,
+            'created_at' => $orderedAt,
+            'updated_at' => $orderedAt,
+        ];
+
+        $this->payments[] = [
+            'id' => $payId,
+            'payment_type' => 'inbound',
+            'party_type' => 'customer',
+            'party_id' => $customerId,
+            'payment_method' => 'bank_transfer',
+            'bank_account_code' => '1020',
+            'amount' => $grandTotal,
+            'payment_date' => $orderedAt->toDateString(),
+            'reference' => "REF-{$invId}",
+            'status' => 'reconciled',
+            'journal_entry_id' => null,
+            'idempotency_key' => "LEGACY-{$payId}",
+            'posted_at' => $orderedAt,
+            'posted_by' => $salesId,
+            'notes' => "Pembayaran historis {$invId} (lunas sebelum go-live ERP).",
+            'created_by' => $salesId,
+            'created_at' => $orderedAt,
+            'updated_at' => $orderedAt,
+        ];
+
+        $this->paymentAllocations[] = [
+            'payment_id' => $payId,
+            'document_type' => 'customer_invoice',
+            'document_id' => $invId,
+            'amount_allocated' => $grandTotal,
+            'created_at' => $orderedAt,
         ];
     }
 

@@ -26,7 +26,9 @@ class CreditNoteController extends Controller
             ->orderByDesc('created_at')
             ->orderByDesc('id');
 
-        if ($status !== 'all') {
+        if ($status === 'posted') {
+            $query->whereIn('status', ['posted', 'applied']);
+        } elseif ($status !== 'all') {
             $query->where('status', $status);
         }
 
@@ -62,10 +64,9 @@ class CreditNoteController extends Controller
                 'search' => $search,
             ],
             'counts'      => [
-                'all'     => CreditNote::count(),
-                'applied' => CreditNote::where('status', 'applied')->count(),
-                'posted'  => CreditNote::where('status', 'posted')->count(),
-                'draft'   => CreditNote::where('status', 'draft')->count(),
+                'all'    => CreditNote::count(),
+                'draft'  => CreditNote::where('status', 'draft')->count(),
+                'posted' => CreditNote::whereIn('status', ['posted', 'applied'])->count(),
             ],
         ]);
     }
@@ -115,6 +116,22 @@ class CreditNoteController extends Controller
 
         return redirect()->route('accounting.credit-notes.show', $creditNote->id)
             ->with('success', "Nota Kredit {$creditNote->id} berhasil diterbitkan dan AR Adjustment telah otomatis direkonsiliasi ke Faktur {$creditNote->original_invoice_id}.");
+    }
+
+    public function post(Request $request, string $id): RedirectResponse
+    {
+        $creditNote = CreditNote::findOrFail($id);
+
+        $result = $this->returnService->postDraftCreditNote($creditNote, $request->user());
+        $posted = $result['credit_note'];
+
+        if ($result['already_posted']) {
+            return redirect()->route('accounting.credit-notes.show', $posted->id)
+                ->with('info', "Nota Kredit {$posted->id} sudah divalidasi dan diposting sebelumnya (Idempotent).");
+        }
+
+        return redirect()->route('accounting.credit-notes.show', $posted->id)
+            ->with('success', "Nota Kredit {$posted->id} berhasil divalidasi & diposting. Piutang pada Faktur {$posted->original_invoice_id} telah disesuaikan.");
     }
 
     public function show(string $id): Response

@@ -145,7 +145,7 @@ class VendorBillController extends Controller
         $validated = $request->validate([
             'purchase_order_id'       => 'required|exists:purchase_orders,id',
             'receipt_id'              => 'nullable|string',
-            'bill_date'               => 'nullable|date',
+            'bill_date'               => 'nullable|date|before_or_equal:' . now('Asia/Jakarta')->toDateString(),
             'notes'                   => 'nullable|string|max:1000',
             'idempotency_key'         => 'nullable|string|max:64',
             'auto_post'               => 'nullable|boolean',
@@ -155,6 +155,8 @@ class VendorBillController extends Controller
             'lines.*.variant_sku'     => 'required|string|exists:products,variant_sku',
             'lines.*.qty_billed'      => 'required|numeric|min:0.001',
             'lines.*.unit_price'      => 'nullable|numeric|min:0',
+        ], [
+            'bill_date.before_or_equal' => 'Tanggal tagihan tidak boleh melebihi hari ini.',
         ]);
 
         $autoPost = $request->boolean('auto_post', true);
@@ -272,6 +274,7 @@ class VendorBillController extends Controller
         $docIds = array_values(array_filter([$bill->id, $bill->purchase_order_id]));
         $auditLogs = AuditLog::where('document_type', 'vendor_bill')
             ->whereIn('document_id', $docIds)
+            ->when(auth()->user()?->role_id !== 'auditor', fn ($q) => $q->where('action', 'LOG_NOTE'))
             ->orderByDesc('id')
             ->get()
             ->map(fn (AuditLog $log) => [

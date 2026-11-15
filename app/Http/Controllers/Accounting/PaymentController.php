@@ -246,10 +246,12 @@ class PaymentController extends Controller
             'amount'            => 'required|numeric|min:0.01',
             'payment_method'    => 'nullable|string|in:bank_transfer,cash',
             'bank_account_code' => 'nullable|string|in:1020,1010',
-            'payment_date'      => 'nullable|date',
+            'payment_date'      => 'nullable|date|before_or_equal:' . now('Asia/Jakarta')->toDateString(),
             'reference'         => 'nullable|string|max:100',
             'notes'             => 'nullable|string|max:1000',
             'idempotency_key'   => 'required|string|max:64',
+        ], [
+            'payment_date.before_or_equal' => 'Tanggal pembayaran tidak boleh melebihi hari ini.',
         ]);
 
         $result  = $this->paymentService->registerPayment($validated, $request->user());
@@ -351,6 +353,7 @@ class PaymentController extends Controller
         }
 
         $auditLogs = AuditLog::whereIn('document_id', $allocDocIds)
+            ->when(auth()->user()?->role_id !== 'auditor', fn ($q) => $q->where('action', 'LOG_NOTE'))
             ->orderByDesc('id')
             ->get()
             ->map(fn (AuditLog $log) => [

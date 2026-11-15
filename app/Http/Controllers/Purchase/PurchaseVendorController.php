@@ -164,6 +164,115 @@ class PurchaseVendorController extends Controller
             ->with('success', "Vendor {$vendor->name} ({$vendor->id}) berhasil ditambahkan beserta katalog produknya.");
     }
 
+    public function edit(string $id): Response
+    {
+        $vendor = ContactVendor::findOrFail($id);
+
+        $pricelists = VendorPricelist::where('vendor_id', $vendor->id)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (VendorPricelist $p) => [
+                'variant_sku' => $p->variant_sku,
+                'min_qty'     => (int) $p->min_qty,
+                'unit_price'  => (int) $p->unit_price,
+            ])
+            ->values()
+            ->all();
+
+        $paymentTerms = PaymentTerm::all(['term_id', 'description'])->toArray();
+        $products = Product::orderBy('name')
+            ->orderBy('variant_sku')
+            ->get(['variant_sku', 'name', 'size', 'color', 'unit', 'cost'])
+            ->toArray();
+
+        return Inertia::render('Purchase/Vendors/Edit', [
+            'vendor' => [
+                'id'            => $vendor->id,
+                'name'          => $vendor->name,
+                'city'          => $vendor->city,
+                'payment_terms' => $vendor->payment_terms,
+            ],
+            'pricelists'   => $pricelists,
+            'paymentTerms' => $paymentTerms,
+            'products'     => $products,
+        ]);
+    }
+
+    public function update(Request $request, string $id): RedirectResponse
+    {
+        $vendor = ContactVendor::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'city' => 'required|string|max:100',
+            'payment_terms' => 'required|exists:payment_terms,term_id',
+            'lines' => 'required|array|min:1',
+            'lines.*.variant_sku' => 'required|exists:products,variant_sku|distinct',
+            'lines.*.min_qty' => 'required|integer|min:1',
+            'lines.*.unit_price' => 'required|numeric|min:1',
+        ], [
+            'name.required' => 'Nama perusahaan / pemasok wajib diisi.',
+            'city.required' => 'Kota domisili / pabrik wajib diisi.',
+            'payment_terms.required' => 'Termin pembayaran standar wajib dipilih.',
+            'lines.required' => 'Wajib mendaftarkan minimal 1 barang yang dijual oleh vendor ini.',
+            'lines.min' => 'Wajib mendaftarkan minimal 1 barang yang dijual oleh vendor ini.',
+            'lines.*.variant_sku.required' => 'Barang / produk wajib dipilih.',
+            'lines.*.variant_sku.distinct' => 'Produk tidak boleh dipilih lebih dari sekali (duplikat).',
+            'lines.*.min_qty.required' => 'Min qty order wajib diisi.',
+            'lines.*.min_qty.integer' => 'Min qty order harus berupa bilangan bulat.',
+            'lines.*.min_qty.min' => 'Min qty order minimal 1 unit.',
+            'lines.*.unit_price.required' => 'Harga satuan (price per unit) wajib diisi.',
+            'lines.*.unit_price.min' => 'Harga satuan (price per unit) minimal Rp 1.',
+        ]);
+
+        $oldValues = [
+            'name'          => $vendor->name,
+            'city'          => $vendor->city,
+            'payment_terms' => $vendor->payment_terms,
+        ];
+
+        DB::transaction(function () use ($vendor, $validated, $oldValues, $request) {
+            $vendor->update([
+                'name'          => $validated['name'],
+                'city'          => $validated['city'],
+                'payment_terms' => $validated['payment_terms'],
+            ]);
+
+            VendorPricelist::where('vendor_id', $vendor->id)->delete();
+
+            foreach ($validated['lines'] as $line) {
+                VendorPricelist::create([
+                    'vendor_id'   => $vendor->id,
+                    'variant_sku' => $line['variant_sku'],
+                    'min_qty'     => (int) $line['min_qty'],
+                    'unit_price'  => (int) $line['unit_price'],
+                    'currency'    => 'IDR',
+                ]);
+            }
+
+            AuditLog::record(
+                action: 'UPDATE_VENDOR',
+                status: 'SUCCESS',
+                actorUserId: $request->user()?->id,
+                actorUsername: $request->user()?->name ?? 'system',
+                actorRole: $request->user()?->role_id ?? 'procurement',
+                documentType: 'vendor',
+                documentId: $vendor->id,
+                oldValue: $oldValues,
+                newValue: [
+                    'name'          => $validated['name'],
+                    'city'          => $validated['city'],
+                    'payment_terms' => $validated['payment_terms'],
+                    'lines_count'   => count($validated['lines']),
+                ],
+                notes: "Data vendor {$vendor->name} ({$vendor->id}) dan " . count($validated['lines']) . " item pricelist berhasil diperbarui."
+            );
+        });
+
+        return redirect()->route('purchase.vendors.show', $vendor->id)
+            ->with('success', "Vendor {$vendor->name} ({$vendor->id}) berhasil diperbarui.");
+    }
+
     public function destroy(Request $request, string $id): RedirectResponse
     {
         $vendor = ContactVendor::findOrFail($id);

@@ -163,6 +163,7 @@ class InternalTransferController extends Controller
         // Audit Logs & Chatter Notes
         $auditLogs = AuditLog::where('document_type', 'internal_transfer')
             ->where('document_id', $transfer->id)
+            ->when(auth()->user()?->role_id !== 'auditor', fn ($q) => $q->where('action', 'LOG_NOTE'))
             ->orderBy('id', 'desc')
             ->get()
             ->map(fn ($log) => [

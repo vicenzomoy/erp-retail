@@ -160,16 +160,75 @@ class CrmLeadController extends Controller
         $products  = Product::orderBy('name')->get(['variant_sku', 'name', 'sales_price']);
         $users     = User::whereIn('role_id', ['sales', 'owner'])->get(['id', 'name']);
 
-        // Collect audit logs
+        // Collect audit logs (hanya untuk Auditor + LOG_NOTE untuk chatter)
         $relatedDocIds = [$lead->id];
         foreach ($lead->quotationLinks as $link) {
             $relatedDocIds[] = $link->sales_order_id;
         }
 
+        $isAuditor = auth()->user()?->role_id === 'auditor';
         $auditLogs = AuditLog::whereIn('document_id', $relatedDocIds)
+            ->when(! $isAuditor, fn ($q) => $q->where('action', 'LOG_NOTE'))
             ->orderByDesc('created_at')
             ->take(20)
-            ->get();
+            ->get()
+            ->map(fn (AuditLog $log) => [
+                'id'             => $log->id,
+                'action'         => $log->action,
+                'status'         => $log->status,
+                'actor_username' => $log->actor_username,
+                'actor_role'     => $log->actor_role,
+                'notes'          => $log->notes,
+                'created_at'     => $log->created_at?->format('d/m/Y H:i:s'),
+                'time_ago'       => $log->created_at?->diffForHumans(),
+            ]);
+
+        // Build cross-module Related Docs
+        $relatedDocs = [];
+        if ($lead->customer) {
+            $relatedDocs[] = [
+                'type'   => 'CUSTOMER',
+                'id'     => $lead->customer->id,
+                'title'  => $lead->customer->name,
+                'status' => 'active',
+                'info'   => 'Pelanggan Terkait',
+                'url'    => route('crm.customers.show', $lead->customer->id),
+            ];
+        }
+        foreach ($lead->quotationLinks as $link) {
+            $so = $link->salesOrder;
+            if (! $so) {
+                continue;
+            }
+            $relatedDocs[] = [
+                'type'   => 'SALES ORDER',
+                'id'     => $so->id,
+                'title'  => "Sales Order {$so->id}",
+                'status' => $so->status,
+                'info'   => 'Rp ' . number_format((float) $so->grand_total, 0, ',', '.'),
+                'url'    => route('sales.orders.show', $so->id),
+            ];
+            foreach ($so->deliveryOrders ?? [] as $do) {
+                $relatedDocs[] = [
+                    'type'   => 'DELIVERY ORDER',
+                    'id'     => $do->id,
+                    'title'  => "Pengiriman {$do->id}",
+                    'status' => $do->status,
+                    'info'   => "Gudang {$do->warehouse_code}",
+                    'url'    => route('inventory.deliveries.show', $do->id),
+                ];
+            }
+            foreach ($so->customerInvoices ?? [] as $inv) {
+                $relatedDocs[] = [
+                    'type'   => 'CUSTOMER INVOICE',
+                    'id'     => $inv->id,
+                    'title'  => "Faktur {$inv->id}",
+                    'status' => $inv->status,
+                    'info'   => 'Rp ' . number_format((float) $inv->grand_total, 0, ',', '.'),
+                    'url'    => route('accounting.invoices.show', $inv->id),
+                ];
+            }
+        }
 
         // Enrich interest items
         $interestItems = $lead->interest_items ?? [];
@@ -232,10 +291,11 @@ class CrmLeadController extends Controller
                     ];
                 }),
             ],
-            'customers' => $customers,
-            'products'  => $products,
-            'users'     => $users,
-            'auditLogs' => $auditLogs,
+            'customers'   => $customers,
+            'products'    => $products,
+            'users'       => $users,
+            'relatedDocs' => $relatedDocs,
+            'auditLogs'   => $auditLogs,
         ]);
     }
 

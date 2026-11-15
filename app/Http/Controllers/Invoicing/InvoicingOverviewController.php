@@ -106,7 +106,7 @@ class InvoicingOverviewController extends Controller
 
         // 3. Antrean Retur Pelanggan Menunggu Nota Kredit (To Credit Note)
         // Barang retur telah diinspeksi gudang, siap dibuatkan Nota Kredit & AR Adjustment
-        $pendingReturns = CustomerReturn::with(['customer', 'lines.product', 'originalInvoice'])
+        $pendingReturns = CustomerReturn::with(['customer', 'lines.product', 'customerInvoice'])
             ->where('status', 'inspected')
             ->orderByDesc('id')
             ->get()

@@ -184,8 +184,10 @@ class PosController extends Controller
             'items_count'         => $o->lines->sum('qty'),
         ]);
 
+        $isAuditor = auth()->user()?->role_id === 'auditor';
         $auditLogs = AuditLog::where('document_type', 'pos_session')
             ->where('document_id', $id)
+            ->when(! $isAuditor, fn ($q) => $q->where('action', 'LOG_NOTE'))
             ->orderByDesc('id')
             ->get()
             ->map(fn ($log) => [
@@ -198,6 +200,28 @@ class PosController extends Controller
                 'created_at'     => $log->created_at?->format('d/m/Y H:i:s'),
                 'time_ago'       => $log->created_at?->diffForHumans(),
             ]);
+
+        $relatedDocs = [];
+        if ($session->closing_journal_entry_id) {
+            $relatedDocs[] = [
+                'type'   => 'JOURNAL ENTRY',
+                'id'     => (string) $session->closing_journal_entry_id,
+                'title'  => "Jurnal Penutupan Sesi #{$session->closing_journal_entry_id}",
+                'status' => 'posted',
+                'info'   => 'Jurnal Akuntansi',
+                'url'    => route('accounting.journals.show', $session->closing_journal_entry_id),
+            ];
+        }
+        foreach ($session->orders->take(10) as $ord) {
+            $relatedDocs[] = [
+                'type'   => 'POS ORDER',
+                'id'     => $ord->id,
+                'title'  => "Struk {$ord->id}",
+                'status' => $ord->status,
+                'info'   => 'Rp ' . number_format((float) $ord->grand_total, 0, ',', '.'),
+                'url'    => route('pos.orders.show', $ord->id),
+            ];
+        }
 
         return Inertia::render('Pos/Sessions/Show', [
             'session' => [
@@ -214,8 +238,9 @@ class PosController extends Controller
                 'closed_at'                => $session->closed_at?->format('d/m/Y H:i:s'),
                 'closing_journal_entry_id' => $session->closing_journal_entry_id,
             ],
-            'orders'     => $orders,
-            'audit_logs' => $auditLogs,
+            'orders'      => $orders,
+            'relatedDocs' => $relatedDocs,
+            'audit_logs'  => $auditLogs,
         ]);
     }
 
@@ -314,8 +339,10 @@ class PosController extends Controller
             'journalEntry.lines',
         ])->findOrFail($id);
 
+        $isAuditor = auth()->user()?->role_id === 'auditor';
         $auditLogs = AuditLog::where('document_type', 'pos_order')
             ->where('document_id', $id)
+            ->when(! $isAuditor, fn ($q) => $q->where('action', 'LOG_NOTE'))
             ->orderByDesc('id')
             ->get()
             ->map(fn ($log) => [
@@ -323,9 +350,43 @@ class PosController extends Controller
                 'action'         => $log->action,
                 'status'         => $log->status,
                 'actor_username' => $log->actor_username,
+                'actor_role'     => $log->actor_role ?? 'cashier',
                 'notes'          => $log->notes,
                 'created_at'     => $log->created_at?->format('d/m/Y H:i:s'),
+                'time_ago'       => $log->created_at?->diffForHumans(),
             ]);
+
+        $relatedDocs = [];
+        if ($order->pos_session_id) {
+            $relatedDocs[] = [
+                'type'   => 'POS SESSION',
+                'id'     => $order->pos_session_id,
+                'title'  => "Sesi Kasir {$order->pos_session_id}",
+                'status' => $order->session?->status ?? 'done',
+                'info'   => $order->session?->location_code ?? 'POS',
+                'url'    => route('pos.sessions.show', $order->pos_session_id),
+            ];
+        }
+        if ($order->journalEntry) {
+            $relatedDocs[] = [
+                'type'   => 'JOURNAL ENTRY',
+                'id'     => $order->journalEntry->entry_no,
+                'title'  => "Jurnal {$order->journalEntry->entry_no}",
+                'status' => 'posted',
+                'info'   => $order->journalEntry->description ?? 'Jurnal Penjualan POS & COGS',
+                'url'    => route('accounting.journals.show', $order->journalEntry->id),
+            ];
+        }
+        if ($order->customer_id && $order->customer) {
+            $relatedDocs[] = [
+                'type'   => 'CUSTOMER',
+                'id'     => $order->customer->id,
+                'title'  => $order->customer->name,
+                'status' => 'active',
+                'info'   => 'Pelanggan POS',
+                'url'    => route('sales.customers.show', $order->customer->id),
+            ];
+        }
 
         return Inertia::render('Pos/Orders/Show', [
             'order' => [
@@ -365,7 +426,8 @@ class PosController extends Controller
                 'debit'        => (float) $jl->debit,
                 'credit'       => (float) $jl->credit,
             ]) ?? [],
-            'audit_logs' => $auditLogs,
+            'relatedDocs' => $relatedDocs,
+            'audit_logs'  => $auditLogs,
         ]);
     }
 

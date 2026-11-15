@@ -19,6 +19,7 @@ import {
 import CrmLayout from '@/Layouts/CrmLayout';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
+import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
 
 const formatRp = (value) =>
     new Intl.NumberFormat('id-ID', {
@@ -43,7 +44,7 @@ function createEmptyItem() {
     };
 }
 
-export default function LeadShow({ lead, customers = [], products = [], users = [], auditLogs = [] }) {
+export default function LeadShow({ lead, customers = [], products = [], users = [], relatedDocs = [], auditLogs = [] }) {
     const [isEditing, setIsEditing] = useState(false);
     const [duplicateError, setDuplicateError] = useState('');
 
@@ -673,44 +674,13 @@ export default function LeadShow({ lead, customers = [], products = [], users = 
                     )}
                 </div>
 
-                {/* ── Catatan Aktivitas & Riwayat Sistem ── */}
-                <div className="mt-8 border-t border-slate-200 pt-5">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-3 flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-slate-500" />
-                        Catatan Aktivitas &amp; Riwayat Sistem
-                    </h3>
-
-                    <div className="space-y-2">
-                        {auditLogs && auditLogs.length > 0 ? (
-                            auditLogs.map((log) => (
-                                <div
-                                    key={log.id}
-                                    className="flex items-start gap-3 rounded border border-slate-100 bg-slate-50/50 p-2.5 text-xs"
-                                >
-                                    <div className="rounded-full bg-slate-200 p-1 text-slate-600 mt-0.5">
-                                        <Clock className="h-3 w-3" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex items-center justify-between">
-                                            <span className="font-semibold text-slate-800">
-                                                {log.action}
-                                            </span>
-                                            <span className="text-[10px] text-slate-400">
-                                                {new Date(log.created_at).toLocaleString('id-ID')}
-                                            </span>
-                                        </div>
-                                        <p className="text-slate-600 text-[11px] mt-0.5">{log.notes}</p>
-                                        <div className="mt-1 text-[10px] text-slate-400">
-                                            Oleh: {log.actor_username || 'Sistem'} ({log.actor_role})
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-xs text-slate-400 italic">Belum ada riwayat aktivitas tercatat.</p>
-                        )}
-                    </div>
-                </div>
+                {/* ── Odoo Form Footer: Related Docs | Log Notes | Audit / History (khusus Auditor) ── */}
+                <OdooFormFooter
+                    documentType="crm_lead"
+                    documentId={lead.id}
+                    relatedDocs={relatedDocs}
+                    auditLogs={auditLogs}
+                />
             </div>
         </CrmLayout>
     );

@@ -19,7 +19,7 @@ class RetailDatasetSeeder extends Seeder
             ['term_id' => 'NET30', 'due_days' => 30, 'description' => 'Jatuh tempo 30 hari'],
         ]);
 
-        DB::table('chart_of_accounts')->insert([
+        DB::table('chart_of_accounts')->upsert([
             ['code' => '1010', 'account_name' => 'Kas', 'account_type' => 'Aset lancar'],
             ['code' => '1020', 'account_name' => 'Bank', 'account_type' => 'Aset lancar'],
             ['code' => '1100', 'account_name' => 'Piutang Usaha', 'account_type' => 'Aset lancar'],
@@ -33,9 +33,10 @@ class RetailDatasetSeeder extends Seeder
             ['code' => '3000', 'account_name' => 'Modal Awal', 'account_type' => 'Ekuitas'],
             ['code' => '4000', 'account_name' => 'Penjualan Grosir', 'account_type' => 'Pendapatan'],
             ['code' => '4010', 'account_name' => 'Penjualan POS', 'account_type' => 'Pendapatan'],
+            ['code' => '4200', 'account_name' => 'Selisih Pembulatan POS', 'account_type' => 'Pendapatan'],
             ['code' => '5000', 'account_name' => 'Beban Pokok Penjualan', 'account_type' => 'Beban'],
             ['code' => '5100', 'account_name' => 'Selisih Harga Beli', 'account_type' => 'Beban'],
-        ]);
+        ], ['code'], ['account_name', 'account_type']);
 
         DB::table('tax_rates')->insert([
             [

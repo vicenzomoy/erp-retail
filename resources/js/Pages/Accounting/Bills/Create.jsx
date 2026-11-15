@@ -20,6 +20,14 @@ const formatRp = (val) =>
         maximumFractionDigits: 0,
     }).format(val ?? 0);
 
+const getLocalTodayDate = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
 function calcLineClient(qty, unitPrice) {
     const q = parseFloat(qty) || 0;
     const p = parseFloat(unitPrice) || 0;
@@ -72,7 +80,7 @@ export default function VendorBillCreate({
     const { data, setData, processing, errors } = useForm({
         purchase_order_id: initialMatrix?.purchase_order_id || '',
         receipt_id: initialMatrix?.primary_receipt_id || '',
-        bill_date: new Date().toISOString().slice(0, 10),
+        bill_date: getLocalTodayDate(),
         notes: initialMatrix
             ? `Tagihan Pemasok atas PO ${initialMatrix.purchase_order_id}`
             : '',
@@ -327,12 +335,18 @@ export default function VendorBillCreate({
                             <span className="w-36 font-semibold text-slate-500 shrink-0">
                                 Tanggal Tagihan:
                             </span>
-                            <input
-                                type="date"
-                                value={data.bill_date}
-                                onChange={(e) => setData('bill_date', e.target.value)}
-                                className="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-800 focus:border-slate-500 focus:outline-none"
-                            />
+                            <div>
+                                <input
+                                    type="date"
+                                    max={getLocalTodayDate()}
+                                    value={data.bill_date}
+                                    onChange={(e) => setData('bill_date', e.target.value)}
+                                    className="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-800 focus:border-slate-500 focus:outline-none"
+                                />
+                                {errors.bill_date && (
+                                    <p className="mt-1 text-[11px] text-rose-600">{errors.bill_date}</p>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex items-baseline">

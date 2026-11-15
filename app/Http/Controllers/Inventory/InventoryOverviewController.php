@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Models\CustomerReturn;
 use App\Models\StockMove;
 use App\Services\Inventory\StockService;
 use Illuminate\Http\Request;
@@ -46,11 +47,24 @@ class InventoryOverviewController extends Controller
                 ];
             });
 
+        $pendingReturnInspections = CustomerReturn::with(['customer', 'lines'])
+            ->where('status', 'pending_inspection')
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(fn (CustomerReturn $r) => [
+                'id'                  => $r->id,
+                'customer_invoice_id' => $r->customer_invoice_id,
+                'customer_name'       => $r->customer?->name ?? '—',
+                'return_date'         => $r->return_date?->format('d/m/Y') ?? $r->created_at?->format('d/m/Y'),
+                'total_items'         => (int) $r->lines->sum('qty_requested'),
+            ]);
+
         return Inertia::render('Inventory/Overview', [
-            'kpis' => $kpis,
-            'recentMoves' => $recentMoves,
-            'lowStockAlerts' => $lowStockAlerts,
-            'storeLowStockAlerts' => $storeLowStockAlerts,
+            'kpis'                     => $kpis,
+            'recentMoves'              => $recentMoves,
+            'lowStockAlerts'           => $lowStockAlerts,
+            'storeLowStockAlerts'      => $storeLowStockAlerts,
+            'pendingReturnInspections' => $pendingReturnInspections,
         ]);
     }
 }

@@ -18,6 +18,7 @@ import {
 import SalesLayout from '@/Layouts/SalesLayout';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
+import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 const formatRp = (value) =>
@@ -55,7 +56,7 @@ const INVOICE_STATUS = {
 };
 
 // ─── Component ─────────────────────────────────────────────────────────────
-export default function SalesOrderShow({ order, products = [] }) {
+export default function SalesOrderShow({ order, products = [], relatedDocs = [], auditLogs = [] }) {
     const { auth, flash } = usePage().props;
     const isOwner = auth?.user?.role_id === 'owner';
 
@@ -73,6 +74,10 @@ export default function SalesOrderShow({ order, products = [] }) {
     const [newLineQty, setNewLineQty] = useState(1);
     const [newLineDisc, setNewLineDisc] = useState(0);
 
+    // State for confirm order modal
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [isConfirming, setIsConfirming] = useState(false);
+
     const stages = [
         { key: 'draft', label: 'Quotation' },
         { key: 'confirmed', label: 'Sales Order' },
@@ -80,13 +85,20 @@ export default function SalesOrderShow({ order, products = [] }) {
     ];
 
     const handleConfirm = () => {
-        if (order.discount_hold && !isOwner) {
-            alert('Quotation ini memiliki diskon di atas 10% dan sedang menunggu persetujuan Owner. Hubungi Owner untuk menyetujui diskon terlebih dahulu.');
-            return;
-        }
-        if (confirm('Konfirmasi Quotation ini menjadi Sales Order resmi? Stok akan direservasi dan dokumen akan dikunci.')) {
-            router.post(route('sales.orders.confirm', order.id));
-        }
+        if (order.discount_hold) return;
+        setShowConfirmModal(true);
+    };
+
+    const handleConfirmSubmit = () => {
+        setIsConfirming(true);
+        router.post(
+            route('sales.orders.confirm', order.id),
+            {},
+            {
+                onSuccess: () => setShowConfirmModal(false),
+                onFinish: () => setIsConfirming(false),
+            }
+        );
     };
 
     const handleCancel = () => {
@@ -238,7 +250,9 @@ export default function SalesOrderShow({ order, products = [] }) {
                                 <button
                                     type="button"
                                     onClick={handleConfirm}
-                                    className="flex items-center gap-1.5 rounded bg-blue-600 text-white px-3.5 py-1.5 text-xs font-semibold hover:bg-blue-700 transition shadow-xs"
+                                    disabled={Boolean(order.discount_hold)}
+                                    title={order.discount_hold ? 'Menunggu persetujuan diskon dari Owner terlebih dahulu' : 'Konfirmasi Order'}
+                                    className="flex items-center gap-1.5 rounded bg-blue-600 text-white px-3.5 py-1.5 text-xs font-semibold hover:bg-blue-700 disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-blue-600 transition shadow-xs"
                                 >
                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                     Konfirmasi Order
@@ -729,6 +743,50 @@ export default function SalesOrderShow({ order, products = [] }) {
                             })}
                         </tbody>
                     </table>
+                </div>
+            )}
+            {/* Odoo Form Footer: Related Docs | Log Notes | Audit / History (khusus Auditor) */}
+            <OdooFormFooter
+                documentType="sales_order"
+                documentId={order.id}
+                relatedDocs={relatedDocs}
+                auditLogs={auditLogs}
+            />
+
+            {/* Modal Konfirmasi Order */}
+            {showConfirmModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs px-4">
+                    <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl border border-slate-200">
+                        <div className="flex items-start gap-4 mb-5">
+                            <div className="rounded-full bg-blue-100 p-2.5 text-blue-600 shrink-0">
+                                <CheckCircle2 className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-slate-900">Konfirmasi Order?</h3>
+                                <p className="text-sm text-slate-600 mt-1.5 leading-relaxed">
+                                    Konfirmasi Quotation <strong>{order.id}</strong> menjadi Sales Order resmi? Stok akan direservasi dan dokumen akan dikunci.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2.5">
+                            <button
+                                type="button"
+                                onClick={() => setShowConfirmModal(false)}
+                                disabled={isConfirming}
+                                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmSubmit}
+                                disabled={isConfirming}
+                                className="rounded-md bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+                            >
+                                {isConfirming ? 'Memproses...' : 'Ya, Konfirmasi'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </SalesLayout>

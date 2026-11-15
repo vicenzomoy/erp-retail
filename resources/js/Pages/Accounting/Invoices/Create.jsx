@@ -20,6 +20,14 @@ const formatRp = (val) =>
         maximumFractionDigits: 0,
     }).format(val ?? 0);
 
+const getLocalTodayDate = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
 export default function CustomerInvoiceCreate({ selectedSoId, soMatrices = {} }) {
     const allMatrices = Object.values(soMatrices || {});
     const readySos = allMatrices.filter(
@@ -49,9 +57,7 @@ export default function CustomerInvoiceCreate({ selectedSoId, soMatrices = {} })
             qty_delivered: Number(line.qty_delivered),
             qty_already_invoiced: Number(line.qty_already_invoiced),
             max_invoiceable_qty: Number(line.max_invoiceable_qty),
-            qty_invoiced: Number(
-                line.max_invoiceable_qty > 0 ? line.max_invoiceable_qty : line.qty_delivered
-            ),
+            qty_invoiced: Math.max(0, Number(line.max_invoiceable_qty || 0)),
             unit_price: Number(line.unit_price),
             discount_pct: Number(line.discount_pct || 0),
         }));
@@ -59,7 +65,7 @@ export default function CustomerInvoiceCreate({ selectedSoId, soMatrices = {} })
 
     const { data, setData, processing, errors } = useForm({
         sales_order_id: initialSo,
-        invoice_date: new Date().toISOString().slice(0, 10),
+        invoice_date: getLocalTodayDate(),
         notes: initialSo ? `Faktur Penjualan atas Sales Order ${initialSo}` : '',
         idempotency_key: `INV-${initialSo}-${Date.now()}`,
         auto_post: true,
@@ -143,22 +149,12 @@ export default function CustomerInvoiceCreate({ selectedSoId, soMatrices = {} })
 
                     <button
                         type="button"
-                        onClick={() => submitInvoice(true)}
+                        onClick={() => submitInvoice(false)}
                         disabled={processing || !data.sales_order_id}
                         className="inline-flex items-center gap-1.5 rounded bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
                     >
-                        <CheckCircle2 className="h-4 w-4" />
-                        {processing ? 'Memproses...' : 'Terbitkan & Posting Faktur'}
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => submitInvoice(false)}
-                        disabled={processing || !data.sales_order_id}
-                        className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
-                    >
-                        <Save className="h-3.5 w-3.5 text-slate-500" />
-                        Simpan sebagai Draft
+                        <Save className="h-3.5 w-3.5" />
+                        {processing ? 'Menyimpan...' : 'Simpan sebagai Draft'}
                     </button>
                 </div>
 
@@ -173,12 +169,14 @@ export default function CustomerInvoiceCreate({ selectedSoId, soMatrices = {} })
             </div>
 
             {/* Pesan Validasi Pengiriman */}
-            {(errors.delivery_policy || errors.lines) && (
+            {(errors.delivery_policy || errors.lines || Object.keys(errors).length > 0) && (
                 <div className="mb-4 rounded-md border border-rose-300 bg-rose-50 p-4 text-xs text-rose-800 shadow-xs flex items-start gap-2.5">
                     <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
                     <div>
-                        <span className="font-bold">Faktur Tidak Dapat Diterbitkan:</span>
-                        <p className="mt-1">{errors.delivery_policy || errors.lines}</p>
+                        <span className="font-bold">Faktur Tidak Dapat Disimpan:</span>
+                        <p className="mt-1">
+                            {errors.delivery_policy || errors.lines || Object.values(errors)[0]}
+                        </p>
                     </div>
                 </div>
             )}
@@ -312,12 +310,18 @@ export default function CustomerInvoiceCreate({ selectedSoId, soMatrices = {} })
                             <span className="w-36 font-semibold text-slate-500 shrink-0">
                                 Tanggal Faktur:
                             </span>
-                            <input
-                                type="date"
-                                value={data.invoice_date}
-                                onChange={(e) => setData('invoice_date', e.target.value)}
-                                className="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-800 focus:border-slate-500 focus:outline-none"
-                            />
+                            <div>
+                                <input
+                                    type="date"
+                                    max={getLocalTodayDate()}
+                                    value={data.invoice_date}
+                                    onChange={(e) => setData('invoice_date', e.target.value)}
+                                    className="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-800 focus:border-slate-500 focus:outline-none"
+                                />
+                                {errors.invoice_date && (
+                                    <p className="mt-1 text-[11px] text-rose-600">{errors.invoice_date}</p>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex items-baseline">

@@ -7,6 +7,7 @@ use App\Http\Controllers\Accounting\CustomerInvoiceController;
 use App\Http\Controllers\Accounting\JournalEntryController;
 use App\Http\Controllers\Accounting\PaymentController;
 use App\Http\Controllers\Accounting\VendorBillController;
+use App\Http\Controllers\Auditor\AuditorController;
 use App\Http\Controllers\Crm\CrmLeadController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Invoicing\InvoicingOverviewController;
@@ -53,6 +54,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/home', [HomeController::class, 'index'])->name('home');
 
     // ==========================================
+    // AUDITOR MODULE ROUTES (Read-Only Global Audit Trail & Cross-Module Traceability)
+    // ==========================================
+    Route::prefix('auditor')->name('auditor.')->middleware('app.access:auditor')->group(function () {
+        Route::get('/', [AuditorController::class, 'index'])->name('index');
+    });
+
+    // ==========================================
     // SETTINGS MODULE ROUTES (Pengguna & Hak Akses — Owner & Finance)
     // ==========================================
     Route::prefix('settings')->name('settings.')->middleware('app.access:settings')->group(function () {
@@ -92,6 +100,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/vendors', [PurchaseVendorController::class, 'index'])->name('vendors.index');
         Route::get('/vendors/create', [PurchaseVendorController::class, 'create'])->name('vendors.create');
         Route::post('/vendors', [PurchaseVendorController::class, 'store'])->name('vendors.store');
+        Route::get('/vendors/{id}/edit', [PurchaseVendorController::class, 'edit'])
+            ->where('id', '.+')
+            ->name('vendors.edit');
+        Route::put('/vendors/{id}', [PurchaseVendorController::class, 'update'])
+            ->where('id', '.+')
+            ->name('vendors.update');
         Route::get('/vendors/{id}', [PurchaseVendorController::class, 'show'])
             ->where('id', '.+')
             ->name('vendors.show');
@@ -127,8 +141,11 @@ Route::middleware('auth')->group(function () {
 
         // Pelanggan (Customers di dalam modul CRM)
         Route::get('/customers', [SalesCustomerController::class, 'index'])->name('customers.index');
+        Route::post('/customers', [SalesCustomerController::class, 'store'])->name('customers.store');
         Route::get('/customers/{id}', [SalesCustomerController::class, 'show'])->where('id', '.+')->name('customers.show');
         Route::put('/customers/{id}', [SalesCustomerController::class, 'update'])->where('id', '.+')->name('customers.update');
+        Route::post('/customers/{id}/restore', [SalesCustomerController::class, 'restore'])->where('id', '.+')->name('customers.restore');
+        Route::delete('/customers/{id}', [SalesCustomerController::class, 'destroy'])->where('id', '.+')->name('customers.destroy');
     });
 
     // ==========================================
@@ -153,6 +170,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/credit-notes', [CreditNoteController::class, 'index'])->name('credit-notes.index');
         Route::get('/credit-notes/create', [CreditNoteController::class, 'create'])->name('credit-notes.create');
         Route::post('/credit-notes', [CreditNoteController::class, 'store'])->name('credit-notes.store');
+        Route::post('/credit-notes/{id}/post', [CreditNoteController::class, 'post'])
+            ->where('id', '.+')
+            ->name('credit-notes.post');
         Route::get('/credit-notes/{id}', [CreditNoteController::class, 'show'])
             ->where('id', '.+')
             ->name('credit-notes.show');
@@ -352,8 +372,11 @@ Route::middleware('auth')->group(function () {
 
         // Customers
         Route::get('/customers', [SalesCustomerController::class, 'index'])->name('customers.index');
+        Route::post('/customers', [SalesCustomerController::class, 'store'])->name('customers.store');
         Route::get('/customers/{id}', [SalesCustomerController::class, 'show'])->where('id', '.+')->name('customers.show');
         Route::put('/customers/{id}', [SalesCustomerController::class, 'update'])->where('id', '.+')->name('customers.update');
+        Route::post('/customers/{id}/restore', [SalesCustomerController::class, 'restore'])->where('id', '.+')->name('customers.restore');
+        Route::delete('/customers/{id}', [SalesCustomerController::class, 'destroy'])->where('id', '.+')->name('customers.destroy');
     });
 
     // ==========================================

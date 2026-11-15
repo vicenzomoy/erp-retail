@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import {
     LayoutDashboard,
@@ -17,6 +17,7 @@ import {
     Info,
     User,
     LogOut,
+    X,
 } from 'lucide-react';
 import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
 
@@ -24,6 +25,25 @@ export default function PurchaseLayout({ title, breadcrumbs = [], children }) {
     const { auth, company, flash } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+    const [visibleFlash, setVisibleFlash] = useState({ success: null, error: null, info: null });
+
+    useEffect(() => {
+        setVisibleFlash({
+            success: flash?.success ?? null,
+            error: flash?.error ?? null,
+            info: flash?.info ?? null,
+        });
+
+        if (!flash?.success && !flash?.error && !flash?.info) {
+            return undefined;
+        }
+
+        const timer = setTimeout(() => {
+            setVisibleFlash({ success: null, error: null, info: null });
+        }, 5000);
+
+        return () => clearTimeout(timer);
+    }, [flash?.success, flash?.error, flash?.info]);
 
     const navigation = [
         {
@@ -230,30 +250,54 @@ export default function PurchaseLayout({ title, breadcrumbs = [], children }) {
                 {/* MAIN CONTENT WRAPPER */}
                 <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8fafc]">
                     {/* Flash messages banner */}
-                    {flash?.success && (
-                        <div className="mb-4 flex items-center justify-between rounded border border-emerald-300 bg-emerald-50 px-4 py-3 text-xs text-emerald-800 shadow-xs animate-fadeIn">
+                    {visibleFlash.success && (
+                        <div className="mb-4 flex items-center justify-between gap-3 rounded border border-emerald-300 bg-emerald-50 px-4 py-3 text-xs text-emerald-800 shadow-xs animate-fadeIn">
                             <div className="flex items-center gap-2">
                                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                                <span className="font-medium">{flash.success}</span>
+                                <span className="font-medium">{visibleFlash.success}</span>
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => setVisibleFlash((prev) => ({ ...prev, success: null }))}
+                                className="rounded p-0.5 text-emerald-600 hover:bg-emerald-100 transition cursor-pointer"
+                                title="Tutup"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
                         </div>
                     )}
 
-                    {flash?.error && (
-                        <div className="mb-4 flex items-center justify-between rounded border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-800 shadow-xs animate-fadeIn">
+                    {visibleFlash.error && (
+                        <div className="mb-4 flex items-center justify-between gap-3 rounded border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-800 shadow-xs animate-fadeIn">
                             <div className="flex items-center gap-2">
                                 <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
-                                <span className="font-medium">{flash.error}</span>
+                                <span className="font-medium">{visibleFlash.error}</span>
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => setVisibleFlash((prev) => ({ ...prev, error: null }))}
+                                className="rounded p-0.5 text-rose-600 hover:bg-rose-100 transition cursor-pointer"
+                                title="Tutup"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
                         </div>
                     )}
 
-                    {flash?.info && (
-                        <div className="mb-4 flex items-center justify-between rounded border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-800 shadow-xs animate-fadeIn">
+                    {visibleFlash.info && (
+                        <div className="mb-4 flex items-center justify-between gap-3 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-800 shadow-xs animate-fadeIn">
                             <div className="flex items-center gap-2">
                                 <Info className="h-4 w-4 text-amber-600 shrink-0" />
-                                <span className="font-medium">{flash.info}</span>
+                                <span className="font-medium">{visibleFlash.info}</span>
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => setVisibleFlash((prev) => ({ ...prev, info: null }))}
+                                className="rounded p-0.5 text-amber-600 hover:bg-amber-100 transition cursor-pointer"
+                                title="Tutup"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
                         </div>
                     )}
 

@@ -130,6 +130,13 @@ class AppInitialSeeder extends Seeder
                 'role_id' => 'owner',
                 'is_active' => true,
             ],
+            [
+                'name' => 'Auditor',
+                'email' => 'auditor.demo@barawear.com',
+                'password' => Hash::make('password'),
+                'role_id' => 'auditor',
+                'is_active' => true,
+            ],
         ];
 
         foreach ($users as $u) {

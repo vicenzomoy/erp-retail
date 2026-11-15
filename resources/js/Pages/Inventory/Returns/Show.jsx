@@ -45,17 +45,22 @@ export default function Show({ customerReturn }) {
 
     const handleQtyInspectedChange = (idx, value) => {
         const updated = [...data.lines];
-        const inspected = Math.max(0, parseInt(value, 10) || 0);
+        const maxRequested = Math.max(0, Number(updated[idx].qty_requested) || 0);
+        const inspected = Math.min(Math.max(0, parseInt(value, 10) || 0), maxRequested);
         updated[idx].qty_inspected = inspected;
         if (updated[idx].qty_accepted > inspected) {
             updated[idx].qty_accepted = inspected;
         }
         updated[idx].qty_damaged = Math.max(0, inspected - updated[idx].qty_accepted);
+        updated[idx].condition = updated[idx].qty_damaged > 0 ? 'damaged' : 'saleable';
         setData('lines', updated);
     };
 
+    const totalQtyInspected = data.lines.reduce((sum, l) => sum + (Number(l.qty_inspected) || 0), 0);
+
     const handleSubmit = (e) => {
         e.preventDefault();
+        if (totalQtyInspected <= 0) return;
         post(route('inventory.returns.validate', customerReturn.id));
     };
 
@@ -88,8 +93,8 @@ export default function Show({ customerReturn }) {
                             !isReadOnlyRole && (
                                 <button
                                     type="submit"
-                                    disabled={processing}
-                                    className="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer"
+                                    disabled={processing || totalQtyInspected <= 0}
+                                    className="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition cursor-pointer"
                                 >
                                     <Check className="h-4 w-4" />
                                     <span>Validasi Stok Retur (QC Selesai)</span>
@@ -103,6 +108,28 @@ export default function Show({ customerReturn }) {
                         )}
                     </div>
                 </div>
+
+                {/* Warning jika total diterima fisik 0 atau ada error validasi */}
+                {isPending && totalQtyInspected <= 0 && (
+                    <div className="rounded border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 shadow-xs flex items-start gap-2.5">
+                        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                            <h4 className="font-bold text-amber-900">
+                                Barang Retur Belum Diterima (Diterima Fisik = 0)
+                            </h4>
+                            <p className="mt-0.5 leading-relaxed">
+                                Jumlah diterima fisik tidak boleh 0 semua. Jika barang yang diajukan retur belum diterima secara fisik oleh gudang, proses inspeksi retur belum dapat diselesaikan.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {errors.lines && (
+                    <div className="rounded border border-rose-300 bg-rose-50 p-3.5 text-xs text-rose-800 shadow-xs flex items-start gap-2.5">
+                        <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                        <span>{errors.lines}</span>
+                    </div>
+                )}
 
                 {/* Main Card */}
                 <div className="rounded border border-slate-200 bg-white p-6 shadow-2xs space-y-5">
@@ -197,6 +224,7 @@ export default function Show({ customerReturn }) {
                                                     <input
                                                         type="number"
                                                         min="0"
+                                                        max={line.qty_requested}
                                                         value={line.qty_inspected}
                                                         onChange={(e) => handleQtyInspectedChange(idx, e.target.value)}
                                                         className="w-20 rounded border border-slate-300 py-1 text-center text-xs font-semibold focus:border-emerald-500 focus:outline-none"

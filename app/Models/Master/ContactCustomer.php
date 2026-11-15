@@ -6,15 +6,25 @@ use App\Models\CustomerInvoice;
 use App\Models\SalesOrder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ContactCustomer extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'contacts_customers';
     public $incrementing = false;
     protected $keyType = 'string';
     public $timestamps = false;
 
-    protected $guarded = ['*'];
+    protected $fillable = [
+        'id',
+        'name',
+        'type',
+        'city',
+        'credit_limit',
+        'payment_terms',
+    ];
 
     protected function casts(): array
     {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import {
     ShieldCheck,
@@ -45,6 +45,8 @@ export default function SettingsRolesIndex({
     selectedRole = 'all',
     accessDeniedLogs = [],
 }) {
+    const { auth } = usePage().props;
+    const isAuditor = Boolean(auth?.user?.is_auditor);
     const handleSelectRole = (roleKey) => {
         router.get(
             route('settings.roles.index'),
@@ -303,7 +305,8 @@ export default function SettingsRolesIndex({
                 })}
             </div>
 
-            {/* Tabel Log Audit Percobaan Akses yang Ditolak (Security & RBAC Audit Log) */}
+            {/* Tabel Log Audit Percobaan Akses yang Ditolak (Hanya untuk Auditor) */}
+            {isAuditor && (
             <div className="rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">
                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -366,6 +369,7 @@ export default function SettingsRolesIndex({
                     </div>
                 )}
             </div>
+            )}
         </SettingsLayout>
     );
 }

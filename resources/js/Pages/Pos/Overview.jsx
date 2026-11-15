@@ -315,13 +315,24 @@ export default function PosOverview({ open_session, kpis, recent_sessions, store
                                 <div className="relative">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500 font-semibold">Rp</span>
                                     <input
-                                        type="number"
-                                        min="0"
-                                        step="1000"
-                                        value={data.opening_cash_float}
-                                        onChange={(e) => setData('opening_cash_float', e.target.value)}
-                                        placeholder="500000"
-                                        className="w-full rounded-md border border-slate-300 pl-9 pr-3 py-2 text-sm text-slate-900 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={
+                                            data.opening_cash_float === ''
+                                                ? ''
+                                                : new Intl.NumberFormat('id-ID').format(
+                                                      Number(data.opening_cash_float)
+                                                  )
+                                        }
+                                        onChange={(e) => {
+                                            const digits = e.target.value.replace(/\D/g, '');
+                                            setData(
+                                                'opening_cash_float',
+                                                digits === '' ? '' : String(Number(digits))
+                                            );
+                                        }}
+                                        placeholder="500.000"
+                                        className="w-full rounded-md border border-slate-300 pl-9 pr-3 py-2 font-mono text-sm text-slate-900 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
                                         required
                                     />
                                 </div>

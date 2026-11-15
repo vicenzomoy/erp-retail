@@ -224,6 +224,7 @@ class PurchaseOrderController extends Controller
         $auditLogs = AuditLog::where(function ($q) use ($po) {
             $q->where('document_type', 'purchase_order')->where('document_id', $po->id);
         })
+        ->when(auth()->user()?->role_id !== 'auditor', fn ($q) => $q->where('action', 'LOG_NOTE'))
         ->orderByDesc('id')
         ->get()
         ->map(fn ($log) => [

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import PosLayout from '@/Layouts/PosLayout';
+import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
 import {
     Play,
     StopCircle,
@@ -17,7 +18,7 @@ import {
 const formatRp = (num) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num ?? 0);
 
-export default function SessionShow({ session, orders, audit_logs }) {
+export default function SessionShow({ session, orders, relatedDocs = [], audit_logs = [] }) {
     const [showCloseModal, setShowCloseModal] = useState(false);
     const { data, setData, post, processing, errors } = useForm({ counted_cash: '' });
 
@@ -232,35 +233,14 @@ export default function SessionShow({ session, orders, audit_logs }) {
                     </div>
                 </div>
 
-                {/* ---- Right Panel: Audit Log ---- */}
-                <div className="space-y-5">
-                    <div className="rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">
-                        <div className="border-b border-slate-200 bg-slate-50/50 px-4 py-3">
-                            <h2 className="text-sm font-bold text-slate-900">Riwayat Aktivitas</h2>
-                        </div>
-                        <div className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
-                            {audit_logs.length === 0 ? (
-                                <p className="text-xs text-slate-400 text-center py-4">Belum ada log aktivitas.</p>
-                            ) : (
-                                audit_logs.map((log) => (
-                                    <div key={log.id} className="flex gap-2.5">
-                                        <div className={`mt-0.5 h-5 w-5 shrink-0 flex items-center justify-center rounded-full ${
-                                            log.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-700' :
-                                            log.status === 'DUPLICATE_ATTEMPT' ? 'bg-amber-100 text-amber-700' :
-                                            'bg-rose-100 text-rose-700'
-                                        }`}>
-                                            {log.status === 'SUCCESS' ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-semibold text-slate-800">{log.action.replace(/_/g, ' ')}</p>
-                                            {log.notes && <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{log.notes}</p>}
-                                            <p className="text-[11px] text-slate-400 mt-1">{log.time_ago} · {log.actor_username}</p>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
+                {/* ---- Odoo Form Footer: Related Docs | Log Notes | Audit / History (khusus Auditor) ---- */}
+                <div className="lg:col-span-3">
+                    <OdooFormFooter
+                        documentType="pos_session"
+                        documentId={session.id}
+                        relatedDocs={relatedDocs}
+                        auditLogs={audit_logs}
+                    />
                 </div>
             </div>
 

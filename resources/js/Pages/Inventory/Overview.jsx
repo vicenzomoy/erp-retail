@@ -19,6 +19,7 @@ import {
     XCircle,
     Store,
     Warehouse,
+    RotateCcw,
 } from 'lucide-react';
 
 const STORE_CODE = 'TOKO-PKU';
@@ -29,7 +30,7 @@ const fmtQty = (n) => {
     return v % 1 === 0 ? Math.round(v).toLocaleString('id-ID') : v.toLocaleString('id-ID');
 };
 
-export default function Overview({ kpis = {}, recentMoves = [], lowStockAlerts = [], storeLowStockAlerts = [] }) {
+export default function Overview({ kpis = {}, recentMoves = [], lowStockAlerts = [], storeLowStockAlerts = [], pendingReturnInspections = [] }) {
     const [warnItem, setWarnItem] = useState(null);
 
     const goToTransfer = (item) => {
@@ -209,6 +210,54 @@ export default function Overview({ kpis = {}, recentMoves = [], lowStockAlerts =
                     </p>
                 </div>
             </div>
+
+            {/* Reminder Inspeksi Retur Pelanggan */}
+            {pendingReturnInspections.length > 0 && (
+                <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50/70 p-4 shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 border border-amber-200">
+                                <RotateCcw className="h-4 w-4" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-amber-950">
+                                    Reminder Inspeksi Retur: {pendingReturnInspections.length} permintaan retur perlu dicek gudang
+                                </h3>
+                                <p className="text-xs text-amber-800 mt-0.5">
+                                    Lakukan pemeriksaan fisik (QC) barang retur dari pelanggan sebelum bagian keuangan menerbitkan Credit Note.
+                                </p>
+                                <div className="mt-2.5 flex flex-wrap gap-2">
+                                    {pendingReturnInspections.slice(0, 5).map((ret) => (
+                                        <Link
+                                            key={ret.id}
+                                            href={route('inventory.returns.show', ret.id)}
+                                            className="inline-flex items-center gap-1.5 rounded border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100/70 transition"
+                                        >
+                                            <span className="font-mono font-bold">{ret.id}</span>
+                                            <span className="text-slate-400">•</span>
+                                            <span>{ret.customer_name}</span>
+                                            <span className="text-amber-700">({ret.total_items} pcs)</span>
+                                        </Link>
+                                    ))}
+                                    {pendingReturnInspections.length > 5 && (
+                                        <span className="inline-flex items-center px-2 py-1 text-[11px] font-medium text-amber-800">
+                                            +{pendingReturnInspections.length - 5} lainnya
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <Link
+                            href={route('inventory.returns.index', { status: 'pending_inspection' })}
+                            className="inline-flex shrink-0 items-center gap-1.5 self-start sm:self-center rounded-md bg-amber-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-amber-700 transition shadow-xs"
+                        >
+                            <span>Periksa Retur</span>
+                            <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                    </div>
+                </div>
+            )}
 
             {/* Odoo 17 Operation Cards (Kanban Cards) */}
             <div className="mb-6">

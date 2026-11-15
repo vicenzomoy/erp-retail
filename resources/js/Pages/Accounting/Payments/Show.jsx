@@ -5,6 +5,7 @@ import OdooBadge from '@/Components/Odoo/OdooBadge';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
 import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
+import PrintableDocument from '@/Components/Accounting/PrintableDocument';
 import {
     ArrowLeft,
     Wallet,
@@ -49,6 +50,7 @@ export default function PaymentShow({
         >
             <Head title={`Bukti Pembayaran ${payment.id} — Bara Wear`} />
 
+            <div className="print:hidden">
             {/* Header Action Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200">
                 <div className="flex flex-wrap items-center gap-2">
@@ -299,6 +301,45 @@ export default function PaymentShow({
                 documentId={payment.id}
                 relatedDocs={relatedDocs}
                 auditLogs={auditLogs}
+            />
+            </div>
+
+            <PrintableDocument
+                docTitle={isInbound ? 'Bukti Penerimaan Pembayaran' : 'Bukti Pengeluaran Pembayaran'}
+                docNumber={payment.id}
+                statusLabel={payment.status === 'posted' ? 'Posted' : payment.status === 'reconciled' ? 'Reconciled' : payment.status}
+                partnerLabel={payment.party_type === 'customer' ? 'Diterima Dari (Pelanggan)' : 'Dibayarkan Kepada (Pemasok)'}
+                partnerName={payment.party_name}
+                partnerSub={`Kode Mitra: ${payment.party_id || '-'}`}
+                metaRows={[
+                    { label: 'Tanggal Bayar', value: payment.payment_date || '—' },
+                    { label: 'Akun Kas / Bank', value: `${payment.bank_account_name || '-'} (${payment.bank_account_code || '-'})` },
+                    { label: 'Metode', value: formatMethod(payment.payment_method) },
+                    { label: 'No. Referensi', value: payment.reference || '—' },
+                ]}
+                columns={[
+                    { key: 'doc', label: 'Dokumen Tagihan', bold: true },
+                    { key: 'party', label: 'Mitra' },
+                    { key: 'total', label: 'Total Tagihan', align: 'right', mono: true },
+                    { key: 'allocated', label: 'Dibayar di Sini', align: 'right', mono: true, bold: true },
+                    { key: 'residual', label: 'Sisa Tagihan', align: 'right', mono: true },
+                ]}
+                rows={(payment.allocations || []).map((alloc) => ({
+                    doc: `${alloc.document_id} (${alloc.document_label || '-'})`,
+                    party: alloc.party_name || payment.party_name || '—',
+                    total: formatRp(alloc.grand_total),
+                    allocated: formatRp(alloc.amount_allocated),
+                    residual: formatRp(alloc.amount_residual),
+                }))}
+                summaryRows={[
+                    { label: 'Total Pembayaran', value: formatRp(payment.amount), bold: true, highlight: true },
+                ]}
+                notes={payment.notes || `Pembayaran ${isInbound ? 'masuk' : 'keluar'} melalui ${payment.bank_account_name || 'Kas/Bank'} (${formatMethod(payment.payment_method)}).`}
+                signatures={[
+                    { title: 'Dibuat Oleh', name: payment.posted_by || 'Finance & Accounting' },
+                    { title: 'Disetujui Oleh', name: 'Finance Manager' },
+                    { title: payment.party_type === 'customer' ? 'Penyetor / Pelanggan' : 'Penerima / Pemasok', name: payment.party_name || '....................' },
+                ]}
             />
         </AccountingLayout>
     );

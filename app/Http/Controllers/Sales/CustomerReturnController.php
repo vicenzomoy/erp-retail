@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Sales;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\CustomerInvoice;
 use App\Models\CustomerReturn;
 use App\Services\Sales\CustomerReturnService;
@@ -115,6 +116,75 @@ class CustomerReturnController extends Controller
             'lines.product',
         ])->findOrFail($id);
 
+        $relatedDocs = [];
+        if ($return->customer) {
+            $relatedDocs[] = [
+                'type'   => 'CUSTOMER',
+                'id'     => $return->customer->id,
+                'title'  => $return->customer->name,
+                'status' => 'active',
+                'info'   => 'Pelanggan',
+                'url'    => route('sales.customers.show', $return->customer->id),
+            ];
+        }
+        if ($return->salesOrder) {
+            $relatedDocs[] = [
+                'type'   => 'SALES ORDER',
+                'id'     => $return->salesOrder->id,
+                'title'  => "Sales Order {$return->salesOrder->id}",
+                'status' => $return->salesOrder->status,
+                'info'   => 'Order Penjualan Asal',
+                'url'    => route('sales.orders.show', $return->salesOrder->id),
+            ];
+        }
+        if ($return->customerInvoice) {
+            $relatedDocs[] = [
+                'type'   => 'CUSTOMER INVOICE',
+                'id'     => $return->customerInvoice->id,
+                'title'  => "Faktur {$return->customerInvoice->id}",
+                'status' => $return->customerInvoice->status,
+                'info'   => 'Faktur Pelanggan',
+                'url'    => route('accounting.invoices.show', $return->customerInvoice->id),
+            ];
+        }
+        if ($return->creditNote) {
+            $relatedDocs[] = [
+                'type'   => 'CREDIT NOTE',
+                'id'     => $return->creditNote->id,
+                'title'  => "Nota Kredit {$return->creditNote->id}",
+                'status' => $return->creditNote->status,
+                'info'   => 'Rp ' . number_format((float) $return->creditNote->grand_total, 0, ',', '.'),
+                'url'    => route('accounting.credit-notes.show', $return->creditNote->id),
+            ];
+        }
+        $relatedDocs[] = [
+            'type'   => 'RETURN INSPECTION',
+            'id'     => $return->id,
+            'title'  => "Inspeksi Gudang {$return->id}",
+            'status' => $return->status,
+            'info'   => 'QC Gudang',
+            'url'    => route('inventory.returns.show', $return->id),
+        ];
+
+        $isAuditor = auth()->user()?->role_id === 'auditor';
+        $auditLogs = AuditLog::where('document_type', 'customer_return')
+            ->where('document_id', $return->id)
+            ->when(! $isAuditor, fn ($q) => $q->where('action', 'LOG_NOTE'))
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (AuditLog $log) => [
+                'id'             => $log->id,
+                'action'         => $log->action,
+                'status'         => $log->status,
+                'actor_username' => $log->actor_username,
+                'actor_role'     => $log->actor_role,
+                'notes'          => $log->notes,
+                'old_value'      => $log->old_value,
+                'new_value'      => $log->new_value,
+                'created_at'     => $log->created_at?->format('d/m/Y H:i:s'),
+                'time_ago'       => $log->created_at?->diffForHumans(),
+            ]);
+
         return Inertia::render('Sales/Returns/Show', [
             'customerReturn' => [
                 'id'                  => $return->id,
@@ -148,6 +218,8 @@ class CustomerReturnController extends Controller
                     'notes'         => $l->notes,
                 ]),
             ],
+            'relatedDocs'    => $relatedDocs,
+            'auditLogs'      => $auditLogs,
         ]);
     }
 }

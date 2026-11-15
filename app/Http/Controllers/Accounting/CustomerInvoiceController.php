@@ -141,7 +141,7 @@ class CustomerInvoiceController extends Controller
     {
         $validated = $request->validate([
             'sales_order_id'               => 'required|exists:sales_orders,id',
-            'invoice_date'                 => 'nullable|date',
+            'invoice_date'                 => 'nullable|date|before_or_equal:' . now('Asia/Jakarta')->toDateString(),
             'notes'                        => 'nullable|string|max:1000',
             'idempotency_key'              => 'nullable|string|max:64',
             'auto_post'                    => 'nullable|boolean',
@@ -149,9 +149,11 @@ class CustomerInvoiceController extends Controller
             'lines.*.so_line_id'           => 'nullable|integer',
             'lines.*.delivery_order_line_id' => 'nullable|integer',
             'lines.*.variant_sku'          => 'required|string|exists:products,variant_sku',
-            'lines.*.qty_invoiced'         => 'required|numeric|min:0.001',
+            'lines.*.qty_invoiced'         => 'required|numeric|min:0',
             'lines.*.unit_price'           => 'nullable|numeric|min:0',
             'lines.*.discount_pct'         => 'nullable|numeric|min:0|max:100',
+        ], [
+            'invoice_date.before_or_equal' => 'Tanggal faktur tidak boleh melebihi hari ini.',
         ]);
 
         $autoPost = $request->boolean('auto_post', true);
@@ -260,6 +262,7 @@ class CustomerInvoiceController extends Controller
         $docIds = array_values(array_filter([$invoice->id, $invoice->sales_order_id]));
         $auditLogs = AuditLog::where('document_type', 'customer_invoice')
             ->whereIn('document_id', $docIds)
+            ->when(auth()->user()?->role_id !== 'auditor', fn ($q) => $q->where('action', 'LOG_NOTE'))
             ->orderByDesc('id')
             ->get()
             ->map(fn (AuditLog $log) => [

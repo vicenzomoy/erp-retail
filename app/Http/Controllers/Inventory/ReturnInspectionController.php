@@ -122,10 +122,14 @@ class ReturnInspectionController extends Controller
             'lines.*.notes'             => 'nullable|string|max:255',
         ]);
 
-        $this->returnService->validateWarehouseInspection($return, $validated, $request->user());
+        $validatedReturn = $this->returnService->validateWarehouseInspection($return, $validated, $request->user());
+
+        $cnNote = $validatedReturn->credit_note_id
+            ? " Draf Nota Kredit {$validatedReturn->credit_note_id} otomatis dibuat untuk divalidasi tim Finance."
+            : '';
 
         return redirect()->route('inventory.returns.show', $return->id)
-            ->with('success', "Inspeksi barang retur {$return->id} berhasil divalidasi. Stok barang layak jual telah ditambahkan ke gudang.");
+            ->with('success', "Inspeksi barang retur {$return->id} berhasil divalidasi. Stok barang layak jual telah ditambahkan ke gudang.{$cnNote}");
     }
 }
 

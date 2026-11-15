@@ -13,6 +13,7 @@ import {
     Receipt,
     Plus,
     Trash2,
+    Pencil,
     ExternalLink,
     AlertTriangle,
     X,
@@ -79,6 +80,14 @@ export default function Show({ vendor, pricelists = [], orders = [], bills = [],
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <Link
+                        href={route('purchase.vendors.edit', vendor.id)}
+                        className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+                        title="Edit Vendor"
+                    >
+                        <Pencil className="h-3.5 w-3.5 text-slate-600" />
+                        Edit Vendor
+                    </Link>
                     <button
                         type="button"
                         onClick={() => setShowDeleteModal(true)}

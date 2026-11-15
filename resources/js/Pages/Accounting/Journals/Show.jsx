@@ -5,6 +5,8 @@ import OdooBadge from '@/Components/Odoo/OdooBadge';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
 import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
+import PrintableDocument from '@/Components/Accounting/PrintableDocument';
+import { Printer } from 'lucide-react';
 
 const formatRp = (val) => 'Rp ' + Number(val || 0).toLocaleString('id-ID');
 
@@ -20,10 +22,19 @@ export default function JournalEntryShow({ entry, stockMoves, relatedDocs, audit
         >
             <Head title={`${entry.entry_no} — Journal Entry`} />
 
+            <div className="print:hidden">
             <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-6">
                 {/* Action Bar & Status Pipe */}
                 <div className="flex flex-col justify-between gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm md:flex-row md:items-center">
                     <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => window.print()}
+                            className="inline-flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm"
+                        >
+                            <Printer className="h-3.5 w-3.5" />
+                            Cetak Jurnal
+                        </button>
                         {entry.source_url && (
                             <Link
                                 href={entry.source_url}
@@ -261,6 +272,48 @@ export default function JournalEntryShow({ entry, stockMoves, relatedDocs, audit
                     auditLogs={auditLogs}
                 />
             </div>
+            </div>
+
+            <PrintableDocument
+                docTitle="Jurnal Umum (Journal Entry)"
+                docNumber={entry.entry_no}
+                statusLabel={entry.status === 'posted' ? 'Posted' : entry.status}
+                partnerLabel="Dokumen Sumber"
+                partnerName={entry.source_document_id || '—'}
+                partnerSub={`Tipe Dokumen: ${entry.source_document_type || '-'}`}
+                metaRows={[
+                    { label: 'Tanggal Jurnal', value: entry.entry_date || '—' },
+                    { label: 'Tipe Jurnal', value: (entry.entry_type || '—').toUpperCase() },
+                    { label: 'Diposting Oleh', value: entry.posted_by || 'System' },
+                    { label: 'Status Keseimbangan', value: entry.is_balanced ? 'SEIMBANG' : 'TIDAK SEIMBANG' },
+                ]}
+                columns={[
+                    { key: 'code', label: 'Kode Akun', mono: true },
+                    { key: 'name', label: 'Nama Akun (CoA)', bold: true },
+                    { key: 'sku', label: 'SKU', mono: true },
+                    { key: 'desc', label: 'Deskripsi Baris' },
+                    { key: 'debit', label: 'Debit', align: 'right', mono: true },
+                    { key: 'credit', label: 'Kredit', align: 'right', mono: true },
+                ]}
+                rows={(entry.lines || []).map((line) => ({
+                    code: line.account_code,
+                    name: line.account_name,
+                    sku: line.variant_sku || '-',
+                    desc: line.description || '-',
+                    debit: line.debit > 0 ? formatRp(line.debit) : '-',
+                    credit: line.credit > 0 ? formatRp(line.credit) : '-',
+                }))}
+                summaryRows={[
+                    { label: 'Total Debit', value: formatRp(entry.total_debit), bold: true },
+                    { label: 'Total Kredit', value: formatRp(entry.total_credit), bold: true, highlight: true },
+                ]}
+                notes={entry.description || ''}
+                signatures={[
+                    { title: 'Dibuat Oleh', name: entry.posted_by || 'System' },
+                    { title: 'Diperiksa Oleh', name: 'Accounting Staff' },
+                    { title: 'Disetujui Oleh', name: 'Finance Manager' },
+                ]}
+            />
         </AccountingLayout>
     );
 }

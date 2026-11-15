@@ -351,7 +351,7 @@ export default function Show({
                     <div className="border-t border-slate-200 pt-5 mt-5">
                         <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                             <FileText className="h-4 w-4 text-slate-500" />
-                            Mutasi Persediaan & Jurnal Terkait (Audit Trail)
+                            Mutasi Persediaan & Jurnal Terkait (Rincian Mutasi & Jurnal)
                         </h4>
                         <div className="space-y-2">
                             {stockMoves.map((sm) => (

@@ -21,47 +21,53 @@ class AppCatalogService
             'route' => 'owner.dashboard',
             'roles' => ['owner'],
         ],
+        'auditor' => [
+            'name'  => 'Audit Trail',
+            'desc'  => 'Log Audit & Telusur Dokumen',
+            'route' => 'auditor.index',
+            'roles' => ['auditor'],
+        ],
         'sales' => [
             'name'  => 'Sales',
             'desc'  => 'Penjualan & Penawaran',
             'route' => 'sales.overview',
-            'roles' => ['owner', 'sales', 'finance'],
+            'roles' => ['owner', 'sales', 'finance', 'auditor'],
         ],
         'crm' => [
             'name'  => 'CRM',
             'desc'  => 'Lead & Peluang',
             'route' => 'crm.overview',
-            'roles' => ['owner', 'sales'],
+            'roles' => ['owner', 'sales', 'auditor'],
         ],
         'inventory' => [
             'name'  => 'Inventory',
             'desc'  => 'Gudang & Persediaan',
             'route' => 'inventory.overview',
-            'roles' => ['owner', 'warehouse', 'sales', 'procurement'],
+            'roles' => ['owner', 'warehouse', 'sales', 'procurement', 'auditor'],
         ],
         'purchase' => [
             'name'  => 'Purchase',
             'desc'  => 'Pembelian & Vendor',
             'route' => 'purchase.overview',
-            'roles' => ['owner', 'procurement'],
+            'roles' => ['owner', 'procurement', 'auditor'],
         ],
         'accounting' => [
             'name'  => 'Accounting',
             'desc'  => 'Faktur, Tagihan, Kas & Buku Besar',
             'route' => 'accounting.overview',
-            'roles' => ['owner', 'finance'],
+            'roles' => ['owner', 'finance', 'auditor'],
         ],
         'pos' => [
             'name'  => 'Point of Sale',
             'desc'  => 'Kasir Retail Omnichannel',
             'route' => 'pos.overview',
-            'roles' => ['owner', 'cashier'],
+            'roles' => ['owner', 'cashier', 'auditor'],
         ],
         'settings' => [
             'name'  => 'Settings',
             'desc'  => 'Pengaturan & Hak Akses',
             'route' => 'settings.overview',
-            'roles' => ['owner', 'finance'],
+            'roles' => ['owner', 'finance', 'auditor'],
         ],
     ];
 
@@ -92,6 +98,10 @@ class AppCatalogService
         foreach (self::APPS as $key => $app) {
             // Modul khusus Owner ('owner') hanya ditampilkan di Home untuk peran Owner
             if ($key === 'owner' && $user?->role_id !== 'owner') {
+                continue;
+            }
+            // Modul khusus Auditor ('auditor') hanya ditampilkan di Home untuk peran Auditor
+            if ($key === 'auditor' && $user?->role_id !== 'auditor') {
                 continue;
             }
 

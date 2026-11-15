@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Sales;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\CrmLead;
 use App\Models\CrmLeadQuotationLink;
+use App\Models\CustomerReturn;
 use App\Models\Master\ContactCustomer;
 use App\Models\Master\PaymentTerm;
+use App\Models\PaymentAllocation;
 use App\Models\SalesOrder;
 use App\Services\Sales\SalesOrderService;
 use Illuminate\Http\RedirectResponse;
@@ -203,9 +206,110 @@ class SalesOrderController extends Controller
     {
         $so = $this->service->getOrderForShow($id);
 
+        $relatedDocs = [];
+
+        if ($so->customer) {
+            $relatedDocs[] = [
+                'type'   => 'CUSTOMER',
+                'id'     => $so->customer->id,
+                'title'  => $so->customer->name,
+                'status' => 'active',
+                'info'   => 'Pelanggan',
+                'url'    => route('sales.customers.show', $so->customer->id),
+            ];
+        }
+
+        $leadLink = CrmLeadQuotationLink::with('lead')->where('sales_order_id', $so->id)->first();
+        if ($leadLink && $leadLink->lead_id) {
+            $relatedDocs[] = [
+                'type'   => 'CRM LEAD',
+                'id'     => $leadLink->lead_id,
+                'title'  => "Prospek CRM {$leadLink->lead_id}",
+                'status' => $leadLink->lead?->stage ?? 'qualified',
+                'info'   => $leadLink->lead?->type === 'opportunity' ? 'Opportunity' : 'Sumber Penawaran',
+                'url'    => route('crm.leads.show', $leadLink->lead_id),
+            ];
+        }
+
+        foreach ($so->deliveryOrders ?? [] as $do) {
+            $relatedDocs[] = [
+                'type'   => 'DELIVERY ORDER',
+                'id'     => $do->id,
+                'title'  => "Pengiriman {$do->id}",
+                'status' => $do->status,
+                'info'   => "Gudang {$do->warehouse_code}",
+                'url'    => route('inventory.deliveries.show', $do->id),
+            ];
+        }
+
+        $invoiceIds = [];
+        foreach ($so->customerInvoices ?? [] as $inv) {
+            $invoiceIds[] = $inv->id;
+            $relatedDocs[] = [
+                'type'   => 'CUSTOMER INVOICE',
+                'id'     => $inv->id,
+                'title'  => "Faktur {$inv->id}",
+                'status' => $inv->status,
+                'info'   => 'Rp ' . number_format((float) $inv->grand_total, 0, ',', '.'),
+                'url'    => route('accounting.invoices.show', $inv->id),
+            ];
+        }
+
+        if (! empty($invoiceIds)) {
+            $allocs = PaymentAllocation::with('payment')
+                ->where('document_type', 'customer_invoice')
+                ->whereIn('document_id', $invoiceIds)
+                ->get();
+            foreach ($allocs as $alloc) {
+                if ($alloc->payment) {
+                    $relatedDocs[] = [
+                        'type'   => 'PAYMENT',
+                        'id'     => $alloc->payment->id,
+                        'title'  => "Pembayaran {$alloc->payment->id}",
+                        'status' => 'posted',
+                        'info'   => 'Rp ' . number_format((float) $alloc->amount_allocated, 0, ',', '.'),
+                        'url'    => route('accounting.payments.show', $alloc->payment->id),
+                    ];
+                }
+            }
+        }
+
+        $returns = CustomerReturn::where('sales_order_id', $so->id)->get();
+        foreach ($returns as $ret) {
+            $relatedDocs[] = [
+                'type'   => 'CUSTOMER RETURN',
+                'id'     => $ret->id,
+                'title'  => "Retur {$ret->id}",
+                'status' => $ret->status,
+                'info'   => $ret->reason ?? 'Retur Pelanggan',
+                'url'    => route('sales.returns.show', $ret->id),
+            ];
+        }
+
+        $isAuditor = auth()->user()?->role_id === 'auditor';
+        $auditLogs = AuditLog::where('document_type', 'sales_order')
+            ->where('document_id', $so->id)
+            ->when(! $isAuditor, fn ($q) => $q->where('action', 'LOG_NOTE'))
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (AuditLog $log) => [
+                'id'             => $log->id,
+                'action'         => $log->action,
+                'status'         => $log->status,
+                'actor_username' => $log->actor_username,
+                'actor_role'     => $log->actor_role,
+                'notes'          => $log->notes,
+                'old_value'      => $log->old_value,
+                'new_value'      => $log->new_value,
+                'created_at'     => $log->created_at?->format('d/m/Y H:i:s'),
+                'time_ago'       => $log->created_at?->diffForHumans(),
+            ]);
+
         return Inertia::render('Sales/Orders/Show', [
-            'order'    => $so,
-            'products' => $this->service->getProductsForSelect(),
+            'order'       => $so,
+            'products'    => $this->service->getProductsForSelect(),
+            'relatedDocs' => $relatedDocs,
+            'auditLogs'   => $auditLogs,
         ]);
     }
 

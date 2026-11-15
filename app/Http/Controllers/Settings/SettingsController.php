@@ -270,25 +270,27 @@ class SettingsController extends Controller
             ];
         })->values();
 
-        // Log Audit Percobaan Akses yang Ditolak (REJECTED / access.denied / inventory.mutation_denied)
-        $accessDeniedLogs = AuditLog::where(function ($q) {
-            $q->whereIn('action', ['access.denied', 'inventory.mutation_denied'])
-              ->orWhere('status', 'REJECTED');
-        })
-            ->orderByDesc('id')
-            ->limit(20)
-            ->get()
-            ->map(fn (AuditLog $log) => [
-                'id'             => $log->id,
-                'action'         => $log->action,
-                'status'         => $log->status,
-                'actor_username' => $log->actor_username,
-                'actor_role'     => $log->actor_role,
-                'document_type'  => $log->document_type,
-                'document_id'    => $log->document_id,
-                'notes'          => $log->notes,
-                'created_at'     => $log->created_at?->format('d/m/Y H:i:s'),
-            ]);
+        // Log Audit Percobaan Akses yang Ditolak — hanya untuk peran Auditor
+        $accessDeniedLogs = $request->user()?->role_id === 'auditor'
+            ? AuditLog::where(function ($q) {
+                $q->whereIn('action', ['access.denied', 'inventory.mutation_denied', 'auditor.mutation_blocked'])
+                  ->orWhere('status', 'REJECTED');
+            })
+                ->orderByDesc('id')
+                ->limit(20)
+                ->get()
+                ->map(fn (AuditLog $log) => [
+                    'id'             => $log->id,
+                    'action'         => $log->action,
+                    'status'         => $log->status,
+                    'actor_username' => $log->actor_username,
+                    'actor_role'     => $log->actor_role,
+                    'document_type'  => $log->document_type,
+                    'document_id'    => $log->document_id,
+                    'notes'          => $log->notes,
+                    'created_at'     => $log->created_at?->format('d/m/Y H:i:s'),
+                ])
+            : collect();
 
         return Inertia::render('Settings/Roles/Index', [
             'roles'            => $rolesData,

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     Users,
     CreditCard,
@@ -12,6 +12,8 @@ import {
     ArrowLeft,
     Check,
     AlertCircle,
+    Trash2,
+    AlertTriangle,
 } from 'lucide-react';
 import SalesLayout from '@/Layouts/SalesLayout';
 import CrmLayout from '@/Layouts/CrmLayout';
@@ -38,17 +40,34 @@ const INV_STATUS_BADGE = {
     cancelled: 'bg-rose-100 text-rose-700',
 };
 
-export default function SalesCustomerShow({ customer, sales_orders = [], invoices = [], inCrm = false }) {
+export default function SalesCustomerShow({ customer, sales_orders = [], invoices = [], paymentTerms = [], inCrm = false }) {
     const [isEditing, setIsEditing] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const isCrm = inCrm || route().current('crm.*');
     const LayoutComponent = isCrm ? CrmLayout : SalesLayout;
     const indexRouteName = isCrm ? 'crm.customers.index' : 'sales.customers.index';
     const updateRouteName = isCrm ? 'crm.customers.update' : 'sales.customers.update';
+    const destroyRouteName = isCrm ? 'crm.customers.destroy' : 'sales.customers.destroy';
 
     const { data, setData, put, processing, errors, reset } = useForm({
+        name: customer.name || '',
+        type: customer.type || 'Umum',
+        city: customer.city || '',
         credit_limit: customer.credit_limit,
         payment_terms: customer.payment_terms || 'NET14',
     });
+
+    const handleConfirmDelete = () => {
+        if (isDeleting) return;
+        setIsDeleting(true);
+        router.delete(route(destroyRouteName, customer.id), {
+            onFinish: () => {
+                setIsDeleting(false);
+                setShowDeleteModal(false);
+            },
+        });
+    };
 
     const handleSave = (e) => {
         e.preventDefault();
@@ -113,13 +132,23 @@ export default function SalesCustomerShow({ customer, sales_orders = [], invoice
                     </div>
 
                     {!isEditing ? (
-                        <button
-                            type="button"
-                            onClick={() => setIsEditing(true)}
-                            className="rounded bg-slate-900 text-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-700 transition self-start"
-                        >
-                            Ubah Plafon / Termin
-                        </button>
+                        <div className="flex items-center gap-2 self-start">
+                            <button
+                                type="button"
+                                onClick={() => setShowDeleteModal(true)}
+                                className="inline-flex items-center gap-1.5 rounded border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Hapus
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsEditing(true)}
+                                className="rounded bg-slate-900 text-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-700 transition cursor-pointer"
+                            >
+                                Edit Pelanggan
+                            </button>
+                        </div>
                     ) : (
                         <div className="flex items-center gap-2 self-start">
                             <button
@@ -144,18 +173,60 @@ export default function SalesCustomerShow({ customer, sales_orders = [], invoice
 
                 {/* Edit Form or Display */}
                 {isEditing ? (
-                    <form onSubmit={handleSave} className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <form onSubmit={handleSave} className="pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Nama Pelanggan
+                            </label>
+                            <input
+                                type="text"
+                                value={data.name}
+                                onChange={(e) => setData('name', e.target.value)}
+                                className="w-full rounded border border-slate-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            />
+                            {errors.name && <p className="mt-1 text-[11px] text-rose-600 font-medium">{errors.name}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Tipe Pelanggan
+                            </label>
+                            <select
+                                value={data.type}
+                                onChange={(e) => setData('type', e.target.value)}
+                                className="w-full rounded border border-slate-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            >
+                                <option value="B2B">B2B</option>
+                                <option value="Umum">Umum</option>
+                                <option value="Reseller">Reseller</option>
+                            </select>
+                            {errors.type && <p className="mt-1 text-[11px] text-rose-600 font-medium">{errors.type}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Kota
+                            </label>
+                            <input
+                                type="text"
+                                value={data.city}
+                                onChange={(e) => setData('city', e.target.value)}
+                                className="w-full rounded border border-slate-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            />
+                            {errors.city && <p className="mt-1 text-[11px] text-rose-600 font-medium">{errors.city}</p>}
+                        </div>
                         <div>
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
                                 Plafon Limit Kredit (Rp)
                             </label>
                             <input
-                                type="number"
-                                min="0"
-                                step="100000"
-                                value={data.credit_limit}
-                                onChange={(e) => setData('credit_limit', e.target.value)}
-                                className="w-full rounded border border-slate-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                type="text"
+                                inputMode="numeric"
+                                value={data.credit_limit ? new Intl.NumberFormat('id-ID').format(data.credit_limit) : ''}
+                                onChange={(e) => {
+                                    const raw = e.target.value.replace(/\D/g, '');
+                                    setData('credit_limit', raw ? parseInt(raw, 10) : 0);
+                                }}
+                                placeholder="0"
+                                className="w-full rounded border border-slate-300 px-3 py-1.5 text-xs text-right font-semibold tabular-nums focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                             />
                             {errors.credit_limit && (
                                 <p className="mt-1 text-[11px] text-rose-600 font-medium">{errors.credit_limit}</p>
@@ -170,9 +241,19 @@ export default function SalesCustomerShow({ customer, sales_orders = [], invoice
                                 onChange={(e) => setData('payment_terms', e.target.value)}
                                 className="w-full rounded border border-slate-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                             >
-                                <option value="CASH">CASH — Pembayaran Langsung</option>
-                                <option value="NET14">NET14 — Jatuh tempo 14 hari</option>
-                                <option value="NET30">NET30 — Jatuh tempo 30 hari</option>
+                                {paymentTerms.length > 0 ? (
+                                    paymentTerms.map((pt) => (
+                                        <option key={pt.term_id} value={pt.term_id}>
+                                            {pt.term_id} — {pt.description}
+                                        </option>
+                                    ))
+                                ) : (
+                                    <>
+                                        <option value="CASH">CASH — Pembayaran Langsung</option>
+                                        <option value="NET14">NET14 — Jatuh tempo 14 hari</option>
+                                        <option value="NET30">NET30 — Jatuh tempo 30 hari</option>
+                                    </>
+                                )}
                             </select>
                             {errors.payment_terms && (
                                 <p className="mt-1 text-[11px] text-rose-600 font-medium">{errors.payment_terms}</p>
@@ -369,6 +450,40 @@ export default function SalesCustomerShow({ customer, sales_orders = [], invoice
                     </table>
                 </div>
             </div>
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs px-4">
+                    <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl border border-slate-200">
+                        <div className="flex items-start gap-3 mb-4">
+                            <div className="rounded-full bg-rose-100 p-2 text-rose-600 shrink-0">
+                                <AlertTriangle className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900">Hapus Pelanggan?</h3>
+                                <p className="text-xs text-slate-600 mt-1">
+                                    Yakin ingin menghapus pelanggan <strong>{customer.name}</strong>?
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowDeleteModal(false)}
+                                className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmDelete}
+                                disabled={isDeleting}
+                                className="rounded bg-rose-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
+                            >
+                                {isDeleting ? 'Menghapus...' : 'Ya, Hapus'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </LayoutComponent>
     );
 }

@@ -457,7 +457,7 @@ class PurchaseOrderService
             );
 
             throw ValidationException::withMessages([
-                'billing' => "Pembuatan tagihan vendor ditolak: Belum ada barang yang diterima dan lolos QC (Accepted Receipt) untuk Purchase Order {$po->id}. Sesuai kebijakan Three-Way Matching (SR-05, SR-06), tagihan hanya dapat diterbitkan atas barang yang sudah diterima baik.",
+                'billing' => "Pembuatan tagihan vendor ditolak: Belum ada barang yang diterima dan lolos QC untuk Purchase Order {$po->id}.",
             ]);
         }
 

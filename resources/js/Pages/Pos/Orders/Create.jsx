@@ -50,7 +50,15 @@ export default function CheckoutCreate({ session, products, customers }) {
         basket.reduce((s, item) => s + item.qty * item.unit_price, 0), [basket]);
     const basketTax = useMemo(() =>
         basket.reduce((s, item) => s + Math.round(item.qty * item.unit_price * 0.11), 0), [basket]);
-    const basketTotal = useMemo(() => basketSubtotal + basketTax, [basketSubtotal, basketTax]);
+    const rawBasketTotal = useMemo(() => basketSubtotal + basketTax, [basketSubtotal, basketTax]);
+    const cashRounding = useMemo(() => {
+        if (paymentMethod !== 'cash') return 0;
+        return Math.round(rawBasketTotal / 100) * 100 - rawBasketTotal;
+    }, [paymentMethod, rawBasketTotal]);
+    const basketTotal = useMemo(
+        () => rawBasketTotal + cashRounding,
+        [rawBasketTotal, cashRounding]
+    );
     const change = useMemo(() =>
         Math.max(0, parseFloat(cashTendered || 0) - basketTotal), [cashTendered, basketTotal]);
     const cashInsufficient = paymentMethod === 'cash' && cashTendered && parseFloat(cashTendered) < basketTotal;
@@ -353,6 +361,15 @@ export default function CheckoutCreate({ session, products, customers }) {
                                         <span>PPN (11%)</span>
                                         <span className="font-semibold">{formatRp(basketTax)}</span>
                                     </div>
+                                    {paymentMethod === 'cash' && cashRounding !== 0 && (
+                                        <div className="flex justify-between text-xs text-amber-700">
+                                            <span>Pembulatan Tunai</span>
+                                            <span className="font-semibold">
+                                                {cashRounding > 0 ? '+' : '-'}
+                                                {formatRp(Math.abs(cashRounding))}
+                                            </span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between text-sm font-black text-slate-900 border-t border-slate-200 pt-2">
                                         <span>GRAND TOTAL</span>
                                         <span className="text-rose-700">{formatRp(basketTotal)}</span>

@@ -138,6 +138,7 @@ class JournalEntryController extends Controller
             ->count();
 
         $auditLogs = AuditLog::where('document_id', $je->source_document_id)
+            ->when(auth()->user()?->role_id !== 'auditor', fn ($q) => $q->where('action', 'LOG_NOTE'))
             ->orderByDesc('id')
             ->get()
             ->map(fn (AuditLog $log) => [

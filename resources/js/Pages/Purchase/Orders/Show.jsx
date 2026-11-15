@@ -57,10 +57,6 @@ export default function Show({
         router.post(route('purchase.orders.confirm', order.id));
     };
 
-    const handleCreateBill = () => {
-        router.post(route('purchase.orders.create-bill', order.id));
-    };
-
     const handleCancelSubmit = (e) => {
         e.preventDefault();
         router.post(route('purchase.orders.cancel', order.id), {
@@ -101,30 +97,6 @@ export default function Show({
                         >
                             <CheckCircle2 className="h-4 w-4" />
                             Konfirmasi Order (PO)
-                        </button>
-                    )}
-
-                    {/* Tombol Terima Produk (jika Confirmed) */}
-                    {isConfirmed && receipts.length > 0 && (
-                        <Link
-                            href={route('inventory.receipts.show', receipts[0].id)}
-                            className="inline-flex items-center gap-1.5 rounded bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition cursor-pointer"
-                        >
-                            <Truck className="h-4 w-4" />
-                            Terima Produk ({receipts[0].id})
-                        </Link>
-                    )}
-
-                    {/* Tombol Buat Tagihan (Three-Way Match) */}
-                    {(isConfirmed || isDone) && (
-                        <button
-                            type="button"
-                            onClick={handleCreateBill}
-                            className="inline-flex items-center gap-1.5 rounded bg-indigo-700 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-800 transition cursor-pointer"
-                            title="Buat Tagihan Vendor berdasarkan barang diterima (Three-Way Match)"
-                        >
-                            <Receipt className="h-4 w-4" />
-                            Buat Tagihan (Bill)
                         </button>
                     )}
 

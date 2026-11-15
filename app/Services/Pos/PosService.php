@@ -230,6 +230,19 @@ class PosService
                 ];
             }
 
+            $rawTotal       = $subtotalBeforeTax + $totalTax;
+            $grandTotal     = $paymentMethod === 'cash'
+                ? (float) (round($rawTotal / 100) * 100)
+                : $rawTotal;
+            $roundingAmount = $grandTotal - $rawTotal;
+
+            if ($paymentMethod === 'cash' && $cashTendered < $grandTotal) {
+                throw new \RuntimeException(
+                    'Uang tunai yang diterima (Rp ' . number_format($cashTendered, 0, ',', '.') .
+                    ') kurang dari total tagihan (Rp ' . number_format($grandTotal, 0, ',', '.') . ').'
+                );
+            }
+
             $changeGiven = max(0, $cashTendered - $grandTotal);
 
             // Generate order ID
@@ -254,7 +267,7 @@ class PosService
             ]);
 
             // Create Journal Entry for this order first
-            $journalEntry = $this->createOrderJournal($order, $grandTotal, $subtotalBeforeTax, $totalTax, $totalCogs, $actorUserId, $actorName);
+            $journalEntry = $this->createOrderJournal($order, $grandTotal, $subtotalBeforeTax, $totalTax, $totalCogs, $roundingAmount, $actorUserId, $actorName);
             $order->update(['journal_entry_id' => $journalEntry->id]);
 
             // Create Order Lines + deduct stock + create stock moves
@@ -342,10 +355,12 @@ class PosService
      * Debit: HPP (5000) = total_cogs
      * Credit: Persediaan (1200) = total_cogs
      */
-    private function createOrderJournal(PosOrder $order, float $grandTotal, float $subtotal, float $tax, float $cogs, int $actorUserId, string $actorName): JournalEntry
+    private function createOrderJournal(PosOrder $order, float $grandTotal, float $subtotal, float $tax, float $cogs, float $roundingAmount, int $actorUserId, string $actorName): JournalEntry
     {
         $count = JournalEntry::count() + 1;
         $entryNo = sprintf('JNL/POS/%04d', $count);
+
+        $journalDebitTotal = $grandTotal + max(0, -$roundingAmount) + $cogs;
 
         $entry = JournalEntry::create([
             'entry_no'             => $entryNo,
@@ -356,8 +371,8 @@ class PosService
             'description'          => "POS Sale — {$order->id}",
             'status'               => 'posted',
             'is_balanced'          => true,
-            'total_debit'          => $grandTotal + $cogs,
-            'total_credit'         => $grandTotal + $cogs,
+            'total_debit'          => $journalDebitTotal,
+            'total_credit'         => $journalDebitTotal,
             'posted_at'            => now(),
             'posted_by'            => $actorUserId,
             'created_by'           => $actorUserId,
@@ -389,6 +404,25 @@ class PosService
             'debit'                => 0,
             'credit'               => $tax,
         ]);
+
+        // Pembulatan tunai nearest 100 (jika ada selisih)
+        if ($roundingAmount > 0) {
+            JournalLine::create([
+                'journal_entry_id'     => $entry->id,
+                'account_code'         => '4200',
+                'description'          => "Pembulatan Tunai POS — {$order->id}",
+                'debit'                => 0,
+                'credit'               => $roundingAmount,
+            ]);
+        } elseif ($roundingAmount < 0) {
+            JournalLine::create([
+                'journal_entry_id'     => $entry->id,
+                'account_code'         => '4200',
+                'description'          => "Pembulatan Tunai POS — {$order->id}",
+                'debit'                => abs($roundingAmount),
+                'credit'               => 0,
+            ]);
+        }
 
         // Dr HPP (COGS)
         JournalLine::create([

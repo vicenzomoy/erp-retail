@@ -185,6 +185,7 @@ class DeliveryOrderController extends Controller
         // Audit Logs & Chatter Notes
         $auditLogs = AuditLog::where('document_type', 'delivery_order')
             ->where('document_id', $do->id)
+            ->when(auth()->user()?->role_id !== 'auditor', fn ($q) => $q->where('action', 'LOG_NOTE'))
             ->orderBy('id', 'desc')
             ->get()
             ->map(fn ($log) => [

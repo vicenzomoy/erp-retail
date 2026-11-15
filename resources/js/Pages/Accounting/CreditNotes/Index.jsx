@@ -41,24 +41,24 @@ export default function Index({ creditNotes, filters, counts }) {
 
     const tabs = [
         { key: 'all', label: 'Semua Nota Kredit', count: counts.all },
-        { key: 'applied', label: 'Terapkan (AR Adjusted)', count: counts.applied },
-        { key: 'posted', label: 'Posted', count: counts.posted },
         { key: 'draft', label: 'Draft', count: counts.draft },
+        { key: 'posted', label: 'Posted', count: counts.posted },
     ];
 
     const getStatusBadge = (status) => {
         switch (status) {
+            case 'draft':
+                return (
+                    <span className="inline-flex items-center gap-1 rounded bg-amber-50 text-amber-800 px-2 py-0.5 text-[11px] font-semibold border border-amber-200">
+                        <Clock className="h-3 w-3 text-amber-600" />
+                        Draft
+                    </span>
+                );
             case 'applied':
+            case 'posted':
                 return (
                     <span className="inline-flex items-center gap-1 rounded bg-emerald-50 text-emerald-800 px-2 py-0.5 text-[11px] font-semibold border border-emerald-200">
                         <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                        AR Disesuaikan (Applied)
-                    </span>
-                );
-            case 'posted':
-                return (
-                    <span className="inline-flex items-center gap-1 rounded bg-blue-50 text-blue-700 px-2 py-0.5 text-[11px] font-semibold border border-blue-200">
-                        <CheckCircle2 className="h-3 w-3 text-blue-600" />
                         Posted
                     </span>
                 );

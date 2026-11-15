@@ -29,6 +29,14 @@ const formatThousands = (val) => {
     }).format(Number(val));
 };
 
+const getLocalTodayDate = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
 export default function PaymentCreate({
     preselected,
     customerInvoices = [],
@@ -62,7 +70,7 @@ export default function PaymentCreate({
         amount: firstDoc ? Number(firstDoc.amount_residual || firstDoc.grand_total || 0) : 0,
         payment_method: 'bank_transfer',
         bank_account_code: '1020',
-        payment_date: new Date().toISOString().slice(0, 10),
+        payment_date: getLocalTodayDate(),
         reference: firstDoc ? `PAY-${firstDoc.id}` : '',
         notes: firstDoc ? `Pembayaran atas dokumen ${firstDoc.id}` : '',
         idempotency_key: firstDoc ? `IDEMP-PAY-${firstDoc.id}-${Date.now()}` : `IDEMP-PAY-${Date.now()}`,
@@ -434,10 +442,14 @@ export default function PaymentCreate({
                                 </label>
                                 <input
                                     type="date"
+                                    max={getLocalTodayDate()}
                                     value={data.payment_date}
                                     onChange={(e) => setData('payment_date', e.target.value)}
                                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-800 focus:border-slate-500 focus:outline-none"
                                 />
+                                {errors.payment_date && (
+                                    <p className="mt-1 text-xs text-rose-600">{errors.payment_date}</p>
+                                )}
                             </div>
 
                             <div>

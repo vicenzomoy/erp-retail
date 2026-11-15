@@ -104,7 +104,7 @@ class AccountingOverviewController extends Controller
         }
 
         // 3. Antrean Retur Pelanggan Menunggu Nota Kredit (To Credit Note)
-        $pendingReturns = CustomerReturn::with(['customer', 'lines.product', 'originalInvoice'])
+        $pendingReturns = CustomerReturn::with(['customer', 'lines.product', 'customerInvoice'])
             ->where('status', 'inspected')
             ->orderByDesc('id')
             ->get()
@@ -198,32 +198,48 @@ class AccountingOverviewController extends Controller
                 'lines_count'          => $je->lines_count,
             ]);
 
+        $draftCreditNotes = CreditNote::with(['customer', 'originalInvoice', 'customerReturn'])
+            ->where('status', 'draft')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (CreditNote $cn) => [
+                'id'                  => $cn->id,
+                'customer_name'       => $cn->customer?->name ?? $cn->customer_id,
+                'original_invoice_id' => $cn->original_invoice_id,
+                'customer_return_id'  => $cn->customer_return_id,
+                'return_date'         => $cn->return_date?->format('d/m/Y'),
+                'grand_total'         => (float) $cn->grand_total,
+                'action_url'          => route('accounting.credit-notes.show', $cn->id),
+            ]);
+
         return Inertia::render('Accounting/Overview', [
             'kpis' => [
-                'bank_balance'            => (float) ($accountsByCode['1020']['balance'] ?? 0),
-                'cash_balance'            => (float) ($accountsByCode['1010']['balance'] ?? 0),
-                'open_ar'                 => $openAr,
-                'open_ap'                 => $openAp,
-                'total_credit_notes'      => $totalCreditNotes,
-                'paid_this_month'         => $totalPaidThisMonth,
-                'inventory_value'         => (float) ($accountsByCode['1200']['balance'] ?? 0),
-                'cogs_total'              => (float) ($accountsByCode['5000']['balance'] ?? 0),
-                'revenue_total'           => (float) (($accountsByCode['4000']['balance'] ?? 0) + ($accountsByCode['4010']['balance'] ?? 0)),
-                'gl_total_debit'          => $glSummary['total_debit'],
-                'gl_total_credit'         => $glSummary['total_credit'],
-                'gl_is_balanced'          => $glSummary['is_balanced'],
-                'vendor_bills_count'      => VendorBill::count(),
-                'customer_invoices_count' => CustomerInvoice::count(),
-                'credit_notes_count'      => CreditNote::count(),
-                'payments_count'          => Payment::count(),
-                'journal_entries_count'   => JournalEntry::count(),
-                'pending_bills_count'     => count($pendingBills),
-                'pending_invoices_count'  => count($pendingInvoices),
-                'pending_returns_count'   => count($pendingReturns),
+                'bank_balance'             => (float) ($accountsByCode['1020']['balance'] ?? 0),
+                'cash_balance'             => (float) ($accountsByCode['1010']['balance'] ?? 0),
+                'open_ar'                  => $openAr,
+                'open_ap'                  => $openAp,
+                'total_credit_notes'       => $totalCreditNotes,
+                'paid_this_month'          => $totalPaidThisMonth,
+                'inventory_value'          => (float) ($accountsByCode['1200']['balance'] ?? 0),
+                'cogs_total'               => (float) ($accountsByCode['5000']['balance'] ?? 0),
+                'revenue_total'            => (float) (($accountsByCode['4000']['balance'] ?? 0) + ($accountsByCode['4010']['balance'] ?? 0)),
+                'gl_total_debit'           => $glSummary['total_debit'],
+                'gl_total_credit'          => $glSummary['total_credit'],
+                'gl_is_balanced'           => $glSummary['is_balanced'],
+                'vendor_bills_count'       => VendorBill::count(),
+                'customer_invoices_count'  => CustomerInvoice::count(),
+                'credit_notes_count'       => CreditNote::count(),
+                'draft_credit_notes_count' => $draftCreditNotes->count(),
+                'payments_count'           => Payment::count(),
+                'journal_entries_count'    => JournalEntry::count(),
+                'pending_bills_count'      => count($pendingBills),
+                'pending_invoices_count'   => count($pendingInvoices),
+                'pending_returns_count'    => count($pendingReturns),
             ],
-            'pendingBills'    => $pendingBills,
-            'pendingInvoices' => $pendingInvoices,
-            'pendingReturns'  => $pendingReturns,
+            'pendingBills'     => $pendingBills,
+            'pendingInvoices'  => $pendingInvoices,
+            'pendingReturns'   => $pendingReturns,
+            'draftCreditNotes' => $draftCreditNotes,
             'unpaidInvoices'  => $unpaidInvoices,
             'unpaidBills'     => $unpaidBills,
             'recentBills'     => $recentBills,

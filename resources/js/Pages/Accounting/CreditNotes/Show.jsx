@@ -1,6 +1,8 @@
-import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import InvoicingLayout from '@/Layouts/InvoicingLayout';
+import OdooBadge from '@/Components/Odoo/OdooBadge';
+import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import {
     ArrowLeft,
     ReceiptText,
@@ -12,7 +14,10 @@ import {
     User,
     Calendar,
     ArrowUpRight,
+    Clock,
+    Printer,
 } from 'lucide-react';
+import PrintableDocument from '@/Components/Accounting/PrintableDocument';
 
 const formatRp = (val) =>
     new Intl.NumberFormat('id-ID', {
@@ -22,6 +27,23 @@ const formatRp = (val) =>
     }).format(val ?? 0);
 
 export default function Show({ creditNote }) {
+    const { auth } = usePage().props;
+    const isAuditor = Boolean(auth?.user?.is_auditor);
+    const isDraft = creditNote.status === 'draft';
+    const [isPosting, setIsPosting] = useState(false);
+
+    const handlePostCreditNote = () => {
+        if (!isDraft || isPosting) return;
+        setIsPosting(true);
+        router.post(
+            route('accounting.credit-notes.post', creditNote.id),
+            {},
+            {
+                onFinish: () => setIsPosting(false),
+            }
+        );
+    };
+
     return (
         <InvoicingLayout
             title={`Nota Kredit ${creditNote.id}`}
@@ -33,6 +55,7 @@ export default function Show({ creditNote }) {
         >
             <Head title={`Nota Kredit ${creditNote.id} — Bara Wear`} />
 
+            <div className="print:hidden">
             <div className="space-y-4 max-w-5xl mx-auto">
                 {/* Top Action Bar with Smart Buttons */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded border border-slate-200 shadow-2xs">
@@ -75,11 +98,33 @@ export default function Show({ creditNote }) {
                         </Link>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1 text-xs font-bold">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                            AR Adjusted (Piutang Terpotong)
-                        </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {isDraft && !isAuditor && (
+                            <button
+                                type="button"
+                                onClick={handlePostCreditNote}
+                                disabled={isPosting}
+                                className="inline-flex items-center gap-1.5 rounded bg-teal-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-teal-700 disabled:opacity-50 cursor-pointer transition whitespace-nowrap"
+                            >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <span>{isPosting ? 'Memposting...' : 'Validasi & Posting Nota Kredit'}</span>
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => window.print()}
+                            className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm whitespace-nowrap"
+                        >
+                            <Printer className="h-3.5 w-3.5" />
+                            Cetak Nota Kredit
+                        </button>
+                        <OdooStatusBar
+                            status={creditNote.status}
+                            stages={[
+                                { key: 'draft', label: 'Draft' },
+                                { key: ['posted', 'applied'], label: 'Posted' },
+                            ]}
+                        />
                     </div>
                 </div>
 
@@ -90,11 +135,25 @@ export default function Show({ creditNote }) {
                             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                                 Nota Kredit Pelanggan (Credit Note)
                             </span>
-                            <h2 className="text-2xl font-bold font-mono text-slate-900">
-                                {creditNote.id}
-                            </h2>
+                            <div className="flex items-center gap-2.5 mt-0.5">
+                                <h2 className="text-2xl font-bold font-mono text-slate-900">
+                                    {creditNote.id}
+                                </h2>
+                                <OdooBadge
+                                    status={isDraft ? 'draft' : 'posted'}
+                                    label={isDraft ? 'Draft' : 'Posted'}
+                                />
+                            </div>
                             <p className="text-xs text-slate-500 mt-0.5">
-                                Diposting oleh: <span className="font-semibold text-slate-700">{creditNote.posted_by_name || 'Finance User'}</span> pada {creditNote.posted_at}
+                                {isDraft ? (
+                                    <span className="text-amber-700 font-medium">
+                                        Draf otomatis dari QC Retur {creditNote.customer_return_id} — Belum diposting ke Buku Besar
+                                    </span>
+                                ) : (
+                                    <>
+                                        Diposting oleh: <span className="font-semibold text-slate-700">{creditNote.posted_by_name || 'Finance User'}</span> pada {creditNote.posted_at}
+                                    </>
+                                )}
                             </p>
                         </div>
 
@@ -246,6 +305,53 @@ export default function Show({ creditNote }) {
                     )}
                 </div>
             </div>
+            </div>
+
+            <PrintableDocument
+                docTitle="Nota Kredit (Credit Note)"
+                docNumber={creditNote.id}
+                statusLabel={isDraft ? 'Draft' : 'Posted'}
+                partnerLabel="Pelanggan"
+                partnerName={creditNote.customer_name}
+                partnerSub={`Faktur Asal: ${creditNote.original_invoice_id || '-'}`}
+                metaRows={[
+                    { label: 'No. Retur Asal', value: creditNote.customer_return_id || '—' },
+                    { label: 'Usia Faktur', value: `${creditNote.days_since_invoice ?? 0} Hari` },
+                    { label: 'No. Jurnal', value: creditNote.journal_entry?.entry_no || 'Belum Diposting' },
+                    { label: 'Status', value: creditNote.status === 'posted' ? 'Posted' : 'Draft' },
+                ]}
+                columns={[
+                    { key: 'sku', label: 'SKU', mono: true },
+                    { key: 'name', label: 'Nama Produk', bold: true },
+                    { key: 'condition', label: 'Kondisi', align: 'center' },
+                    { key: 'qty', label: 'Qty', align: 'center' },
+                    { key: 'price', label: 'Harga Satuan', align: 'right', mono: true },
+                    { key: 'subtotal', label: 'Subtotal DPP', align: 'right', mono: true },
+                    { key: 'tax', label: 'PPN 11%', align: 'right', mono: true },
+                    { key: 'total', label: 'Total Kredit', align: 'right', mono: true, bold: true },
+                ]}
+                rows={(creditNote.lines || []).map((l) => ({
+                    sku: l.variant_sku || '-',
+                    name: l.product_name || '-',
+                    condition: l.condition || '-',
+                    qty: `${l.qty_returned} pcs`,
+                    price: formatRp(l.unit_price),
+                    subtotal: formatRp(l.subtotal_before_tax),
+                    tax: formatRp(l.tax_amount),
+                    total: formatRp(l.line_total),
+                }))}
+                summaryRows={[
+                    { label: 'Subtotal DPP', value: formatRp((creditNote.lines || []).reduce((acc, l) => acc + Number(l.subtotal_before_tax || 0), 0)) },
+                    { label: 'Total PPN (11%)', value: formatRp((creditNote.lines || []).reduce((acc, l) => acc + Number(l.tax_amount || 0), 0)) },
+                    { label: 'Total Pengurangan Piutang', value: formatRp(creditNote.grand_total), bold: true, highlight: true },
+                ]}
+                notes={creditNote.notes || 'Nota kredit atas pengembalian barang pelanggan yang telah lulus inspeksi QC Gudang.'}
+                signatures={[
+                    { title: 'Dibuat Oleh', name: 'Finance & Accounting' },
+                    { title: 'Disetujui Oleh', name: 'Finance Manager' },
+                    { title: 'Pelanggan', name: creditNote.customer_name || '....................' },
+                ]}
+            />
         </InvoicingLayout>
     );
 }

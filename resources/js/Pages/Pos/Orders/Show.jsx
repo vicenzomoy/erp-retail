@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import PosLayout from '@/Layouts/PosLayout';
+import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
 import {
     Receipt,
     CheckCircle2,
@@ -15,7 +16,7 @@ import {
 const formatRp = (num) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num ?? 0);
 
-export default function OrderShow({ order, journal_lines, audit_logs }) {
+export default function OrderShow({ order, journal_lines, relatedDocs = [], audit_logs = [] }) {
     const paymentLabel = { cash: 'Tunai', qris: 'QRIS', card: 'Kartu Debit/Kredit' };
 
     return (
@@ -217,31 +218,14 @@ export default function OrderShow({ order, journal_lines, audit_logs }) {
                     )}
                 </div>
 
-                {/* Right: Audit Log */}
-                <div>
-                    <div className="rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">
-                        <div className="border-b border-slate-200 bg-slate-50/50 px-4 py-3">
-                            <h2 className="text-sm font-bold text-slate-900">Riwayat Aktivitas</h2>
-                        </div>
-                        <div className="p-4 space-y-3 max-h-[400px] overflow-y-auto">
-                            {audit_logs.length === 0 ? (
-                                <p className="text-xs text-slate-400 text-center py-4">Belum ada log.</p>
-                            ) : (
-                                audit_logs.map((log) => (
-                                    <div key={log.id} className="flex gap-2.5">
-                                        <div className="mt-0.5 h-5 w-5 shrink-0 flex items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                                            <CheckCircle2 className="h-3 w-3" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-semibold text-slate-800">{log.action.replace(/_/g, ' ')}</p>
-                                            {log.notes && <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{log.notes}</p>}
-                                            <p className="text-[11px] text-slate-400 mt-1">{log.created_at}</p>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
+                {/* Odoo Form Footer: Related Docs | Log Notes | Audit / History (khusus Auditor) */}
+                <div className="lg:col-span-3">
+                    <OdooFormFooter
+                        documentType="pos_order"
+                        documentId={order.id}
+                        relatedDocs={relatedDocs}
+                        auditLogs={audit_logs}
+                    />
                 </div>
             </div>
         </PosLayout>

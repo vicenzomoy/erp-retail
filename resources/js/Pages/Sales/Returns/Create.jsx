@@ -71,8 +71,11 @@ export default function Create({ invoices = [], selectedInvoiceId = '' }) {
         setData('lines', updated);
     };
 
+    const totalQtyRequested = data.lines.reduce((sum, l) => sum + (Number(l.qty_requested) || 0), 0);
+
     const handleSubmit = (e) => {
         e.preventDefault();
+        if (totalQtyRequested <= 0) return;
         post(route('sales.returns.store'));
     };
 
@@ -125,6 +128,28 @@ export default function Create({ invoices = [], selectedInvoiceId = '' }) {
                         </button>
                     </div>
                 </div>
+
+                {/* Zero Quantity Warning */}
+                {data.lines.length > 0 && totalQtyRequested <= 0 && (
+                    <div className="rounded border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 shadow-xs flex items-start gap-2.5">
+                        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                            <h4 className="font-bold text-amber-900">
+                                Jumlah Retur Tidak Boleh 0
+                            </h4>
+                            <p className="mt-0.5">
+                                Total kuantitas barang yang diretur tidak boleh 0 semua. Masukkan minimal 1 pcs pada salah satu produk yang akan diretur.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {errors.lines && (
+                    <div className="rounded border border-rose-300 bg-rose-50 p-3.5 text-xs text-rose-800 shadow-xs flex items-start gap-2.5">
+                        <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                        <span>{errors.lines}</span>
+                    </div>
+                )}
 
                 {/* 14 Days Policy Alert */}
                 {isOver14Days && (

@@ -41,6 +41,7 @@ class HandleInertiaRequests extends Middleware
                     'email' => $user->email,
                     'role_id' => $user->role_id,
                     'role_name' => $user->role?->display_name ?? ucfirst($user->role_id ?? 'User'),
+                    'is_auditor' => $user->role_id === 'auditor',
                 ] : null,
             ],
             'apps' => AppCatalogService::forUser($user),

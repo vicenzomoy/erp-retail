@@ -5,6 +5,7 @@ import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
 import OdooBadge from '@/Components/Odoo/OdooBadge';
 import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
+import PrintableDocument from '@/Components/Accounting/PrintableDocument';
 import {
     ArrowLeft,
     CheckCircle2,
@@ -69,6 +70,7 @@ export default function VendorBillShow({
         >
             <Head title={`Tagihan ${bill.id} — Bara Wear`} />
 
+            <div className="print:hidden">
             {/* Odoo Form Action Header Bar (Persis Modul Inventaris) */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200">
                 <div className="flex flex-wrap items-center gap-2">
@@ -375,6 +377,55 @@ export default function VendorBillShow({
                 documentId={bill.id}
                 relatedDocs={relatedDocs}
                 auditLogs={auditLogs}
+            />
+            </div>
+
+            <PrintableDocument
+                docTitle="TAGIHAN PEMASOK (VENDOR BILL)"
+                docNumber={bill.id}
+                statusLabel={bill.status?.toUpperCase()}
+                partnerLabel="Pemasok (Vendor)"
+                partnerName={bill.vendor_name || bill.vendor_id}
+                partnerSub={`ID Vendor: ${bill.vendor_id || '—'}`}
+                metaRows={[
+                    { label: 'Tanggal Tagihan', value: bill.bill_date },
+                    { label: 'Jatuh Tempo', value: bill.due_date },
+                    { label: 'Termin Pembayaran', value: bill.payment_terms },
+                    { label: 'Purchase Order', value: bill.purchase_order_id },
+                    { label: 'No. Penerimaan (GR)', value: bill.receipt_id },
+                    { label: 'No. Jurnal', value: bill.journal_entry_no },
+                ]}
+                columns={[
+                    { key: 'sku', label: 'SKU', mono: true },
+                    { key: 'name', label: 'Produk / Deskripsi' },
+                    { key: 'qty', label: 'Qty Ditagih', align: 'center' },
+                    { key: 'price', label: 'Harga Satuan', align: 'right', mono: true },
+                    { key: 'dpp', label: 'DPP', align: 'right', mono: true },
+                    { key: 'ppn', label: 'PPN 11%', align: 'right', mono: true },
+                    { key: 'total', label: 'Subtotal', align: 'right', mono: true, bold: true },
+                ]}
+                rows={(bill.lines || []).map((l) => ({
+                    sku: l.variant_sku,
+                    name: l.product_name,
+                    qty: `${l.qty_billed} pcs`,
+                    price: formatRp(l.unit_price),
+                    dpp: formatRp(l.subtotal_before_tax),
+                    ppn: formatRp(l.tax_amount),
+                    total: formatRp(l.line_total),
+                }))}
+                summaryRows={[
+                    { label: 'Subtotal (DPP)', value: formatRp(bill.subtotal_before_tax) },
+                    { label: 'PPN Masukan (11%)', value: formatRp(bill.total_tax) },
+                    { label: 'Total Tagihan', value: formatRp(bill.grand_total), bold: true, highlight: true },
+                    { label: 'Telah Dibayar', value: formatRp(bill.amount_paid) },
+                    { label: 'Sisa Utang', value: formatRp(bill.amount_residual), bold: true },
+                ]}
+                notes={bill.notes}
+                signatures={[
+                    { title: 'Dibuat Oleh', name: 'Bagian Keuangan' },
+                    { title: 'Verifikasi Three-Way Match', name: 'Finance / Manager' },
+                    { title: 'Pemasok', name: bill.vendor_name || 'Vendor' },
+                ]}
             />
         </AccountingLayout>
     );

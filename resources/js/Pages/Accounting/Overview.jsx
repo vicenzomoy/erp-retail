@@ -16,6 +16,7 @@ import {
     Truck,
     ArrowDownLeft,
     AlertCircle,
+    ReceiptText,
 } from 'lucide-react';
 
 const formatRp = (val) =>
@@ -29,6 +30,7 @@ export default function Overview({
     kpis = {},
     pendingBills = [],
     pendingInvoices = [],
+    draftCreditNotes = [],
     unpaidInvoices = [],
     unpaidBills = [],
 }) {
@@ -136,7 +138,7 @@ export default function Overview({
                     </h2>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* 1. CUSTOMER INVOICES CARD */}
                     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-xs hover:shadow-md transition">
                         <div className="flex items-start justify-between border-b border-slate-100 pb-3 mb-4">
@@ -289,8 +291,120 @@ export default function Overview({
                             </Link>
                         </div>
                     </div>
+
+                    {/* 4. CREDIT NOTES CARD */}
+                    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-xs hover:shadow-md transition">
+                        <div className="flex items-start justify-between border-b border-slate-100 pb-3 mb-4">
+                            <div>
+                                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-teal-50 text-teal-600">
+                                        <ReceiptText className="h-4 w-4" />
+                                    </div>
+                                    Nota Kredit (Credit Notes)
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    Penyesuaian piutang dari retur pelanggan
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-baseline justify-between mb-4">
+                            <Link
+                                href={route('accounting.credit-notes.index', { status: 'draft' })}
+                                className="group flex items-baseline gap-2 cursor-pointer"
+                            >
+                                <span className="text-3xl font-black text-teal-600 group-hover:underline">
+                                    {draftCreditNotes.length}
+                                </span>
+                                <span className="text-xs font-medium text-slate-600 group-hover:text-teal-700">
+                                    Draft Perlu Diposting
+                                </span>
+                            </Link>
+                            <span className="text-xs text-slate-400">
+                                {kpis?.credit_notes_count ?? 0} Total
+                            </span>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-50 flex items-center justify-between">
+                            <Link
+                                href={route('accounting.credit-notes.index')}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-800"
+                            >
+                                Buka Daftar Nota Kredit
+                                <ExternalLink className="h-3 w-3" />
+                            </Link>
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            {/* Antrean Draft Nota Kredit Menunggu Validasi Finance */}
+            {draftCreditNotes.length > 0 && (
+                <div className="mb-6 rounded-lg border border-teal-300 bg-white shadow-xs overflow-hidden">
+                    <div className="flex items-center justify-between border-b border-teal-200 bg-teal-50/70 px-5 py-3">
+                        <div className="flex items-center gap-2">
+                            <ReceiptText className="h-4 w-4 text-teal-700" />
+                            <h3 className="text-sm font-bold text-slate-900">
+                                Draf Nota Kredit Menunggu Validasi &amp; Posting Finance
+                            </h3>
+                            <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-bold text-teal-800 border border-teal-200">
+                                {draftCreditNotes.length} Draft
+                            </span>
+                        </div>
+                        <Link
+                            href={route('accounting.credit-notes.index', { status: 'draft' })}
+                            className="text-xs font-semibold text-teal-700 hover:text-teal-900"
+                        >
+                            Lihat Semua Draft &rarr;
+                        </Link>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs text-slate-700">
+                            <thead className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                                <tr>
+                                    <th className="px-4 py-2.5">No. Nota Kredit</th>
+                                    <th className="px-4 py-2.5">Dokumen Retur</th>
+                                    <th className="px-4 py-2.5">Faktur Asal</th>
+                                    <th className="px-4 py-2.5">Pelanggan</th>
+                                    <th className="px-4 py-2.5 text-right">Nilai Nota Kredit</th>
+                                    <th className="px-4 py-2.5 text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {draftCreditNotes.map((cn) => (
+                                    <tr key={cn.id} className="hover:bg-slate-50 transition">
+                                        <td className="px-4 py-2.5 font-mono font-bold text-slate-900">
+                                            {cn.id}
+                                        </td>
+                                        <td className="px-4 py-2.5 font-mono text-indigo-700 font-semibold">
+                                            {cn.customer_return_id}
+                                        </td>
+                                        <td className="px-4 py-2.5 font-mono text-teal-700">
+                                            {cn.original_invoice_id}
+                                        </td>
+                                        <td className="px-4 py-2.5 font-medium text-slate-800">
+                                            {cn.customer_name}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
+                                            {formatRp(cn.grand_total)}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right">
+                                            <Link
+                                                href={cn.action_url}
+                                                className="inline-flex items-center gap-1 rounded bg-teal-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-teal-700 transition"
+                                            >
+                                                <span>Validasi &amp; Posting</span>
+                                                <ArrowRight className="h-3 w-3" />
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* Tabel 1: Daftar Sales Order (SO) yang Perlu Dibuatkan Faktur (Invoice) */}
             <div className="mb-6 rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">

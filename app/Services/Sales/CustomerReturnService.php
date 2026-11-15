@@ -215,6 +215,33 @@ class CustomerReturnService
             $locationTo = 'WH-PKU'; // Gudang utama Pekanbaru
             $linesData = collect($data['lines'] ?? [])->keyBy('id');
 
+            $totalInspected = 0.0;
+            foreach ($return->lines as $line) {
+                $input = $linesData->get($line->id, []);
+                $qtyInspected = isset($input['qty_inspected']) ? (float) $input['qty_inspected'] : (float) $line->qty_requested;
+                $qtyAccepted  = isset($input['qty_accepted']) ? (float) $input['qty_accepted'] : $qtyInspected;
+
+                if ($qtyInspected < 0 || $qtyInspected > (float) $line->qty_requested) {
+                    throw ValidationException::withMessages([
+                        'lines' => "Jumlah diterima fisik untuk {$line->variant_sku} ({$qtyInspected} pcs) tidak boleh melebihi jumlah yang diajukan ({$line->qty_requested} pcs).",
+                    ]);
+                }
+
+                if ($qtyAccepted < 0 || $qtyAccepted > $qtyInspected) {
+                    throw ValidationException::withMessages([
+                        'lines' => "Jumlah layak masuk stok untuk {$line->variant_sku} ({$qtyAccepted} pcs) tidak boleh melebihi jumlah diterima fisik ({$qtyInspected} pcs).",
+                    ]);
+                }
+
+                $totalInspected += $qtyInspected;
+            }
+
+            if ($totalInspected <= 0) {
+                throw ValidationException::withMessages([
+                    'lines' => 'Total kuantitas diterima fisik tidak boleh 0 semua. Barang retur belum diterima oleh gudang sehingga inspeksi belum dapat diselesaikan.',
+                ]);
+            }
+
             foreach ($return->lines as $line) {
                 $input = $linesData->get($line->id, []);
                 $qtyInspected = isset($input['qty_inspected']) ? (float) $input['qty_inspected'] : (float) $line->qty_requested;
@@ -292,29 +319,34 @@ class CustomerReturnService
                 notes: "Warehouse menyelesaikan Return Inspection dan memvalidasi penambahan stok masuk untuk retur {$return->id}."
             );
 
-            return $return->fresh(['lines.product', 'customer', 'customerInvoice', 'inspectedBy']);
+            $freshReturn = $return->fresh(['lines.product', 'customer', 'customerInvoice', 'inspectedBy']);
+
+            // Otomatis generate draf Nota Kredit setelah gudang selesai QC (jika ada barang layak jual / accepted)
+            $hasAccepted = $freshReturn->lines->sum(fn ($l) => (float) $l->qty_accepted) > 0;
+            if ($hasAccepted && !$freshReturn->credit_note_id) {
+                $this->createDraftCreditNoteForReturn($freshReturn, $actor);
+            }
+
+            return $freshReturn->fresh(['lines.product', 'customer', 'customerInvoice', 'inspectedBy', 'creditNote']);
         });
     }
 
     /**
-     * Langkah 3 & 4: Finance memproses Nota Kredit & AR Adjustments di Akuntansi.
+     * Generate draf Nota Kredit otomatis setelah QC gudang (status: draft).
      */
-    public function processCreditNoteAndArAdjustment(CustomerReturn $return, array $data, User $actor): CreditNote
+    public function createDraftCreditNoteForReturn(CustomerReturn $return, User $actor, ?string $notes = null): CreditNote
     {
-        return DB::transaction(function () use ($return, $data, $actor) {
-            if ($return->status !== 'inspected') {
-                throw ValidationException::withMessages([
-                    'status' => "Retur {$return->id} belum divalidasi oleh gudang (Return Inspection) atau sudah selesai diproses.",
-                ]);
+        return DB::transaction(function () use ($return, $actor, $notes) {
+            if ($return->credit_note_id) {
+                return CreditNote::findOrFail($return->credit_note_id);
             }
 
-            $invoice = $return->customerInvoice()->lockForUpdate()->first();
+            $invoice = $return->customerInvoice()->with('lines')->lockForUpdate()->first();
             $creditNoteId = $this->generateCreditNoteId();
 
             $subtotalBeforeTax = '0.00';
             $totalTax = '0.00';
             $grandTotal = '0.00';
-            $totalCogsReversal = '0.00';
 
             $creditNote = CreditNote::create([
                 'id'                  => $creditNoteId,
@@ -324,11 +356,11 @@ class CustomerReturnService
                 'status'              => 'draft',
                 'return_date'         => now()->toDateString(),
                 'days_since_invoice'  => $return->days_since_invoice,
-                'authorized_by'       => $actor->id,
+                'authorized_by'       => null,
                 'subtotal_before_tax' => 0,
                 'total_tax'           => 0,
                 'grand_total'         => 0,
-                'notes'               => $data['notes'] ?? "Nota Kredit dari Retur {$return->id}",
+                'notes'               => $notes ?? "Draf Nota Kredit otomatis dari QC Retur {$return->id}",
                 'created_by'          => $actor->id,
             ]);
 
@@ -360,13 +392,73 @@ class CustomerReturnService
                 $subtotalBeforeTax = bcadd($subtotalBeforeTax, $calc['subtotal_before_tax'], 2);
                 $totalTax          = bcadd($totalTax, $calc['tax_amount'], 2);
                 $grandTotal        = bcadd($grandTotal, $calc['line_total'], 2);
-                $totalCogsReversal = bcadd($totalCogsReversal, $cogsReversal, 2);
             }
 
-            // 5. Buat Journal Entry untuk Nota Kredit (credit_note):
-            // Debit: 4000 Penjualan Grosir (Retur Penjualan)
-            // Debit: 2200 PPN Keluaran
-            // Credit: 1100 Piutang Usaha
+            $creditNote->update([
+                'subtotal_before_tax' => $subtotalBeforeTax,
+                'total_tax'           => $totalTax,
+                'grand_total'         => $grandTotal,
+            ]);
+
+            $return->update([
+                'credit_note_id' => $creditNoteId,
+            ]);
+
+            AuditLog::record(
+                action: 'accounting.credit_note.draft_generated',
+                status: 'SUCCESS',
+                actorUserId: $actor->id,
+                actorUsername: $actor->name,
+                actorRole: $actor->role_id ?? 'warehouse',
+                documentType: 'credit_note',
+                documentId: $creditNoteId,
+                newValue: [
+                    'credit_note_id' => $creditNoteId,
+                    'return_id'      => $return->id,
+                    'grand_total'    => $grandTotal,
+                    'status'         => 'draft',
+                ],
+                notes: "Sistem otomatis membuat draf Nota Kredit {$creditNoteId} setelah QC retur {$return->id}. Menunggu validasi & posting Finance."
+            );
+
+            return $creditNote->fresh(['lines.product', 'customer', 'originalInvoice']);
+        });
+    }
+
+    /**
+     * Langkah 3 & 4: Finance memvalidasi & memposting draf Nota Kredit (Jurnal + AR Adjustment).
+     *
+     * @return array{credit_note: CreditNote, already_posted: bool}
+     */
+    public function postDraftCreditNote(CreditNote $creditNote, User $actor, ?string $notes = null): array
+    {
+        return DB::transaction(function () use ($creditNote, $actor, $notes) {
+            $cn = CreditNote::with(['lines', 'customerReturn'])
+                ->lockForUpdate()
+                ->findOrFail($creditNote->id);
+
+            if ($cn->status !== 'draft') {
+                return [
+                    'credit_note'    => $cn->fresh(['lines.product', 'customer', 'originalInvoice', 'journalEntry.lines']),
+                    'already_posted' => true,
+                ];
+            }
+
+            $invoice = CustomerInvoice::lockForUpdate()->findOrFail($cn->original_invoice_id);
+
+            $subtotalBeforeTax = '0.00';
+            $totalTax = '0.00';
+            $grandTotal = '0.00';
+            $totalCogsReversal = '0.00';
+
+            foreach ($cn->lines as $cnLine) {
+                $subtotalBeforeTax = bcadd($subtotalBeforeTax, (string) $cnLine->subtotal_before_tax, 2);
+                $totalTax          = bcadd($totalTax, (string) $cnLine->tax_amount, 2);
+                $grandTotal        = bcadd($grandTotal, (string) $cnLine->line_total, 2);
+                $totalCogsReversal = bcadd($totalCogsReversal, (string) $cnLine->cogs_reversal, 2);
+            }
+
+            // Buat Journal Entry untuk Nota Kredit (credit_note):
             $jeCount = JournalEntry::count() + 1;
             $jeNo = sprintf('JE/CN/%04d', $jeCount);
 
@@ -374,9 +466,9 @@ class CustomerReturnService
                 'entry_no'             => $jeNo,
                 'entry_type'           => 'credit_note',
                 'source_document_type' => 'credit_note',
-                'source_document_id'   => $creditNoteId,
+                'source_document_id'   => $cn->id,
                 'entry_date'           => now()->toDateString(),
-                'description'          => "Nota Kredit {$creditNoteId} atas Retur {$return->id} (Faktur {$invoice->id})",
+                'description'          => "Nota Kredit {$cn->id} atas Retur {$cn->customer_return_id} (Faktur {$invoice->id})",
                 'status'               => 'posted',
                 'is_balanced'          => true,
                 'total_debit'          => $grandTotal,
@@ -390,7 +482,7 @@ class CustomerReturnService
             JournalLine::create([
                 'journal_entry_id' => $journalEntry->id,
                 'account_code'     => '4000',
-                'description'      => "Pembalikan Pendapatan Penjualan - {$creditNoteId}",
+                'description'      => "Pembalikan Pendapatan Penjualan - {$cn->id}",
                 'debit'            => $subtotalBeforeTax,
                 'credit'           => 0,
                 'created_at'       => now(),
@@ -401,7 +493,7 @@ class CustomerReturnService
                 JournalLine::create([
                     'journal_entry_id' => $journalEntry->id,
                     'account_code'     => '2200',
-                    'description'      => "Pembalikan PPN Keluaran - {$creditNoteId}",
+                    'description'      => "Pembalikan PPN Keluaran - {$cn->id}",
                     'debit'            => $totalTax,
                     'credit'           => 0,
                     'created_at'       => now(),
@@ -412,7 +504,7 @@ class CustomerReturnService
             JournalLine::create([
                 'journal_entry_id' => $journalEntry->id,
                 'account_code'     => '1100',
-                'description'      => "Penyesuaian Piutang Pelanggan (AR Adjustment) - {$creditNoteId}",
+                'description'      => "Penyesuaian Piutang Pelanggan (AR Adjustment) - {$cn->id}",
                 'debit'            => 0,
                 'credit'           => $grandTotal,
                 'created_at'       => now(),
@@ -420,29 +512,26 @@ class CustomerReturnService
 
             // Jurnal Pembalikan COGS & Persediaan jika ada nilai pokok
             if (bccomp($totalCogsReversal, '0.00', 2) > 0) {
-                // Debit: Persediaan (1200)
                 JournalLine::create([
                     'journal_entry_id' => $journalEntry->id,
                     'account_code'     => '1200',
-                    'description'      => "Pemulihan Nilai Persediaan Retur - {$creditNoteId}",
+                    'description'      => "Pemulihan Nilai Persediaan Retur - {$cn->id}",
                     'debit'            => $totalCogsReversal,
                     'credit'           => 0,
                     'created_at'       => now(),
                 ]);
 
-                // Credit: Beban Pokok Penjualan (5000)
                 JournalLine::create([
                     'journal_entry_id' => $journalEntry->id,
                     'account_code'     => '5000',
-                    'description'      => "Pembalikan HPP Retur - {$creditNoteId}",
+                    'description'      => "Pembalikan HPP Retur - {$cn->id}",
                     'debit'            => 0,
                     'credit'           => $totalCogsReversal,
                     'created_at'       => now(),
                 ]);
             }
 
-            // 6. Eksekusi AR Adjustment pada Faktur Pelanggan:
-            // Potong saldo residual faktur asli
+            // Eksekusi AR Adjustment pada Faktur Pelanggan
             $currentResidual = (string) $invoice->amount_residual;
             $newResidual = bcsub($currentResidual, $grandTotal, 2);
             if (bccomp($newResidual, '0.00', 2) < 0) {
@@ -451,7 +540,6 @@ class CustomerReturnService
 
             $currentPaid = (string) $invoice->amount_paid;
             $newPaid = bcadd($currentPaid, $grandTotal, 2);
-
             $invoiceStatus = bccomp($newResidual, '0.00', 2) <= 0 ? 'paid' : 'posted';
 
             $invoice->update([
@@ -460,25 +548,24 @@ class CustomerReturnService
                 'status'          => $invoiceStatus,
             ]);
 
-            // Saldo residual dan amount_paid pada faktur sudah terpotong otomatis di atas.
-            // Open AR pelanggan terhitung dinamis melalui accessor ContactCustomer::open_ar
-            // berdasarkan agregat saldo residual faktur berstatus posted.
-
-            // Update status Credit Note & Customer Return
-            $creditNote->update([
+            $cn->update([
                 'subtotal_before_tax' => $subtotalBeforeTax,
                 'total_tax'           => $totalTax,
                 'grand_total'         => $grandTotal,
+                'authorized_by'       => $actor->id,
+                'notes'               => $notes ?? $cn->notes,
                 'status'              => 'applied',
                 'posted_at'           => now(),
                 'posted_by'           => $actor->id,
                 'journal_entry_id'    => $journalEntry->id,
             ]);
 
-            $return->update([
-                'credit_note_id' => $creditNoteId,
-                'status'         => 'completed',
-            ]);
+            if ($cn->customerReturn) {
+                $cn->customerReturn->update([
+                    'credit_note_id' => $cn->id,
+                    'status'         => 'completed',
+                ]);
+            }
 
             AuditLog::record(
                 action: 'accounting.credit_note.applied_ar_adjustment',
@@ -487,18 +574,43 @@ class CustomerReturnService
                 actorUsername: $actor->name,
                 actorRole: $actor->role_id ?? 'finance',
                 documentType: 'credit_note',
-                documentId: $creditNoteId,
+                documentId: $cn->id,
                 newValue: [
-                    'credit_note_id' => $creditNoteId,
+                    'credit_note_id' => $cn->id,
                     'grand_total'    => $grandTotal,
                     'invoice_id'     => $invoice->id,
                     'new_residual'   => $newResidual,
                     'status'         => 'applied',
                 ],
-                notes: "Finance menerbitkan Nota Kredit {$creditNoteId} dan menyelesaikan AR Adjustment pada Faktur {$invoice->id}."
+                notes: "Finance memvalidasi & memposting Nota Kredit {$cn->id} dan menyelesaikan AR Adjustment pada Faktur {$invoice->id}."
             );
 
-            return $creditNote->fresh(['lines.product', 'customer', 'originalInvoice', 'journalEntry.lines']);
+            return [
+                'credit_note'    => $cn->fresh(['lines.product', 'customer', 'originalInvoice', 'journalEntry.lines']),
+                'already_posted' => false,
+            ];
+        });
+    }
+
+    /**
+     * Langkah 3 & 4 (Manual fallback): Finance memproses Nota Kredit & AR Adjustments dari halaman Create.
+     */
+    public function processCreditNoteAndArAdjustment(CustomerReturn $return, array $data, User $actor): CreditNote
+    {
+        return DB::transaction(function () use ($return, $data, $actor) {
+            if ($return->status !== 'inspected') {
+                throw ValidationException::withMessages([
+                    'status' => "Retur {$return->id} belum divalidasi oleh gudang (Return Inspection) atau sudah selesai diproses.",
+                ]);
+            }
+
+            $creditNote = $return->credit_note_id
+                ? CreditNote::findOrFail($return->credit_note_id)
+                : $this->createDraftCreditNoteForReturn($return, $actor, $data['notes'] ?? null);
+
+            $result = $this->postDraftCreditNote($creditNote, $actor, $data['notes'] ?? null);
+
+            return $result['credit_note'];
         });
     }
 }
