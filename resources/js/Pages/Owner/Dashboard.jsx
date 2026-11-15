@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import OwnerLayout from '@/Layouts/OwnerLayout';
+import SalesAnalysisSection from '@/Components/SalesAnalytics/OwnerSummary';
 import {
     TrendingUp,
     TrendingDown,
@@ -29,6 +30,7 @@ export default function OwnerDashboard({
     channels,
     topProducts = [],
     salesTeam = [],
+    salesAnalysis = null,
 }) {
     const [approvalModal, setApprovalModal] = useState({ open: false, order: null });
     const [rejectModal, setRejectModal] = useState({ open: false, order: null, reason: '', adjustedDiscount: 10 });
@@ -393,6 +395,9 @@ export default function OwnerDashboard({
                         </div>
                     )}
                 </div>
+
+                {/* Analisis Penjualan 12 Bulan & Kebutuhan Restock */}
+                <SalesAnalysisSection analysis={salesAnalysis} />
 
                 {/* Grid 2 Columns: Omnichannel Breakdown & Sales Team Performance vs Top Products */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Owner;
 
 use App\Http\Controllers\Controller;
+use App\Services\Analytics\SalesAnalyticsService;
 use App\Services\Owner\OwnerDashboardService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,11 +13,13 @@ class OwnerDashboardController extends Controller
 {
     public function __construct(
         private readonly OwnerDashboardService $dashboardService,
+        private readonly SalesAnalyticsService $salesAnalytics,
     ) {}
 
     public function index(Request $request): Response
     {
         return Inertia::render('Owner/Dashboard', [
+            'salesAnalysis'     => $this->salesAnalytics->getAnalysis(60),
             'kpis'              => $this->dashboardService->getExecutiveKpis(),
             'pendingApprovals'  => $this->dashboardService->getPendingDiscountApprovals(),
             'channels'          => $this->dashboardService->getSalesChannelBreakdown(),

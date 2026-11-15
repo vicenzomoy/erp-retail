@@ -19,6 +19,8 @@ export default function Create({
     paymentTerms = [],
     defaultVendorId,
     defaultSku,
+    defaultLines = [],
+    defaultNotes = null,
 }) {
     // Urutkan vendor berdasarkan kode ID (V01 hingga V04)
     const sortedVendors = useMemo(() => {
@@ -55,14 +57,33 @@ export default function Create({
         ? initialVendorProducts.find((p) => p.variant_sku === defaultSku)
         : null;
 
+    // Prefill multi-baris dari Analisis Penjualan & Restock (hanya produk yang disuplai vendor terpilih)
+    const prefilledLines = initialVendor
+        ? defaultLines
+            .map((l) => {
+                const prod = initialVendorProducts.find((p) => p.variant_sku === l.variant_sku);
+                return prod
+                    ? {
+                        variant_sku: prod.variant_sku,
+                        qty_ordered: Math.max(1, parseInt(l.qty_ordered, 10) || 1),
+                        unit_price: getVendorUnitPrice(prod, initialVendor.id),
+                        tax_id: 'VAT-NONLUX',
+                    }
+                    : null;
+            })
+            .filter(Boolean)
+        : [];
+
     // Form state: Tanpa autofill vendor, tanpa autofill payment terms, tanpa autofill baris produk
     const { data, setData, post, processing, errors } = useForm({
         id: nextId,
         vendor_id: initialVendor?.id || '',
         payment_terms: initialVendor?.payment_terms || '',
         source_doc_no: '',
-        notes: '',
-        lines: initialProduct
+        notes: defaultNotes || '',
+        lines: prefilledLines.length > 0
+            ? prefilledLines
+            : initialProduct
             ? [
                 {
                     variant_sku: initialProduct.variant_sku,

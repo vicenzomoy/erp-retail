@@ -25,6 +25,7 @@ use App\Http\Controllers\Pos\PosController;
 use App\Http\Controllers\Purchase\PurchaseOrderController;
 use App\Http\Controllers\Purchase\PurchaseOverviewController;
 use App\Http\Controllers\Purchase\PurchaseProductController;
+use App\Http\Controllers\Purchase\PurchaseSalesAnalysisController;
 use App\Http\Controllers\Purchase\PurchaseReportingController;
 use App\Http\Controllers\Purchase\PurchaseVendorController;
 use App\Http\Controllers\Sales\CustomerReturnController;
@@ -103,6 +104,7 @@ Route::middleware('auth')->group(function () {
 
         // Reporting
         Route::get('/reporting', [PurchaseReportingController::class, 'index'])->name('reporting.index');
+        Route::get('/sales-analysis', [PurchaseSalesAnalysisController::class, 'index'])->name('sales-analysis.index');
     });
 
     // ==========================================

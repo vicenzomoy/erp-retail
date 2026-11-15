@@ -44,7 +44,18 @@ class PurchaseOrderController extends Controller
 
     public function create(Request $request): Response
     {
+        // Prefill multi-baris dari Analisis Penjualan: ?items=SKU:qty,SKU:qty
+        $defaultLines = collect(explode(',', (string) $request->query('items', '')))
+            ->map(fn ($pair) => explode(':', trim($pair)))
+            ->filter(fn ($p) => count($p) === 2 && $p[0] !== '' && (int) $p[1] > 0)
+            ->map(fn ($p) => ['variant_sku' => $p[0], 'qty_ordered' => (int) $p[1]])
+            ->unique('variant_sku')
+            ->values()
+            ->all();
+
         return Inertia::render('Purchase/Orders/Create', [
+            'defaultLines' => $defaultLines,
+            'defaultNotes' => $request->query('notes'),
             'nextId' => $this->service->generatePoId(),
             'vendors' => $this->service->getVendorsForSelect(),
             'products' => $this->service->getProductsForSelect(),

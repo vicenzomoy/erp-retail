@@ -8,6 +8,7 @@ import {
     Users,
     Package,
     BarChart3,
+    TrendingUp,
     Menu,
     ChevronDown,
     Building2,
@@ -73,6 +74,12 @@ export default function PurchaseLayout({ title, breadcrumbs = [], children }) {
         {
             group: 'Laporan',
             items: [
+                {
+                    name: 'Analisis Penjualan & Restock',
+                    route: 'purchase.sales-analysis.index',
+                    icon: TrendingUp,
+                    active: route().current('purchase.sales-analysis.*'),
+                },
                 {
                     name: 'Analisis Pembelian',
                     route: 'purchase.reporting.index',

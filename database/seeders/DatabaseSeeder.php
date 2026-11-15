@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RetailDatasetSeeder::class,
             AppInitialSeeder::class,
+            SalesHistorySeeder::class,
         ]);
     }
 }
