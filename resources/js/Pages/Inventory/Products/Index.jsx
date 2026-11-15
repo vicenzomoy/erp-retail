@@ -10,6 +10,10 @@ import {
     Printer,
     CheckCircle2,
     DollarSign,
+    AlertTriangle,
+    Store,
+    Warehouse,
+    ArrowDownWideNarrow,
 } from 'lucide-react';
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -19,6 +23,48 @@ const formatRp = (num) =>
         currency: 'IDR',
         maximumFractionDigits: 0,
     }).format(num || 0);
+
+const LOW_STOCK_THRESHOLD = 10;
+
+const fmtQty = (n) => {
+    const v = Number(n ?? 0);
+    return v % 1 === 0 ? Math.round(v).toLocaleString('id-ID') : v.toLocaleString('id-ID');
+};
+
+const alertQtyClass = (available) =>
+    available <= 0
+        ? 'bg-rose-100 text-rose-800 border-rose-300'
+        : available <= 5
+        ? 'bg-orange-100 text-orange-800 border-orange-300'
+        : 'bg-amber-50 text-amber-800 border-amber-200';
+
+const alertLabel = (status) =>
+    status === 'out_of_stock' ? 'Habis' : status === 'critical' ? 'Kritis' : 'Menipis';
+
+// ── Sel stok per lokasi (gerai / gudang) + label stok menipis ─────
+function LocationStockCell({ qty, status, unit }) {
+    if (!status) {
+        return (
+            <span className="font-bold text-slate-900">
+                {fmtQty(qty)} <span className="text-[10px] font-normal text-slate-400">{unit}</span>
+            </span>
+        );
+    }
+
+    return (
+        <div className="inline-flex flex-col items-center gap-0.5">
+            <span className={`font-bold px-2 py-0.5 rounded border text-xs ${alertQtyClass(qty)}`}>
+                {fmtQty(qty)} {unit}
+            </span>
+            <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${
+                status === 'out_of_stock' ? 'text-rose-700' : status === 'critical' ? 'text-orange-700' : 'text-amber-700'
+            }`}>
+                <AlertTriangle className="h-2.5 w-2.5" />
+                {alertLabel(status)}
+            </span>
+        </div>
+    );
+}
 
 // ── Toggle Button ─────────────────────────────────────────────────
 function ViewToggle({ view, onChange }) {
@@ -53,7 +99,7 @@ function ViewToggle({ view, onChange }) {
 }
 
 // ── Produk & Varian Tab ───────────────────────────────────────────
-function ProductsTab({ products, filters, availableColors, availableSizes }) {
+function ProductsTab({ products, filters, availableColors, availableSizes, stockColumns }) {
     const handleSearch = (e) => {
         e.preventDefault();
         router.get(
@@ -108,6 +154,19 @@ function ProductsTab({ products, filters, availableColors, availableSizes }) {
                     ))}
                 </select>
 
+                <div className="relative">
+                    <ArrowDownWideNarrow className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                    <select
+                        value={filters.sort || 'sku'}
+                        onChange={(e) => handleFilterChange('sort', e.target.value)}
+                        className="rounded border border-slate-300 bg-white pl-8 pr-8 py-1.5 text-xs text-slate-700 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                    >
+                        <option value="sku">Urut: Kode SKU</option>
+                        <option value="stock_desc">Urut: Stok tertinggi → terendah</option>
+                        <option value="stock_asc">Urut: Stok terendah → tertinggi</option>
+                    </select>
+                </div>
+
                 <button
                     type="submit"
                     className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer"
@@ -115,7 +174,7 @@ function ProductsTab({ products, filters, availableColors, availableSizes }) {
                     Cari
                 </button>
 
-                {(filters.search || filters.color !== 'all' || filters.size !== 'all') && (
+                {(filters.search || filters.color !== 'all' || filters.size !== 'all' || (filters.sort && filters.sort !== 'sku')) && (
                     <button
                         type="button"
                         onClick={() => router.get(route('inventory.products.index'))}
@@ -142,8 +201,15 @@ function ProductsTab({ products, filters, availableColors, availableSizes }) {
                                 <th className="px-4 py-2.5 text-center">Warna</th>
                                 <th className="px-4 py-2.5 text-right">Harga Jual</th>
                                 <th className="px-4 py-2.5 text-right">Biaya (Cost)</th>
-                                <th className="px-4 py-2.5 text-center">On Hand</th>
-                                <th className="px-4 py-2.5 text-center">Tersedia (ATP)</th>
+                                <th className="px-4 py-2.5 text-center">
+                                    <div className="inline-flex items-center gap-1"><Store className="h-3 w-3" /> Stok Gerai</div>
+                                    <div className="text-[9px] font-normal normal-case text-slate-400">{stockColumns.store}</div>
+                                </th>
+                                <th className="px-4 py-2.5 text-center">
+                                    <div className="inline-flex items-center gap-1"><Warehouse className="h-3 w-3" /> Stok Gudang</div>
+                                    <div className="text-[9px] font-normal normal-case text-slate-400">{stockColumns.warehouse}</div>
+                                </th>
+                                <th className="px-4 py-2.5 text-center">Total Stok</th>
                                 <th className="px-4 py-2.5 text-right">Nilai Valuasi</th>
                                 <th className="px-4 py-2.5"></th>
                             </tr>
@@ -151,7 +217,7 @@ function ProductsTab({ products, filters, availableColors, availableSizes }) {
                         <tbody className="divide-y divide-slate-100">
                             {products.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className="px-4 py-10 text-center text-slate-400">
+                                    <td colSpan={11} className="px-4 py-10 text-center text-slate-400">
                                         Tidak ada produk ditemukan.
                                     </td>
                                 </tr>
@@ -175,17 +241,19 @@ function ProductsTab({ products, filters, availableColors, availableSizes }) {
                                         <td className="px-4 py-3 text-center whitespace-nowrap text-slate-700">{p.color}</td>
                                         <td className="px-4 py-3 text-right font-medium text-slate-900 whitespace-nowrap">{formatRp(p.sales_price)}</td>
                                         <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">{formatRp(p.cost)}</td>
-                                        <td className="px-4 py-3 text-center font-bold text-slate-900 whitespace-nowrap">
-                                            {p.on_hand} <span className="text-[10px] font-normal text-slate-400">{p.unit}</span>
+                                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                                            <LocationStockCell qty={p.store_available} status={p.store_status} unit={p.unit} />
                                         </td>
                                         <td className="px-4 py-3 text-center whitespace-nowrap">
-                                            <span className={`font-bold px-2 py-0.5 rounded border text-xs ${
-                                                p.available <= 0
-                                                    ? 'bg-red-50 text-red-700 border-red-200'
-                                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                            }`}>
-                                                {p.available} {p.unit}
+                                            <LocationStockCell qty={p.warehouse_available} status={p.warehouse_status} unit={p.unit} />
+                                        </td>
+                                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                                            <span className="font-bold text-slate-900">
+                                                {fmtQty(p.on_hand)} <span className="text-[10px] font-normal text-slate-400">{p.unit}</span>
                                             </span>
+                                            {p.reserved > 0 && (
+                                                <div className="text-[10px] text-amber-700">{fmtQty(p.reserved)} tereservasi</div>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3 text-right font-semibold text-slate-800 whitespace-nowrap">{formatRp(p.valuation)}</td>
                                         <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -356,7 +424,17 @@ function StockByLocationTab({ matrix = [], locations = [], summary = {} }) {
                                                         {s.reserved > 0 ? s.reserved : <span className="text-slate-300">—</span>}
                                                     </td>
                                                     <td className="py-2.5 px-2 text-center text-emerald-700 border-r border-slate-100">
-                                                        {s.available > 0 ? <span className="font-semibold">{s.available}</span> : <span className="text-slate-300">—</span>}
+                                                        {s.available <= LOW_STOCK_THRESHOLD ? (
+                                                            <span
+                                                                title={`Stok menipis di ${loc.location_code}`}
+                                                                className={`inline-flex items-center gap-0.5 rounded border px-1.5 py-px font-bold ${alertQtyClass(s.available)}`}
+                                                            >
+                                                                <AlertTriangle className="h-2.5 w-2.5" />
+                                                                {fmtQty(s.available)}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="font-semibold">{s.available}</span>
+                                                        )}
                                                     </td>
                                                 </React.Fragment>
                                             );
@@ -430,6 +508,7 @@ export default function Index({
     matrix = [],
     locations = [],
     summary = {},
+    stockColumns = { store: 'TOKO-PKU', warehouse: 'WH-PKU' },
 }) {
     const [view, setView] = useState('products');
 
@@ -458,6 +537,7 @@ export default function Index({
                     filters={filters}
                     availableColors={availableColors}
                     availableSizes={availableSizes}
+                    stockColumns={stockColumns}
                 />
             ) : (
                 <StockByLocationTab

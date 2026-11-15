@@ -30,6 +30,9 @@ class ProductController extends Controller
         $search = $request->query('search', '');
         $color = $request->query('color', 'all');
         $size = $request->query('size', 'all');
+        $sort = in_array($request->query('sort'), ['sku', 'stock_desc', 'stock_asc'], true)
+            ? $request->query('sort')
+            : 'sku';
 
         $query = Product::with('vendor')->orderBy('variant_sku');
 
@@ -48,12 +51,28 @@ class ProductController extends Controller
             $query->where('size', $size);
         }
 
-        $products = $query->get()->map(function ($p) {
-            $onHand = (float) $this->stockService->getOnHand($p->variant_sku);
-            $reserved = (float) $this->stockService->getReserved($p->variant_sku);
+        // Lokasi gerai & gudang untuk kolom stok terpisah
+        $locations = WarehouseLocation::orderBy('location_code')->get();
+        $storeCode = $locations->first(fn ($l) => stripos((string) $l->type, 'store') !== false)?->location_code ?? 'TOKO-PKU';
+        $warehouseCode = $locations->first(fn ($l) => $l->location_code !== $storeCode)?->location_code ?? 'WH-PKU';
+
+        $levels = $this->stockService->getStockLevelsBySkuLocation();
+        $threshold = 10;
+
+        $products = $query->get()->map(function ($p) use ($levels, $storeCode, $warehouseCode, $threshold) {
+            $skuLevels = $levels[$p->variant_sku] ?? [];
+            $onHand = (float) array_sum(array_column($skuLevels, 'on_hand'));
+            $reserved = (float) array_sum(array_column($skuLevels, 'reserved'));
             $available = $onHand - $reserved;
 
+            $storeAvailable = $skuLevels[$storeCode]['available'] ?? 0.0;
+            $warehouseAvailable = $skuLevels[$warehouseCode]['available'] ?? 0.0;
+
             return [
+                'store_available' => $storeAvailable,
+                'store_status' => $this->stockService->stockAlertStatus($storeAvailable, $threshold),
+                'warehouse_available' => $warehouseAvailable,
+                'warehouse_status' => $this->stockService->stockAlertStatus($warehouseAvailable, $threshold),
                 'variant_sku' => $p->variant_sku,
                 'name' => $p->name,
                 'size' => $p->size,
@@ -70,13 +89,20 @@ class ProductController extends Controller
             ];
         });
 
+        if ($sort !== 'sku') {
+            // Stok tertinggi → terendah (atau sebaliknya), berdasarkan On Hand; SKU sebagai pemutus seri.
+            $dir = $sort === 'stock_desc' ? -1 : 1;
+            $products = $products->sort(
+                fn ($a, $b) => ($dir * ($a['on_hand'] <=> $b['on_hand'])) ?: strcmp($a['variant_sku'], $b['variant_sku'])
+            )->values();
+        }
+
         // Filter options
         $availableColors = Product::distinct()->pluck('color');
         $availableSizes = Product::distinct()->pluck('size');
 
         // Also pass stock-by-location matrix so the page can toggle views without reload
         $matrix    = $this->stockService->getStockByLocationMatrix();
-        $locations = WarehouseLocation::orderBy('location_code')->get();
 
         return Inertia::render('Inventory/Products/Index', [
             'products' => $products,
@@ -84,6 +110,12 @@ class ProductController extends Controller
                 'search' => $search,
                 'color'  => $color,
                 'size'   => $size,
+                'sort'   => $sort,
+            ],
+            'stockColumns' => [
+                'store' => $storeCode,
+                'warehouse' => $warehouseCode,
+                'threshold' => $threshold,
             ],
             'availableColors' => $availableColors,
             'availableSizes'  => $availableSizes,

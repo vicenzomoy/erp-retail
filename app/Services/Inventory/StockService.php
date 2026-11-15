@@ -280,51 +280,25 @@ class StockService
         string $warehouseCode = 'WH-PKU',
         int $threshold = 10
     ): array {
-        // Aggregate in 2 queries instead of N*M per-product queries.
-        $onHandBy = StockLedger::select('variant_sku', 'location_code', DB::raw('SUM(qty_change) as qty'))
-            ->groupBy('variant_sku', 'location_code')
-            ->get()
-            ->groupBy('variant_sku');
-
-        $reservedBy = StockReservation::where('status', 'active')
-            ->select('variant_sku', 'location_code', DB::raw('SUM(qty_reserved) as qty'))
-            ->groupBy('variant_sku', 'location_code')
-            ->get()
-            ->groupBy('variant_sku');
-
-        $sumFor = function ($rows, ?string $location = null): float {
-            if (! $rows) {
-                return 0.0;
-            }
-
-            return (float) $rows
-                ->when($location, fn ($c) => $c->where('location_code', $location))
-                ->sum('qty');
-        };
+        $levels = $this->getStockLevelsBySkuLocation();
 
         $targetLevel = $threshold * 2; // isi ulang gerai sampai 2x ambang batas
         $alerts = [];
 
         foreach (Product::orderBy('name')->get() as $p) {
-            $onHandRows = $onHandBy->get($p->variant_sku);
-            $reservedRows = $reservedBy->get($p->variant_sku);
+            $skuLevels = $levels[$p->variant_sku] ?? [];
 
-            $storeOnHand = $sumFor($onHandRows, $storeCode);
-            $storeAvailable = $storeOnHand - $sumFor($reservedRows, $storeCode);
+            $storeOnHand = $skuLevels[$storeCode]['on_hand'] ?? 0.0;
+            $storeAvailable = $skuLevels[$storeCode]['available'] ?? 0.0;
 
             if ($storeAvailable > $threshold) {
                 continue;
             }
 
-            $warehouseAvailable = $sumFor($onHandRows, $warehouseCode) - $sumFor($reservedRows, $warehouseCode);
-            $companyAvailable = $sumFor($onHandRows) - $sumFor($reservedRows);
+            $warehouseAvailable = $skuLevels[$warehouseCode]['available'] ?? 0.0;
+            $companyAvailable = array_sum(array_column($skuLevels, 'available'));
 
-            $status = 'warning';
-            if ($storeAvailable <= 0) {
-                $status = 'out_of_stock';
-            } elseif ($storeAvailable <= 5) {
-                $status = 'critical';
-            }
+            $status = $this->stockAlertStatus($storeAvailable, $threshold);
 
             $needed = max(0, $targetLevel - $storeAvailable);
             $suggestedQty = (int) floor(min($needed, max(0, $warehouseAvailable)));
@@ -348,6 +322,58 @@ class StockService
         usort($alerts, fn ($a, $b) => $a['store_available'] <=> $b['store_available']);
 
         return $alerts;
+    }
+
+    /**
+     * On hand / reserved / available per SKU per location, in 2 aggregate queries.
+     *
+     * @return array<string, array<string, array{on_hand: float, reserved: float, available: float}>>
+     */
+    public function getStockLevelsBySkuLocation(): array
+    {
+        $levels = [];
+
+        $onHandRows = StockLedger::select('variant_sku', 'location_code', DB::raw('SUM(qty_change) as qty'))
+            ->groupBy('variant_sku', 'location_code')
+            ->get();
+
+        foreach ($onHandRows as $r) {
+            $levels[$r->variant_sku][$r->location_code] = ['on_hand' => (float) $r->qty, 'reserved' => 0.0];
+        }
+
+        $reservedRows = StockReservation::where('status', 'active')
+            ->select('variant_sku', 'location_code', DB::raw('SUM(qty_reserved) as qty'))
+            ->groupBy('variant_sku', 'location_code')
+            ->get();
+
+        foreach ($reservedRows as $r) {
+            $levels[$r->variant_sku][$r->location_code]['on_hand'] ??= 0.0;
+            $levels[$r->variant_sku][$r->location_code]['reserved'] = (float) $r->qty;
+        }
+
+        foreach ($levels as $sku => $locs) {
+            foreach ($locs as $code => $l) {
+                $levels[$sku][$code]['available'] = $l['on_hand'] - $l['reserved'];
+            }
+        }
+
+        return $levels;
+    }
+
+    /**
+     * Low-stock status for an ATP quantity: out_of_stock (<= 0), critical (<= 5),
+     * warning (<= threshold) or null when the level is safe.
+     */
+    public function stockAlertStatus(float $available, int $threshold = 10): ?string
+    {
+        if ($available <= 0) {
+            return 'out_of_stock';
+        }
+        if ($available <= 5) {
+            return 'critical';
+        }
+
+        return $available <= $threshold ? 'warning' : null;
     }
 }
 
