@@ -29,6 +29,7 @@ export default function OrderShow({ order, journal_lines, relatedDocs = [], audi
         >
             <Head title={`Struk ${order.id} — POS Bara Wear`} />
 
+            <div className="print:hidden">
             {/* Smart Buttons */}
             <div className="flex items-center gap-2 mb-5 flex-wrap">
                 <div className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs">
@@ -43,12 +44,6 @@ export default function OrderShow({ order, journal_lines, relatedDocs = [], audi
                     Sesi: {order.pos_session_id}
                     <ExternalLink className="h-3 w-3" />
                 </Link>
-                {order.journal_entry_no && (
-                    <div className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs">
-                        <BookOpen className="h-3.5 w-3.5 text-blue-500" />
-                        Jurnal: {order.journal_entry_no}
-                    </div>
-                )}
                 <button
                     onClick={() => window.print()}
                     className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
@@ -166,56 +161,6 @@ export default function OrderShow({ order, journal_lines, relatedDocs = [], audi
                             </div>
                         </div>
                     </div>
-
-                    {/* Journal Entries */}
-                    {journal_lines.length > 0 && (
-                        <div className="rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">
-                            <div className="border-b border-slate-200 bg-slate-50/50 px-5 py-3 flex items-center gap-2">
-                                <BookOpen className="h-4 w-4 text-blue-600" />
-                                <h2 className="text-sm font-bold text-slate-900">Jurnal Akuntansi</h2>
-                                {order.journal_entry_no && (
-                                    <span className="text-xs font-mono text-slate-500">({order.journal_entry_no})</span>
-                                )}
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-xs text-slate-700">
-                                    <thead className="border-b border-slate-200 bg-slate-100/70 text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                                        <tr>
-                                            <th className="px-4 py-2.5">Akun</th>
-                                            <th className="px-4 py-2.5">Keterangan</th>
-                                            <th className="px-4 py-2.5 text-right">Debit</th>
-                                            <th className="px-4 py-2.5 text-right">Kredit</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {journal_lines.map((jl, i) => (
-                                            <tr key={i} className="hover:bg-slate-50">
-                                                <td className="px-4 py-2.5 font-mono font-semibold">{jl.account_code}</td>
-                                                <td className="px-4 py-2.5 text-slate-600">{jl.description}</td>
-                                                <td className="px-4 py-2.5 text-right text-blue-700 font-semibold">
-                                                    {jl.debit > 0 ? formatRp(jl.debit) : '—'}
-                                                </td>
-                                                <td className="px-4 py-2.5 text-right text-rose-700 font-semibold">
-                                                    {jl.credit > 0 ? formatRp(jl.credit) : '—'}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                    <tfoot className="border-t-2 border-slate-300 bg-slate-100/50">
-                                        <tr>
-                                            <td colSpan="2" className="px-4 py-2 text-xs font-black text-slate-700">TOTAL</td>
-                                            <td className="px-4 py-2 text-right text-xs font-black text-blue-800">
-                                                {formatRp(journal_lines.reduce((s, jl) => s + jl.debit, 0))}
-                                            </td>
-                                            <td className="px-4 py-2 text-right text-xs font-black text-rose-800">
-                                                {formatRp(journal_lines.reduce((s, jl) => s + jl.credit, 0))}
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 {/* Odoo Form Footer: Related Docs | Log Notes | Audit / History (khusus Auditor) */}
@@ -226,6 +171,109 @@ export default function OrderShow({ order, journal_lines, relatedDocs = [], audi
                         relatedDocs={relatedDocs}
                         auditLogs={audit_logs}
                     />
+                </div>
+            </div>
+            </div>
+
+            {/* ===== PRINTABLE POS RECEIPT (Struk Kasir Asli) ===== */}
+            <div className="hidden print:block mx-auto w-full max-w-[82mm] py-2 font-mono text-[11px] leading-snug text-slate-950">
+                {/* Store Header */}
+                <div className="text-center border-b border-dashed border-slate-900 pb-2.5 mb-2.5">
+                    <p className="text-sm font-black tracking-wider uppercase">BARA WEAR BOUTIQUE</p>
+                    <p className="text-[10px] font-bold">PT Bara Ritel Nusantara</p>
+                    <p className="text-[10px]">Gerai: {order.location_code} — Pekanbaru</p>
+                    <p className="text-[9px] text-slate-700">Jl. Jend. Sudirman No. 88, Pekanbaru</p>
+                    <p className="text-[9px] text-slate-700">NPWP: 01.234.567.8-216.000</p>
+                </div>
+
+                {/* Receipt Metadata */}
+                <div className="space-y-0.5 border-b border-dashed border-slate-900 pb-2.5 mb-2.5 text-[10px]">
+                    <div className="flex justify-between">
+                        <span>No. Struk</span>
+                        <span className="font-bold">{order.id}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Sesi Kasir</span>
+                        <span>{order.pos_session_id}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Waktu</span>
+                        <span>{order.paid_at}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Kasir</span>
+                        <span>{order.cashier_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Pelanggan</span>
+                        <span className="truncate max-w-[45mm] text-right">{order.customer_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Pembayaran</span>
+                        <span className="font-semibold uppercase">
+                            {paymentLabel[order.payment_method] ?? order.payment_method}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Purchased Items */}
+                <div className="space-y-2 border-b border-dashed border-slate-900 pb-2.5 mb-2.5">
+                    {order.lines.map((line) => (
+                        <div key={line.id}>
+                            <div className="font-bold text-slate-950">
+                                {line.product_name} ({line.size}/{line.color})
+                            </div>
+                            <div className="text-[9px] text-slate-600">{line.variant_sku}</div>
+                            <div className="flex justify-between text-[10px] mt-0.5">
+                                <span>
+                                    {line.qty} x {formatRp(line.unit_price)}
+                                </span>
+                                <span className="font-bold">{formatRp(line.subtotal_before_tax)}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Totals */}
+                <div className="space-y-1 border-b border-dashed border-slate-900 pb-2.5 mb-2.5 text-[10px]">
+                    <div className="flex justify-between">
+                        <span>Subtotal (DPP)</span>
+                        <span>{formatRp(order.subtotal_before_tax)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>PPN (11%)</span>
+                        <span>{formatRp(order.total_tax)}</span>
+                    </div>
+                    {order.grand_total - (order.subtotal_before_tax + order.total_tax) !== 0 && (
+                        <div className="flex justify-between">
+                            <span>Pembulatan</span>
+                            <span>
+                                {formatRp(order.grand_total - (order.subtotal_before_tax + order.total_tax))}
+                            </span>
+                        </div>
+                    )}
+                    <div className="flex justify-between text-xs font-black border-t border-dashed border-slate-900 pt-1.5 mt-1">
+                        <span>GRAND TOTAL</span>
+                        <span>{formatRp(order.grand_total)}</span>
+                    </div>
+                    <div className="flex justify-between pt-0.5">
+                        <span>Tunai / Diterima</span>
+                        <span>{formatRp(order.cash_tendered)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold">
+                        <span>KEMBALIAN</span>
+                        <span>{formatRp(order.change_given)}</span>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="text-center space-y-1 text-[9px]">
+                    <p className="font-black text-[10px] tracking-widest">*** LUNAS / PAID ***</p>
+                    <p>Terima kasih telah berbelanja di</p>
+                    <p className="font-bold">Bara Wear Boutique</p>
+                    <p className="text-[8px] text-slate-600 pt-1">
+                        Harga sudah termasuk PPN 11%. Simpan struk ini sebagai bukti pembayaran yang sah.
+                    </p>
                 </div>
             </div>
         </PosLayout>

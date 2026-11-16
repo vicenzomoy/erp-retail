@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import PosLayout from '@/Layouts/PosLayout';
+import AutoDismissAlert from '@/Components/Odoo/AutoDismissAlert';
 import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
 import {
     Play,
@@ -76,16 +77,16 @@ export default function SessionShow({ session, orders, relatedDocs = [], audit_l
                     <>
                         <Link
                             href={route('pos.orders.create')}
-                            className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 transition shadow-sm"
+                            className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition shadow-sm"
                         >
                             <ShoppingCart className="h-3.5 w-3.5" />
                             Proses Transaksi
                         </Link>
                         <button
                             onClick={() => setShowCloseModal(true)}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                            className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 transition shadow-sm"
                         >
-                            <StopCircle className="h-3.5 w-3.5 text-rose-500" />
+                            <StopCircle className="h-3.5 w-3.5" />
                             Tutup Sesi
                         </button>
                     </>
@@ -300,12 +301,12 @@ export default function SessionShow({ session, orders, relatedDocs = [], audit_l
                                 {errors.counted_cash && <p className="mt-1 text-xs text-rose-600">{errors.counted_cash}</p>}
                             </div>
 
-                            {errors.error && (
-                                <div className="rounded border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700 flex items-center gap-2">
-                                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                                    {errors.error}
-                                </div>
-                            )}
+                            <AutoDismissAlert
+                                type="error"
+                                message={errors.error}
+                                duration={4500}
+                                className="mb-0"
+                            />
 
                             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                                 <button type="button" onClick={() => setShowCloseModal(false)}

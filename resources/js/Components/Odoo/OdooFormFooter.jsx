@@ -23,8 +23,100 @@ export default function OdooFormFooter({
     auditLogs = [],
 }) {
     const { auth } = usePage().props;
-    const isAuditor = Boolean(auth?.user?.is_auditor);
+    const roleId = auth?.user?.role_id || '';
+    const isAuditor = Boolean(auth?.user?.is_auditor) || roleId === 'auditor';
+    const isOwner = roleId === 'owner';
     const [activeTab, setActiveTab] = useState('related'); // 'related' | 'notes' | 'audit'
+
+    const MODULE_ROLE_ACCESS = {
+        owner: ['owner', 'auditor'],
+        auditor: ['owner', 'auditor'],
+        sales: ['owner', 'auditor', 'sales', 'finance'],
+        crm: ['owner', 'auditor', 'sales'],
+        inventory: ['owner', 'auditor', 'warehouse', 'sales', 'procurement'],
+        purchase: ['owner', 'auditor', 'procurement'],
+        accounting: ['owner', 'auditor', 'finance'],
+        invoicing: ['owner', 'auditor', 'finance'],
+        pos: ['owner', 'auditor', 'cashier'],
+        settings: ['owner', 'auditor', 'finance'],
+    };
+
+    const DOC_TYPE_MODULE_MAP = {
+        'CUSTOMER INVOICE': 'accounting',
+        'INVOICE': 'accounting',
+        'VENDOR BILL': 'accounting',
+        'BILL': 'accounting',
+        'CREDIT NOTE': 'accounting',
+        'NOTA KREDIT': 'accounting',
+        'PAYMENT': 'accounting',
+        'JOURNAL ENTRY': 'accounting',
+        'JURNAL': 'accounting',
+        'SALES ORDER': 'sales',
+        'QUOTATION': 'sales',
+        'BACKORDER SO': 'sales',
+        'CUSTOMER RETURN': 'sales',
+        'RETUR PELANGGAN': 'sales',
+        'CUSTOMER': 'sales',
+        'CRM LEAD': 'crm',
+        'LEAD': 'crm',
+        'PURCHASE ORDER': 'purchase',
+        'RFQ': 'purchase',
+        'VENDOR': 'purchase',
+        'DELIVERY ORDER': 'inventory',
+        'PENGIRIMAN': 'inventory',
+        'RECEIPT': 'inventory',
+        'PENERIMAAN': 'inventory',
+        'INTERNAL TRANSFER': 'inventory',
+        'TRANSFER INTERNAL': 'inventory',
+        'RETURN INSPECTION': 'inventory',
+        'INSPEKSI RETUR': 'inventory',
+        'POS SESSION': 'pos',
+        'POS ORDER': 'pos',
+    };
+
+    const canAccessRelatedDoc = (doc) => {
+        if (!doc?.url || doc.url === '#') return false;
+        if (!roleId) return false;
+
+        // Owner & Auditor memiliki hak akses ke seluruh modul dan dokumen terkait
+        if (isOwner || isAuditor) return true;
+
+        let pathname = '';
+        try {
+            pathname = new URL(doc.url, window.location.origin).pathname.replace(/^\/+/, '').toLowerCase();
+        } catch {
+            pathname = String(doc.url).replace(/^\/+/, '').toLowerCase();
+        }
+
+        const firstSegment = pathname.split('/')[0] || '';
+        const docTypeUpper = (doc.type || '').toUpperCase().trim();
+        const targetModule = MODULE_ROLE_ACCESS[firstSegment]
+            ? firstSegment
+            : DOC_TYPE_MODULE_MAP[docTypeUpper] || '';
+
+        if (!targetModule || !MODULE_ROLE_ACCESS[targetModule]) {
+            return false;
+        }
+
+        if (!MODULE_ROLE_ACCESS[targetModule].includes(roleId)) {
+            return false;
+        }
+
+        // Sub-route restrictions di modul Inventory (sesuai EnsureInventoryPermission)
+        if (targetModule === 'inventory' && roleId === 'procurement') {
+            if (
+                pathname.startsWith('inventory/deliveries') ||
+                pathname.startsWith('inventory/transfers') ||
+                pathname.startsWith('inventory/configuration') ||
+                docTypeUpper === 'DELIVERY ORDER' ||
+                docTypeUpper === 'INTERNAL TRANSFER'
+            ) {
+                return false;
+            }
+        }
+
+        return true;
+    };
 
     // Form for posting new Log Note
     const { data, setData, post, processing, reset } = useForm({
@@ -156,7 +248,7 @@ export default function OdooFormFooter({
                                         )}
                                     </div>
 
-                                    {doc.url && doc.url !== '#' && (doc.type?.toUpperCase() !== 'CUSTOMER INVOICE' || isAuditor) && (
+                                    {canAccessRelatedDoc(doc) && (
                                         <div className="mt-3 pt-2 border-t border-slate-100 text-right">
                                             <Link
                                                 href={doc.url}

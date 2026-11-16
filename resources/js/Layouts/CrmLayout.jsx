@@ -17,6 +17,7 @@ import {
     TrendingUp,
 } from 'lucide-react';
 import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
+import FlashBanner from '@/Components/Odoo/FlashBanner';
 
 export default function CrmLayout({ title, breadcrumbs = [], children }) {
     const { auth, company, flash } = usePage().props;
@@ -193,26 +194,7 @@ export default function CrmLayout({ title, breadcrumbs = [], children }) {
                 {/* Main Content Area */}
                 <main className="flex-1 overflow-y-auto bg-[#f8fafc] p-4 sm:p-6">
                     {/* Flash Message Notifications */}
-                    {flash?.success && (
-                        <div className="mb-4 flex items-center gap-2 rounded border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-medium text-emerald-800 shadow-2xs">
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                            <span>{flash.success}</span>
-                        </div>
-                    )}
-
-                    {flash?.error && (
-                        <div className="mb-4 flex items-center gap-2 rounded border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-medium text-rose-800 shadow-2xs">
-                            <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
-                            <span>{flash.error}</span>
-                        </div>
-                    )}
-
-                    {flash?.info && (
-                        <div className="mb-4 flex items-center gap-2 rounded border border-sky-200 bg-sky-50 px-4 py-2.5 text-xs font-medium text-sky-800 shadow-2xs">
-                            <Info className="h-4 w-4 text-sky-600 shrink-0" />
-                            <span>{flash.info}</span>
-                        </div>
-                    )}
+                    <FlashBanner />
 
                     {children}
                 </main>

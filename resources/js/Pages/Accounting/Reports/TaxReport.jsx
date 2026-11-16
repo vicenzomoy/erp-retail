@@ -56,14 +56,6 @@ export default function TaxReport({ report, flash }) {
             <Head title="Laporan Pajak (PPN) — Accounting" />
 
             <div className="space-y-6">
-                {/* Flash Success */}
-                {flash?.success && (
-                    <div className="flex items-center gap-2 rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                        {flash.success}
-                    </div>
-                )}
-
                 {/* Header & Tax Policy Banner */}
                 <div className="flex flex-col justify-between gap-4 rounded-sm border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center">
                     <div>

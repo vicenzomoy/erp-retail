@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes shrinkProgress {
+    from {
+        width: 100%;
+    }
+    to {
+        width: 0%;
+    }
+}
+
 @media print {
     @page {
         size: A4;

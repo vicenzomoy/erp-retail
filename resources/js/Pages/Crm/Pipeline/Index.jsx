@@ -21,6 +21,7 @@ import {
     X,
 } from 'lucide-react';
 import CrmLayout from '@/Layouts/CrmLayout';
+import AutoDismissAlert from '@/Components/Odoo/AutoDismissAlert';
 
 const formatRp = (value) =>
     new Intl.NumberFormat('id-ID', {
@@ -223,7 +224,6 @@ export default function PipelineIndex({
 
     const showValidation = (msg) => {
         setValidationMessage(msg);
-        setTimeout(() => setValidationMessage(null), 4500);
     };
 
     const handleDrop = (e, targetStageKey) => {
@@ -273,17 +273,12 @@ export default function PipelineIndex({
             <Head title="Pipeline CRM" />
 
             {/* Validation Banner */}
-            {validationMessage && (
-                <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-medium text-amber-800 shadow-sm">
-                    <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                        <span>{validationMessage}</span>
-                    </div>
-                    <button type="button" onClick={() => setValidationMessage(null)} className="text-amber-600 hover:text-amber-800">
-                        <X className="h-4 w-4" />
-                    </button>
-                </div>
-            )}
+            <AutoDismissAlert
+                type="warning"
+                message={validationMessage}
+                duration={4500}
+                onClose={() => setValidationMessage(null)}
+            />
 
             {/* Top Bar */}
             <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

@@ -5,6 +5,7 @@ import {
     AlertCircle,
 } from 'lucide-react';
 import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
+import FlashBanner from '@/Components/Odoo/FlashBanner';
 
 export default function HomeLayout({ breadcrumbs = [], children }) {
     const { flash } = usePage().props;
@@ -46,18 +47,7 @@ export default function HomeLayout({ breadcrumbs = [], children }) {
             </header>
 
             <main className="flex-1 p-4 sm:p-6 bg-[#f8fafc]">
-                {flash?.success && (
-                    <div className="mb-4 flex items-center gap-2 rounded border border-emerald-300 bg-emerald-50 px-4 py-3 text-xs text-emerald-800">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                        <span className="font-medium">{flash.success}</span>
-                    </div>
-                )}
-                {flash?.error && (
-                    <div className="mb-4 flex items-center gap-2 rounded border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-800">
-                        <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
-                        <span className="font-medium">{flash.error}</span>
-                    </div>
-                )}
+                <FlashBanner />
                 {children}
             </main>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import CrmLayout from '@/Layouts/CrmLayout';
+import AutoDismissAlert from '@/Components/Odoo/AutoDismissAlert';
 import { ArrowLeft, Plus, Trash2, Save, AlertCircle, Info } from 'lucide-react';
 
 const formatRp = (value) =>
@@ -176,15 +177,13 @@ export default function LeadCreate({ customers = [], products = [] }) {
                 </div>
 
                 {/* Banner Peringatan Duplikat atau Validasi */}
-                {(duplicateError || errors.items) && (
-                    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2 shadow-2xs">
-                        <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                        <div>
-                            <p className="font-semibold">Perhatian Pengisian Formulir:</p>
-                            <p className="text-[11px] mt-0.5">{duplicateError || errors.items}</p>
-                        </div>
-                    </div>
-                )}
+                <AutoDismissAlert
+                    type="warning"
+                    title="Perhatian Pengisian Formulir:"
+                    message={duplicateError || errors.items}
+                    duration={4500}
+                    onClose={() => setDuplicateError('')}
+                />
 
                 {/* Form Sheet Card (Konsisten dengan CRUD Inventaris) */}
                 <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm mb-6">

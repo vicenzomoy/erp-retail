@@ -20,6 +20,7 @@ import CrmLayout from '@/Layouts/CrmLayout';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
+import AutoDismissAlert from '@/Components/Odoo/AutoDismissAlert';
 
 const formatRp = (value) =>
     new Intl.NumberFormat('id-ID', {
@@ -262,14 +263,14 @@ export default function LeadShow({ lead, customers = [], products = [], users = 
             </div>
 
             {/* Banner Peringatan Duplikat pada Mode Edit */}
-            {isEditing && (duplicateError || errors.items) && (
-                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2 shadow-2xs">
-                    <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                    <div>
-                        <p className="font-semibold">Perhatian Pengisian Formulir:</p>
-                        <p className="text-[11px] mt-0.5">{duplicateError || errors.items}</p>
-                    </div>
-                </div>
+            {isEditing && (
+                <AutoDismissAlert
+                    type="warning"
+                    title="Perhatian Pengisian Formulir:"
+                    message={duplicateError || errors.items}
+                    duration={4500}
+                    onClose={() => setDuplicateError('')}
+                />
             )}
 
             {/* ── Sheet Card (Konsisten dengan Form CRUD Inventaris) ── */}

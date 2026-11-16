@@ -19,6 +19,7 @@ import {
     Percent,
 } from 'lucide-react';
 import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
+import FlashBanner from '@/Components/Odoo/FlashBanner';
 
 export default function AccountingLayout({ title, breadcrumbs = [], children }) {
     const { flash } = usePage().props;
@@ -288,32 +289,7 @@ export default function AccountingLayout({ title, breadcrumbs = [], children }) 
 
                 {/* MAIN CONTENT */}
                 <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8fafc] print:p-0 print:bg-white print:overflow-visible">
-                    {flash?.success && (
-                        <div className="mb-4 flex items-center justify-between rounded border border-emerald-300 bg-emerald-50 px-4 py-3 text-xs text-emerald-800 shadow-xs animate-fadeIn print:hidden">
-                            <div className="flex items-center gap-2">
-                                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                                <span className="font-medium">{flash.success}</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {flash?.error && (
-                        <div className="mb-4 flex items-center justify-between rounded border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-800 shadow-xs animate-fadeIn print:hidden">
-                            <div className="flex items-center gap-2">
-                                <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
-                                <span className="font-medium">{flash.error}</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {flash?.info && (
-                        <div className="mb-4 flex items-center justify-between rounded border border-blue-300 bg-blue-50 px-4 py-3 text-xs text-blue-800 shadow-xs animate-fadeIn print:hidden">
-                            <div className="flex items-center gap-2">
-                                <Info className="h-4 w-4 text-blue-600 shrink-0" />
-                                <span className="font-medium">{flash.info}</span>
-                            </div>
-                        </div>
-                    )}
+                    <FlashBanner />
 
                     {children}
                 </main>

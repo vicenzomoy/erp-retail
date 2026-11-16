@@ -19,6 +19,7 @@ import {
     Play,
 } from 'lucide-react';
 import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
+import FlashBanner from '@/Components/Odoo/FlashBanner';
 
 export default function PosLayout({ title, breadcrumbs = [], children }) {
     const { auth, company, flash } = usePage().props;
@@ -74,9 +75,9 @@ export default function PosLayout({ title, breadcrumbs = [], children }) {
     ];
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans">
+        <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans print:min-h-0 print:bg-white">
             {/* TOP NAVBAR */}
-            <header className="sticky top-0 z-40 flex h-12 w-full items-center justify-between border-b border-slate-200 bg-slate-900 px-3 sm:px-4 text-white shadow-sm">
+            <header className="sticky top-0 z-40 flex h-12 w-full items-center justify-between border-b border-slate-200 bg-slate-900 px-3 sm:px-4 text-white shadow-sm print:hidden">
                 <div className="flex items-center gap-2 sm:gap-3">
                     {/* App Switcher 9-dots */}
                     <button
@@ -138,11 +139,11 @@ export default function PosLayout({ title, breadcrumbs = [], children }) {
             </header>
 
             {/* BODY: SIDEBAR + CONTENT */}
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 overflow-hidden print:block print:overflow-visible">
                 {/* SIDEBAR */}
                 <aside
                     className={`${sidebarOpen ? 'w-60' : 'w-0 -translate-x-full'
-                        } transition-all duration-200 ease-in-out shrink-0 bg-white border-r border-slate-200 flex flex-col z-30 overflow-y-auto shadow-xs`}
+                        } transition-all duration-200 ease-in-out shrink-0 bg-white border-r border-slate-200 flex flex-col z-30 overflow-y-auto shadow-xs print:hidden`}
                 >
                     <div className="p-3">
                         <nav className="space-y-4">
@@ -190,34 +191,9 @@ export default function PosLayout({ title, breadcrumbs = [], children }) {
                 </aside>
 
                 {/* MAIN CONTENT */}
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8fafc]">
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8fafc] print:p-0 print:bg-white print:overflow-visible">
                     {/* Flash Messages */}
-                    {flash?.success && (
-                        <div className="mb-4 flex items-center justify-between rounded border border-emerald-300 bg-emerald-50 px-4 py-3 text-xs text-emerald-800 shadow-xs">
-                            <div className="flex items-center gap-2">
-                                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                                <span className="font-medium">{flash.success}</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {flash?.error && (
-                        <div className="mb-4 flex items-center justify-between rounded border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-800 shadow-xs">
-                            <div className="flex items-center gap-2">
-                                <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
-                                <span className="font-medium">{flash.error}</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {flash?.info && (
-                        <div className="mb-4 flex items-center justify-between rounded border border-blue-300 bg-blue-50 px-4 py-3 text-xs text-blue-800 shadow-xs">
-                            <div className="flex items-center gap-2">
-                                <Info className="h-4 w-4 text-blue-600 shrink-0" />
-                                <span className="font-medium">{flash.info}</span>
-                            </div>
-                        </div>
-                    )}
+                    <FlashBanner />
 
                     {children}
                 </main>

@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import PosLayout from '@/Layouts/PosLayout';
+import AutoDismissAlert from '@/Components/Odoo/AutoDismissAlert';
 import {
     ShoppingCart,
     Search,
@@ -17,6 +18,7 @@ import {
     QrCode,
     StopCircle,
     ChevronRight,
+    X,
 } from 'lucide-react';
 
 const formatRp = (num) =>
@@ -161,7 +163,7 @@ export default function CheckoutCreate({ session, products, customers }) {
                     </p>
                     <Link
                         href={route('pos.overview')}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 transition"
+                        className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition"
                     >
                         Buka Sesi Kasir
                     </Link>
@@ -200,17 +202,18 @@ export default function CheckoutCreate({ session, products, customers }) {
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Cari produk, SKU, ukuran, warna..."
-                                className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2.5 text-sm text-slate-900 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 bg-white shadow-xs"
+                                className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2.5 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 bg-white shadow-xs"
                             />
                         </div>
 
                         {/* Stock Error Alert */}
-                        {stockError && (
-                            <div className="rounded border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700 flex items-center gap-2">
-                                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                                {stockError}
-                            </div>
-                        )}
+                        <AutoDismissAlert
+                            type="error"
+                            message={stockError}
+                            duration={4000}
+                            onClose={() => setStockError('')}
+                            className="mb-0"
+                        />
 
                         {/* Product Grid */}
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -228,12 +231,12 @@ export default function CheckoutCreate({ session, products, customers }) {
                                             isOutOfStock
                                                 ? 'border-slate-200 bg-slate-50 opacity-50 cursor-not-allowed'
                                                 : inBasket
-                                                ? 'border-rose-400 bg-rose-50 shadow-sm ring-2 ring-rose-400/20'
-                                                : 'border-slate-200 bg-white hover:border-rose-300 hover:shadow-sm cursor-pointer'
+                                                ? 'border-slate-900 bg-slate-50 shadow-sm ring-2 ring-slate-900/15'
+                                                : 'border-slate-200 bg-white hover:border-slate-400 hover:shadow-sm cursor-pointer'
                                         }`}
                                     >
                                         {inBasket && (
-                                            <span className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center">
+                                            <span className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-slate-900 text-white text-[10px] font-black flex items-center justify-center">
                                                 {inBasket.qty}
                                             </span>
                                         )}
@@ -243,7 +246,7 @@ export default function CheckoutCreate({ session, products, customers }) {
                                         <p className="text-xs font-bold text-slate-900 leading-tight truncate">{product.name}</p>
                                         <p className="text-[11px] text-slate-500 mt-0.5">{product.size} / {product.color}</p>
                                         <p className="text-[10px] font-mono text-slate-400">{product.variant_sku}</p>
-                                        <p className="text-sm font-black text-rose-700 mt-1.5">{formatRp(product.sales_price)}</p>
+                                        <p className="text-sm font-black text-slate-900 mt-1.5">{formatRp(product.sales_price)}</p>
                                         <div className="mt-1 flex items-center gap-1">
                                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
                                                 isOutOfStock
@@ -280,7 +283,7 @@ export default function CheckoutCreate({ session, products, customers }) {
                                     const c = customers.find((c) => c.id === e.target.value);
                                     setSelectedCustomer(c ?? null);
                                 }}
-                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                             >
                                 <option value="">— Pelanggan Umum (Tanpa Akun) —</option>
                                 {customers.map((c) => (
@@ -293,7 +296,7 @@ export default function CheckoutCreate({ session, products, customers }) {
                         <div className="rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">
                             <div className="border-b border-slate-200 bg-slate-50/50 px-4 py-3 flex items-center justify-between">
                                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                                    <ShoppingCart className="h-4 w-4 text-rose-600" />
+                                    <ShoppingCart className="h-4 w-4 text-slate-700" />
                                     Keranjang ({basket.length} item)
                                 </h3>
                                 {basket.length > 0 && (
@@ -315,7 +318,7 @@ export default function CheckoutCreate({ session, products, customers }) {
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-xs font-semibold text-slate-900 truncate">{item.name}</p>
                                                 <p className="text-[11px] text-slate-500">{item.size} / {item.color}</p>
-                                                <p className="text-[11px] text-rose-700 font-semibold">{formatRp(item.unit_price)}</p>
+                                                <p className="text-[11px] text-slate-900 font-semibold">{formatRp(item.unit_price)}</p>
                                             </div>
                                             <div className="flex items-center gap-1">
                                                 <button type="button"
@@ -328,7 +331,7 @@ export default function CheckoutCreate({ session, products, customers }) {
                                                     type="number" min="1"
                                                     value={item.qty}
                                                     onChange={(e) => updateQty(item.variant_sku, parseInt(e.target.value) || 1)}
-                                                    className="w-12 text-center text-xs font-bold border border-slate-300 rounded px-1 py-0.5 focus:outline-none focus:border-rose-400"
+                                                    className="w-12 text-center text-xs font-bold border border-slate-300 rounded px-1 py-0.5 focus:outline-none focus:border-slate-900"
                                                 />
                                                 <button type="button"
                                                     onClick={() => updateQty(item.variant_sku, item.qty + 1)}
@@ -372,7 +375,7 @@ export default function CheckoutCreate({ session, products, customers }) {
                                     )}
                                     <div className="flex justify-between text-sm font-black text-slate-900 border-t border-slate-200 pt-2">
                                         <span>GRAND TOTAL</span>
-                                        <span className="text-rose-700">{formatRp(basketTotal)}</span>
+                                        <span className="text-slate-900">{formatRp(basketTotal)}</span>
                                     </div>
                                 </div>
                             )}
@@ -394,7 +397,7 @@ export default function CheckoutCreate({ session, products, customers }) {
                                             onClick={() => setPaymentMethod(key)}
                                             className={`flex flex-col items-center gap-1 rounded-md border py-2.5 px-2 text-xs font-semibold transition ${
                                                 paymentMethod === key
-                                                    ? 'border-rose-500 bg-rose-50 text-rose-700'
+                                                    ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
                                                     : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400'
                                             }`}
                                         >
@@ -420,7 +423,7 @@ export default function CheckoutCreate({ session, products, customers }) {
                                                 className={`w-full rounded-md border pl-9 pr-3 py-2 text-sm font-bold focus:outline-none focus:ring-1 ${
                                                     cashInsufficient
                                                         ? 'border-rose-400 text-rose-700 focus:border-rose-500 focus:ring-rose-500'
-                                                        : 'border-slate-300 text-slate-900 focus:border-rose-500 focus:ring-rose-500'
+                                                        : 'border-slate-300 text-slate-900 focus:border-slate-900 focus:ring-slate-900'
                                                 }`}
                                             />
                                         </div>
@@ -463,12 +466,13 @@ export default function CheckoutCreate({ session, products, customers }) {
                                 )}
 
                                 {/* Server Error */}
-                                {serverError && (
-                                    <div className="rounded border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700 flex items-start gap-2">
-                                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                        {serverError}
-                                    </div>
-                                )}
+                                <AutoDismissAlert
+                                    type="error"
+                                    message={serverError}
+                                    duration={4500}
+                                    onClose={() => setServerError('')}
+                                    className="mb-0"
+                                />
 
                                 {/* Submit Button */}
                                 <button
@@ -478,7 +482,7 @@ export default function CheckoutCreate({ session, products, customers }) {
                                         submitting ||
                                         (paymentMethod === 'cash' && (!cashTendered || cashInsufficient))
                                     }
-                                    className="w-full rounded-lg bg-rose-600 py-3 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+                                    className="w-full rounded-lg bg-slate-900 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
                                 >
                                     {submitting ? (
                                         'Memproses...'

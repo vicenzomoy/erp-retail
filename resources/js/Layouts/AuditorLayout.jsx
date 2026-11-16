@@ -2,6 +2,7 @@ import React from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ShieldCheck, Lock, FileSearch, ArrowLeft } from 'lucide-react';
 import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
+import FlashBanner from '@/Components/Odoo/FlashBanner';
 
 export default function AuditorLayout({ title = 'Audit Trail & Traceability', breadcrumbs = [], children }) {
     const { auth, company, flash } = usePage().props;
@@ -84,11 +85,9 @@ export default function AuditorLayout({ title = 'Audit Trail & Traceability', br
                 </span>
             </div>
 
-            {flash?.error && (
-                <div className="mx-4 sm:mx-6 mt-4 rounded border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-medium text-rose-800">
-                    {flash.error}
-                </div>
-            )}
+            <div className="mx-4 sm:mx-6 mt-4">
+                <FlashBanner className="mb-2" />
+            </div>
 
             <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
                 {children}
