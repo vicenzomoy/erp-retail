@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AccountingLayout from '@/Layouts/AccountingLayout';
+import PeriodFilter, { periodQuery } from '@/Components/Accounting/PeriodFilter';
 
 const formatRp = (val) => 'Rp ' + Number(val || 0).toLocaleString('id-ID');
 
@@ -10,11 +11,12 @@ export default function GeneralLedgerIndex({
     ledgerRows,
     stockMoves,
     filters,
+    period,
 }) {
     const handleSelectAccount = (account) => {
         router.get(
             route('accounting.reports.general-ledger'),
-            { account, entry_type: filters?.entry_type || 'all' },
+            { ...periodQuery(period), account, entry_type: filters?.entry_type || 'all' },
             { preserveState: true }
         );
     };
@@ -62,10 +64,20 @@ export default function GeneralLedgerIndex({
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="rounded-full bg-emerald-100 px-3 py-1 font-mono text-xs font-extrabold text-emerald-800 border border-emerald-300">
-                                Trial Balance: Debit {formatRp(summary?.total_debit)} = Kredit {formatRp(summary?.total_credit)}
+                                Mutasi {period?.label}: Debit {formatRp(summary?.total_debit)} = Kredit {formatRp(summary?.total_credit)}
                             </span>
                         </div>
                     </div>
+
+                    <PeriodFilter
+                        period={period}
+                        routeName="accounting.reports.general-ledger"
+                        params={{
+                            account: filters?.account || 'all',
+                            entry_type: filters?.entry_type || 'all',
+                        }}
+                        className="border-y border-gray-100 py-2.5"
+                    />
 
                     <div className="flex flex-wrap gap-1.5">
                         {quickAccounts.map((acc) => {
@@ -77,7 +89,7 @@ export default function GeneralLedgerIndex({
                                     onClick={() => handleSelectAccount(acc.code)}
                                     className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
                                         active
-                                            ? 'bg-odoo-purple text-white shadow-xs'
+                                            ? 'bg-emerald-600 text-white shadow-xs'
                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                                 >
@@ -105,9 +117,10 @@ export default function GeneralLedgerIndex({
                                     <th className="px-4 py-2.5">Kode</th>
                                     <th className="px-4 py-2.5">Nama Akun</th>
                                     <th className="px-4 py-2.5">Kategori</th>
-                                    <th className="px-4 py-2.5 text-right">Total Debit</th>
-                                    <th className="px-4 py-2.5 text-right">Total Kredit</th>
-                                    <th className="px-4 py-2.5 text-right">Saldo Akhir (Normal Balance)</th>
+                                    <th className="px-4 py-2.5 text-right">Saldo Awal</th>
+                                    <th className="px-4 py-2.5 text-right">Debit</th>
+                                    <th className="px-4 py-2.5 text-right">Kredit</th>
+                                    <th className="px-4 py-2.5 text-right">Saldo Akhir</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 bg-white">
@@ -118,10 +131,10 @@ export default function GeneralLedgerIndex({
                                             key={acc.code}
                                             onClick={() => handleSelectAccount(acc.code)}
                                             className={`cursor-pointer transition-colors ${
-                                                isSelected ? 'bg-purple-50 font-semibold' : 'hover:bg-gray-50'
+                                                isSelected ? 'bg-emerald-50 font-semibold' : 'hover:bg-gray-50'
                                             }`}
                                         >
-                                            <td className="px-4 py-2.5 font-mono font-bold text-odoo-purple">
+                                            <td className="px-4 py-2.5 font-mono font-bold text-emerald-700">
                                                 {acc.code}
                                             </td>
                                             <td className="px-4 py-2.5 font-semibold text-gray-900">
@@ -129,6 +142,9 @@ export default function GeneralLedgerIndex({
                                             </td>
                                             <td className="px-4 py-2.5 uppercase text-[11px] text-gray-500">
                                                 {acc.account_type}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right font-mono text-gray-500">
+                                                {formatRp(acc.opening_balance)}
                                             </td>
                                             <td className="px-4 py-2.5 text-right font-mono text-emerald-700">
                                                 {formatRp(acc.total_debit)}
@@ -145,8 +161,8 @@ export default function GeneralLedgerIndex({
                             </tbody>
                             <tfoot className="bg-gray-50 font-extrabold text-gray-900">
                                 <tr>
-                                    <td colSpan={3} className="px-4 py-2.5 text-right">
-                                        Total Keseimbangan Buku Besar (Debit = Kredit):
+                                    <td colSpan={4} className="px-4 py-2.5 text-right">
+                                        Total Mutasi Periode (Debit = Kredit):
                                     </td>
                                     <td className="px-4 py-2.5 text-right font-mono text-emerald-800">
                                         {formatRp(summary?.total_debit)}
@@ -197,10 +213,28 @@ export default function GeneralLedgerIndex({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 bg-white">
+                                {selectedAccount && (
+                                    <tr className="bg-gray-50/70">
+                                        <td className="px-3 py-2 font-mono text-gray-500">{period?.start}</td>
+                                        <td colSpan={7} className="px-3 py-2 font-semibold text-gray-700">
+                                            Saldo Awal Periode
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-mono font-bold text-gray-900">
+                                            {formatRp(selectedAccount.opening_balance)}
+                                        </td>
+                                    </tr>
+                                )}
+                                {(ledgerRows || []).length === 0 && (
+                                    <tr>
+                                        <td colSpan={9} className="px-4 py-6 text-center text-gray-500">
+                                            Tidak ada mutasi pada periode {period?.label}.
+                                        </td>
+                                    </tr>
+                                )}
                                 {(ledgerRows || []).map((row) => (
                                     <tr key={row.id} className="hover:bg-gray-50/80">
                                         <td className="px-3 py-2 font-mono text-gray-600">{row.entry_date}</td>
-                                        <td className="px-3 py-2 font-mono font-bold text-odoo-purple">
+                                        <td className="px-3 py-2 font-mono font-bold text-emerald-700">
                                             <Link
                                                 href={route('accounting.journals.show', row.journal_entry_id)}
                                                 className="hover:underline"
@@ -261,14 +295,14 @@ export default function GeneralLedgerIndex({
                                 {(stockMoves || []).length === 0 ? (
                                     <tr>
                                         <td colSpan={8} className="px-4 py-6 text-center text-gray-500">
-                                            Belum ada mutasi Stock Move berstatus Done.
+                                            Tidak ada Stock Move pada periode {period?.label}.
                                         </td>
                                     </tr>
                                 ) : (
                                     stockMoves.map((sm) => (
                                         <tr key={sm.id}>
                                             <td className="px-4 py-2 font-mono font-bold text-gray-700">#{sm.id}</td>
-                                            <td className="px-4 py-2 font-mono font-bold text-odoo-purple">
+                                            <td className="px-4 py-2 font-mono font-bold text-emerald-700">
                                                 {sm.source_document_id}
                                             </td>
                                             <td className="px-4 py-2">

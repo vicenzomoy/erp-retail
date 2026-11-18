@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AccountingLayout from '@/Layouts/AccountingLayout';
+import PeriodFilter, { periodQuery } from '@/Components/Accounting/PeriodFilter';
 import {
     TableProperties,
     CheckCircle2,
@@ -11,7 +12,8 @@ import {
 
 const formatRp = (val) => 'Rp ' + Number(val || 0).toLocaleString('id-ID');
 
-export default function TrialBalance({ report }) {
+export default function TrialBalance({ report, period }) {
+    const pq = periodQuery(period);
     const rows = report?.rows || [];
 
     return (
@@ -27,42 +29,47 @@ export default function TrialBalance({ report }) {
 
             <div className="space-y-6">
                 {/* Header */}
-                <div className="flex flex-col justify-between gap-4 rounded-sm border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <TableProperties className="h-5 w-5 text-emerald-600" />
-                            <h1 className="text-lg font-bold text-slate-900">
-                                Laporan Neraca Saldo (Trial Balance)
-                            </h1>
+                <div className="rounded-sm border border-slate-200 bg-white shadow-xs">
+                    <div className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <TableProperties className="h-5 w-5 text-emerald-600" />
+                                <h1 className="text-lg font-bold text-slate-900">
+                                    Laporan Neraca Saldo (Trial Balance)
+                                </h1>
+                            </div>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                                Keseimbangan Debit &amp; Kredit Seluruh Bagan Akun — periode{' '}
+                                <span className="font-semibold text-slate-700">
+                                    {report?.period_label}
+                                </span>
+                            </p>
                         </div>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                            Verifikasi Keseimbangan Debit &amp; Kredit Seluruh Bagan Akun per{' '}
-                            <span className="font-semibold text-slate-700">
-                                {report?.as_of_date}
-                            </span>
-                        </p>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            {report?.is_balanced ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                    Total Debit = Total Kredit (Seimbang)
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-800">
+                                    <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
+                                    Terdapat Selisih Saldo
+                                </span>
+                            )}
+
+                            <Link
+                                href={route('accounting.reports.general-ledger', pq)}
+                                className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                            >
+                                <Scale className="h-3.5 w-3.5 text-slate-500" />
+                                <span>Buka Buku Besar Umum</span>
+                            </Link>
+                        </div>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                        {report?.is_balanced ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                                Total Debit = Total Kredit (Seimbang)
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-800">
-                                <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
-                                Terdapat Selisih Saldo
-                            </span>
-                        )}
-
-                        <Link
-                            href={route('accounting.reports.general-ledger')}
-                            className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                        >
-                            <Scale className="h-3.5 w-3.5 text-slate-500" />
-                            <span>Buka Buku Besar Umum</span>
-                        </Link>
+                    <div className="border-t border-slate-100 px-4 py-2.5">
+                        <PeriodFilter period={period} routeName="accounting.reports.trial-balance" />
                     </div>
                 </div>
 
@@ -70,7 +77,7 @@ export default function TrialBalance({ report }) {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div className="rounded-sm border border-slate-200 bg-white p-4 shadow-xs">
                         <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                            Saldo Pembukaan (Opening)
+                            Saldo Awal Periode
                         </p>
                         <p className="mt-1.5 font-mono text-lg font-extrabold text-slate-900">
                             D: {formatRp(report?.sum_open_debit)}
@@ -82,7 +89,7 @@ export default function TrialBalance({ report }) {
 
                     <div className="rounded-sm border border-slate-200 bg-white p-4 shadow-xs">
                         <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                            Mutasi Transaksi Berjalan
+                            Mutasi Periode Ini
                         </p>
                         <p className="mt-1.5 font-mono text-lg font-extrabold text-emerald-700">
                             D: {formatRp(report?.sum_mut_debit)}
@@ -164,6 +171,7 @@ export default function TrialBalance({ report }) {
                                         <td className="px-4 py-2.5 font-mono font-bold text-emerald-700 border-r border-slate-100">
                                             <Link
                                                 href={route('accounting.reports.general-ledger', {
+                                                    ...pq,
                                                     account: acc.code,
                                                 })}
                                                 className="inline-flex items-center gap-1 hover:underline"

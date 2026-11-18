@@ -7,6 +7,7 @@ use App\Models\CustomerInvoice;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\VendorBill;
+use App\Support\ReportPeriod;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -27,9 +28,10 @@ class FinancialReportService
     /**
      * 1. Laporan Neraca Keuangan (Balance Sheet).
      */
-    public function getBalanceSheet(): array
+    public function getBalanceSheet(ReportPeriod $period): array
     {
-        $summary  = $this->glService->getAccountsSummary();
+        // Neraca = posisi per akhir periode (kumulatif s/d tanggal akhir)
+        $summary  = $this->glService->getAccountsSummary(null, $period->endDate());
         $accounts = collect($summary['accounts']);
 
         $assets = $accounts->filter(fn ($a) => str_contains(strtolower($a['account_type']), 'aset'))
@@ -47,22 +49,47 @@ class FinancialReportService
         $revenues = $accounts->filter(fn ($a) => str_contains(strtolower($a['account_type']), 'pendapatan'));
         $expenses = $accounts->filter(fn ($a) => str_contains(strtolower($a['account_type']), 'beban'));
 
-        $totalRevenue      = (float) $revenues->sum('balance');
-        $totalExpense      = (float) $expenses->sum('balance');
-        $currentYearProfit = round($totalRevenue - $totalExpense, 2);
+        $totalRevenue  = (float) $revenues->sum('balance');
+        $totalExpense  = (float) $expenses->sum('balance');
+        $allTimeProfit = round($totalRevenue - $totalExpense, 2);
+
+        // Laba tahun berjalan = 1 Jan tahun periode s/d akhir periode; sisanya laba ditahan tahun lalu.
+        // Bila ada jurnal penutup sistem lama sebelum akhir periode, hitung laba mulai sesudahnya
+        // (saldo sebelum penutupan sudah dipindahkan ke Saldo Awal go-live).
+        $profitFrom  = $period->year . '-01-01';
+        $lastClosing = JournalEntry::where('status', 'posted')
+            ->whereIn('entry_type', GeneralLedgerService::CLOSING_TYPES)
+            ->where('entry_date', '<=', $period->endDate())
+            ->max('entry_date');
+        if ($lastClosing) {
+            $afterClosing = \Carbon\Carbon::parse($lastClosing)->addDay()->toDateString();
+            $profitFrom   = max($profitFrom, $afterClosing);
+        }
+
+        $yearAccounts = collect($this->glService->getAccountsSummary(
+            $profitFrom,
+            $period->endDate()
+        )['accounts']);
+        $currentYearProfit = round(
+            (float) $yearAccounts->filter(fn ($a) => str_contains(strtolower($a['account_type']), 'pendapatan'))->sum('balance')
+            - (float) $yearAccounts->filter(fn ($a) => str_contains(strtolower($a['account_type']), 'beban'))->sum('balance'),
+            2
+        );
+        $retainedEarnings = round($allTimeProfit - $currentYearProfit, 2);
 
         $totalAssets      = round((float) collect($assets)->sum('balance'), 2);
         $totalLiabilities = round((float) collect($liabilities)->sum('balance'), 2);
         $baseEquity       = round((float) collect($equityAccounts)->sum('balance'), 2);
-        $totalEquity      = round($baseEquity + $currentYearProfit, 2);
+        $totalEquity      = round($baseEquity + $retainedEarnings + $currentYearProfit, 2);
         $totalLiabEquity  = round($totalLiabilities + $totalEquity, 2);
 
         return [
-            'as_of_date'          => now()->format('d F Y'),
+            'as_of_date'          => $period->endLabel(),
             'assets'              => $assets,
             'liabilities'         => $liabilities,
             'equity_accounts'     => $equityAccounts,
             'current_year_profit' => $currentYearProfit,
+            'retained_earnings'   => $retainedEarnings,
             'total_assets'        => $totalAssets,
             'total_liabilities'   => $totalLiabilities,
             'base_equity'         => $baseEquity,
@@ -75,9 +102,10 @@ class FinancialReportService
     /**
      * 2. Laporan Laba dan Rugi (Profit & Loss / Income Statement).
      */
-    public function getProfitAndLoss(): array
+    public function getProfitAndLoss(ReportPeriod $period): array
     {
-        $summary  = $this->glService->getAccountsSummary();
+        // Jurnal penutup sistem lama bukan transaksi laba rugi → dikecualikan
+        $summary  = $this->glService->getAccountsSummary($period->startDate(), $period->endDate(), excludeClosing: true);
         $accounts = collect($summary['accounts']);
 
         $revenues = $accounts->filter(fn ($a) => str_contains(strtolower($a['account_type']), 'pendapatan'))
@@ -102,7 +130,9 @@ class FinancialReportService
         // Rincian mutasi jurnal pendapatan & beban terbaru
         $recentLines = JournalLine::with(['journalEntry', 'account'])
             ->whereIn('account_code', ['4000', '4010', '5000', '5100'])
-            ->whereHas('journalEntry', fn ($q) => $q->where('status', 'posted'))
+            ->whereHas('journalEntry', fn ($q) => $q->where('status', 'posted')
+                ->whereNotIn('entry_type', GeneralLedgerService::CLOSING_TYPES)
+                ->whereBetween('entry_date', [$period->startDate(), $period->endDate()]))
             ->orderByDesc('id')
             ->limit(25)
             ->get()
@@ -126,7 +156,7 @@ class FinancialReportService
             ->all();
 
         return [
-            'period_label'  => 'Tahun Buku Berjalan (' . now()->format('Y') . ')',
+            'period_label'  => $period->rangeLabel(),
             'revenues'      => $revenueItems,
             'expenses'      => $expenseItems,
             'total_revenue' => $totalRevenue,
@@ -141,31 +171,42 @@ class FinancialReportService
     /**
      * 3. Laporan Arus Kas (Cash Flow Statement — Akun 1010 Kas & 1020 Bank).
      */
-    public function getCashFlow(): array
+    public function getCashFlow(ReportPeriod $period): array
     {
-        $summary        = $this->glService->getAccountsSummary();
+        // Saldo kas & bank per akhir periode
+        $summary        = $this->glService->getAccountsSummary(null, $period->endDate());
         $accountsByCode = collect($summary['accounts'])->keyBy('code');
 
         $cashAccount = $accountsByCode->get('1010');
         $bankAccount = $accountsByCode->get('1020');
 
+        // Saldo awal = posisi kas & bank sebelum tanggal awal periode
+        $before = $this->glService->aggregateLines(fn ($q) => $q
+            ->whereIn('journal_lines.account_code', ['1010', '1020'])
+            ->where('journal_entries.entry_date', '<', $period->startDate()));
+        $openingBeforePeriod = round(
+            (float) $before->sum('sum_debit') - (float) $before->sum('sum_credit'),
+            2
+        );
+
         $lines = JournalLine::with(['journalEntry', 'account'])
             ->whereIn('account_code', ['1010', '1020'])
             ->whereHas('journalEntry', fn ($q) => $q->where('status', 'posted'))
             ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->whereBetween('journal_entries.entry_date', [$period->startDate(), $period->endDate()])
             ->orderBy('journal_entries.entry_date', 'asc')
             ->orderBy('journal_entries.id', 'asc')
             ->select('journal_lines.*')
             ->get();
 
-        $openingBalance     = 0.0;
+        $openingBalance     = $openingBeforePeriod;
         $inflowCustomerAr   = 0.0;
         $inflowPosRetail    = 0.0;
         $inflowOther        = 0.0;
         $outflowVendorAp    = 0.0;
         $outflowOther       = 0.0;
         $cashMovements      = [];
-        $runningCashBalance = 0.0;
+        $runningCashBalance = $openingBeforePeriod;
 
         foreach ($lines as $line) {
             $je     = $line->journalEntry;
@@ -174,11 +215,21 @@ class FinancialReportService
             $net    = $debit - $credit;
             $runningCashBalance = round($runningCashBalance + $net, 2);
 
-            $isOpening = $je->source_document_id === 'OPENING' || $je->entry_type === 'opening';
+            // Setoran kas toko ke bank = mutasi internal (Kas ↔ Bank), tidak mengubah total kas & bank
+            if ($je->entry_type === 'cash_transfer') {
+                continue;
+            }
+
+            $isOpening = GeneralLedgerService::isOpeningOrClosing($je->entry_type, $je->source_document_id);
 
             if ($isOpening) {
                 $openingBalance = round($openingBalance + $net, 2);
-                $category       = 'Saldo Awal Kas & Bank';
+                $category       = in_array($je->entry_type, GeneralLedgerService::CLOSING_TYPES, true)
+                    ? 'Penutupan Saldo Sistem Lama'
+                    : 'Saldo Awal Kas & Bank';
+            } elseif ($je->entry_type === 'tax_payment' && $credit > 0) {
+                $outflowOther = round($outflowOther + $credit, 2);
+                $category     = 'Penyetoran PPN ke Negara';
             } elseif ($debit > 0) {
                 if (in_array($je->source_document_type, ['pos_session', 'pos_order'], true) || $je->entry_type === 'pos_closing') {
                     $inflowPosRetail = round($inflowPosRetail + $debit, 2);
@@ -226,7 +277,7 @@ class FinancialReportService
         $endingBalance = round((float) ($cashAccount['balance'] ?? 0) + (float) ($bankAccount['balance'] ?? 0), 2);
 
         return [
-            'period_label'       => 'Tahun Buku Berjalan (' . now()->format('Y') . ')',
+            'period_label'       => $period->rangeLabel(),
             'cash_balance'       => (float) ($cashAccount['balance'] ?? 0),
             'bank_balance'       => (float) ($bankAccount['balance'] ?? 0),
             'opening_balance'    => $openingBalance,
@@ -246,26 +297,16 @@ class FinancialReportService
     /**
      * 4. Laporan Neraca Saldo (Trial Balance — Saldo Awal, Mutasi, dan Saldo Akhir).
      */
-    public function getTrialBalance(): array
+    public function getTrialBalance(ReportPeriod $period): array
     {
-        $summary = $this->glService->getAccountsSummary();
+        // Saldo akhir = kumulatif s/d akhir periode
+        $summary = $this->glService->getAccountsSummary(null, $period->endDate());
 
-        // Hitung pemisahan Saldo Awal (OPENING) vs Mutasi Periode Berjalan
-        $openingAgg = DB::table('journal_lines')
-            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
-            ->where('journal_entries.status', 'posted')
-            ->where(function ($q) {
-                $q->where('journal_entries.source_document_id', 'OPENING')
-                  ->orWhere('journal_entries.entry_type', 'opening');
-            })
-            ->selectRaw('
-                journal_lines.account_code,
-                COALESCE(SUM(journal_lines.debit), 0) AS open_debit,
-                COALESCE(SUM(journal_lines.credit), 0) AS open_credit
-            ')
-            ->groupBy('journal_lines.account_code')
-            ->get()
-            ->keyBy('account_code');
+        // Mutasi periode = jurnal di dalam periode, kecuali jurnal Saldo Awal (OPENING)
+        $mutationAgg = $this->glService->aggregateLines(function ($q) use ($period) {
+            $q->whereBetween('journal_entries.entry_date', [$period->startDate(), $period->endDate()]);
+            GeneralLedgerService::whereOpening($q, false);
+        });
 
         $rows             = [];
         $sumOpenDebit     = 0.0;
@@ -276,13 +317,15 @@ class FinancialReportService
         $sumEndingCredit  = 0.0;
 
         foreach ($summary['accounts'] as $acc) {
-            $code       = $acc['code'];
-            $open       = $openingAgg->get($code);
-            $openDebit  = round((float) ($open->open_debit ?? 0), 2);
-            $openCredit = round((float) ($open->open_credit ?? 0), 2);
+            $code      = $acc['code'];
+            $mut       = $mutationAgg->get($code);
+            $mutDebit  = round((float) ($mut->sum_debit ?? 0), 2);
+            $mutCredit = round((float) ($mut->sum_credit ?? 0), 2);
 
-            $mutDebit   = round(max(0, $acc['total_debit'] - $openDebit), 2);
-            $mutCredit  = round(max(0, $acc['total_credit'] - $openCredit), 2);
+            // Saldo awal = semua jurnal sebelum periode + jurnal OPENING di dalam periode (disajikan neto)
+            $openNet    = round(($acc['total_debit'] - $mutDebit) - ($acc['total_credit'] - $mutCredit), 2);
+            $openDebit  = $openNet > 0 ? $openNet : 0.0;
+            $openCredit = $openNet < 0 ? abs($openNet) : 0.0;
 
             $netDebitMinusCredit = round($acc['total_debit'] - $acc['total_credit'], 2);
             $endingDebit         = $netDebitMinusCredit > 0 ? $netDebitMinusCredit : 0.0;
@@ -309,12 +352,13 @@ class FinancialReportService
                 'ending_debit'   => $endingDebit,
                 'ending_credit'  => $endingCredit,
                 'balance'        => $acc['balance'],
-                'lines_count'    => $acc['lines_count'],
+                'lines_count'    => (int) ($mut->lines_count ?? 0),
             ];
         }
 
         return [
-            'as_of_date'        => now()->format('d F Y'),
+            'as_of_date'        => $period->endLabel(),
+            'period_label'      => $period->rangeLabel(),
             'rows'              => $rows,
             'sum_open_debit'    => $sumOpenDebit,
             'sum_open_credit'   => $sumOpenCredit,
@@ -331,9 +375,12 @@ class FinancialReportService
     /**
      * 6. Laporan Pajak (Tax Report — PPN Keluaran 2200 vs PPN Masukan 1300).
      */
-    public function getTaxReport(): array
+    public function getTaxReport(ReportPeriod $period): array
     {
-        $summary        = $this->glService->getAccountsSummary();
+        // Masa pajak: semua angka dihitung dalam periode terpilih
+        $from           = $period->startDate();
+        $to             = $period->endDate();
+        $summary        = $this->glService->getAccountsSummary($from, $to);
         $accountsByCode = collect($summary['accounts'])->keyBy('code');
 
         $taxRate = DB::table('tax_rates')->where('tax_id', 'VAT-NONLUX')->first();
@@ -341,6 +388,8 @@ class FinancialReportService
         // 1. Faktur Pelanggan (PPN Keluaran)
         $invoices = CustomerInvoice::with('customer')
             ->whereIn('status', ['posted', 'paid'])
+            ->whereBetween('invoice_date', [$from, $to])
+            ->where(fn ($q) => $this->whereJournaled($q, 'customer_invoices', 'customer_invoice')) // hanya dokumen yang tercatat di buku besar
             ->orderByDesc('invoice_date')
             ->orderByDesc('id')
             ->get()
@@ -359,6 +408,8 @@ class FinancialReportService
         // 2. Nota Kredit (Pengurang PPN Keluaran)
         $creditNotes = CreditNote::with('customer')
             ->whereIn('status', ['posted', 'applied'])
+            ->whereBetween('return_date', [$from, $to])
+            ->where(fn ($q) => $this->whereJournaled($q, 'credit_notes', 'credit_note')) // hanya dokumen yang tercatat di buku besar
             ->orderByDesc('return_date')
             ->orderByDesc('id')
             ->get()
@@ -377,6 +428,8 @@ class FinancialReportService
         // 3. Tagihan Pemasok (PPN Masukan)
         $vendorBills = VendorBill::with('vendor')
             ->whereIn('status', ['posted', 'paid'])
+            ->whereBetween('bill_date', [$from, $to])
+            ->where(fn ($q) => $this->whereJournaled($q, 'vendor_bills', 'vendor_bill')) // hanya dokumen yang tercatat di buku besar
             ->orderByDesc('bill_date')
             ->orderByDesc('id')
             ->get()
@@ -394,29 +447,48 @@ class FinancialReportService
 
         // Saldo Buku Besar Akun Pajak (2200 PPN Keluaran & 1300 PPN Masukan)
         $glOutputVat = (float) ($accountsByCode['2200']['balance'] ?? 0);
-        $glInputVat  = (float) ($accountsByCode['1300']['balance'] ?? 0);
 
         $invoiceTaxTotal    = round((float) $invoices->sum('total_tax'), 2);
         $creditNoteTaxTotal = round((float) $creditNotes->sum('total_tax'), 2);
 
-        // Total PPN Keluaran terutang = dari semua faktur - retur (berdasarkan dokumen, bukan hanya GL)
-        $outputVatFromInvoices = round($invoiceTaxTotal - $creditNoteTaxTotal, 2);
+        // Mutasi GL akun pajak dalam masa (tanpa jurnal penutup sistem lama)
+        $vatSum = function (string $account, string $side, ?callable $scope = null) use ($from, $to): float {
+            $q = DB::table('journal_lines')
+                ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+                ->where('journal_entries.status', 'posted')
+                ->whereBetween('journal_entries.entry_date', [$from, $to])
+                ->whereNotIn('journal_entries.entry_type', GeneralLedgerService::CLOSING_TYPES)
+                ->where('journal_lines.account_code', $account);
+            if ($scope) {
+                $scope($q);
+            }
 
-        // PPN yang sudah dibayar ke negara = debit movements di GL 2200 dari tax_payment entries
-        $paidOutputVat = (float) (JournalLine::where('account_code', '2200')
-            ->whereHas('journalEntry', fn ($q) => $q->where('entry_type', 'tax_payment')->where('status', 'posted'))
-            ->sum('debit') ?: 0);
+            return round((float) $q->sum("journal_lines.{$side}"), 2);
+        };
+        $isTaxPayment  = fn ($q) => $q->where('journal_entries.entry_type', 'tax_payment');
+        $notTaxPayment = fn ($q) => $q->where('journal_entries.entry_type', '!=', 'tax_payment');
 
-        // Sisa PPN Keluaran yang belum dibayar ke negara
-        $remainingOutputVat = round($outputVatFromInvoices - $paidOutputVat, 2);
+        // PPN Keluaran masa = kredit 2200 (faktur, POS, saldo awal) − debit 2200 non-setoran (retur)
+        $outputVatTotal = round($vatSum('2200', 'credit') - $vatSum('2200', 'debit', $notTaxPayment), 2);
 
-        // PPN dari POS (selisih GL 2200 credit dari non-invoice entries, jika ada)
-        // Untuk saat ini: POS tax sudah tercatat via GL, cukup tampilkan 0
-        $posOutputTaxTotal = 0;
+        // PPN Keluaran yang sudah disetor / dikompensasi = debit 2200 dari jurnal penyetoran PPN
+        $paidOutputVat = $vatSum('2200', 'debit', $isTaxPayment);
+
+        // Sisa PPN Keluaran yang belum disetor
+        $remainingOutputVat = round($outputVatTotal - $paidOutputVat, 2);
+
+        // PPN Keluaran dari penjualan POS (tercatat via jurnal sesi/struk POS)
+        $posOutputTaxTotal = $vatSum('2200', 'credit', fn ($q) => $q
+            ->whereIn('journal_entries.source_document_type', ['pos_session', 'pos_order']));
+
+        // PPN Masukan masa = debit 1300; sebagian bisa sudah dikompensasi saat penyetoran PPN
+        $glInputVat         = $vatSum('1300', 'debit');
+        $inputVatCompensated = $vatSum('1300', 'credit', $isTaxPayment);
 
         // Riwayat pembayaran PPN ke negara
         $taxPayments = JournalEntry::where('entry_type', 'tax_payment')
             ->where('status', 'posted')
+            ->whereBetween('entry_date', [$from, $to])
             ->orderByDesc('entry_date')
             ->get()
             ->map(fn ($je) => [
@@ -426,9 +498,10 @@ class FinancialReportService
                 'description' => $je->description,
             ]);
 
-        $netTaxPayable = round($remainingOutputVat - $glInputVat, 2);
+        $netTaxPayable = round($remainingOutputVat - ($glInputVat - $inputVatCompensated), 2);
 
         return [
+            'period_label' => $period->rangeLabel(),
             'tax_policy' => [
                 'tax_id'          => $taxRate->tax_id ?? 'VAT-NONLUX',
                 'formal_rate'     => $taxRate->formal_rate ?? '12%',
@@ -437,8 +510,9 @@ class FinancialReportService
                 'rounding_policy' => $taxRate->rounding_policy ?? 'Per invoice line; rupiah terdekat',
             ],
             'summary' => [
-                'output_vat_total'    => $outputVatFromInvoices,   // Total PPN keluaran dari semua faktur (neto)
-                'output_vat_paid'     => $paidOutputVat,            // Sudah dibayar ke negara
+                'output_vat_total'    => $outputVatTotal,           // Total PPN keluaran masa (faktur + POS − retur)
+                'output_vat_paid'     => $paidOutputVat,            // Sudah disetor / dikompensasi
+                'input_vat_compensated' => $inputVatCompensated,
                 'output_vat_remaining'=> $remainingOutputVat,       // Sisa yang belum dibayar
                 'output_vat_gl'       => $glOutputVat,              // GL 2200 balance (referensi)
                 'input_vat_gl'        => $glInputVat,
@@ -459,5 +533,18 @@ class FinancialReportService
             'tax_payments' => $taxPayments->values()->all(),
         ];
     }
-}
 
+    /**
+     * Dokumen dianggap tercatat di buku besar bila punya journal_entry_id,
+     * atau menjadi sumber jurnal posted (mis. jurnal historis sistem lama).
+     */
+    private function whereJournaled($q, string $table, string $sourceType): void
+    {
+        $q->whereNotNull("{$table}.journal_entry_id")
+            ->orWhereExists(fn ($s) => $s->select(DB::raw(1))
+                ->from('journal_entries')
+                ->whereColumn('journal_entries.source_document_id', "{$table}.id")
+                ->where('journal_entries.source_document_type', $sourceType)
+                ->where('journal_entries.status', 'posted'));
+    }
+}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import AccountingLayout from '@/Layouts/AccountingLayout';
+import PeriodFilter, { periodQuery } from '@/Components/Accounting/PeriodFilter';
 import {
     Percent,
     FileCheck2,
@@ -18,7 +19,8 @@ import {
 
 const formatRp = (val) => 'Rp ' + Number(val || 0).toLocaleString('id-ID');
 
-export default function TaxReport({ report, flash }) {
+export default function TaxReport({ report, flash, period }) {
+    const pq = periodQuery(period);
     const policy     = report?.tax_policy || {};
     const summary    = report?.summary || {};
     const invoices   = report?.invoices || [];
@@ -57,38 +59,43 @@ export default function TaxReport({ report, flash }) {
 
             <div className="space-y-6">
                 {/* Header & Tax Policy Banner */}
-                <div className="flex flex-col justify-between gap-4 rounded-sm border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <Percent className="h-5 w-5 text-emerald-600" />
-                            <h1 className="text-lg font-bold text-slate-900">
-                                Laporan Pajak Pertambahan Nilai (PPN Keluaran vs PPN Masukan)
-                            </h1>
+                <div className="rounded-sm border border-slate-200 bg-white shadow-xs">
+                    <div className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <Percent className="h-5 w-5 text-emerald-600" />
+                                <h1 className="text-lg font-bold text-slate-900">
+                                    Laporan Pajak Pertambahan Nilai (PPN Keluaran vs PPN Masukan)
+                                </h1>
+                            </div>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                                Skema Pajak: <strong className="text-slate-700">{policy.tax_id}</strong>{' '}
+                                (Tarif Formal {policy.formal_rate} &bull; DPP Nilai Lain{' '}
+                                {policy.tax_base_factor} &bull; Tarif Efektif{' '}
+                                <strong className="text-emerald-700">{policy.effective_rate}</strong> &bull;{' '}
+                                {policy.rounding_policy})
+                            </p>
                         </div>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                            Skema Pajak: <strong className="text-slate-700">{policy.tax_id}</strong>{' '}
-                            (Tarif Formal {policy.formal_rate} &bull; DPP Nilai Lain{' '}
-                            {policy.tax_base_factor} &bull; Tarif Efektif{' '}
-                            <strong className="text-emerald-700">{policy.effective_rate}</strong> &bull;{' '}
-                            {policy.rounding_policy})
-                        </p>
-                    </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                            onClick={() => setShowPayVatModal(true)}
-                            className="inline-flex items-center gap-1.5 rounded border border-amber-400 bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 transition"
-                        >
-                            <Landmark className="h-3.5 w-3.5" />
-                            <span>Bayar PPN ke Negara</span>
-                        </button>
-                        <Link
-                            href={route('accounting.reports.general-ledger', { account: '2200' })}
-                            className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                        >
-                            <Scale className="h-3.5 w-3.5 text-slate-500" />
-                            <span>Buku Besar Pajak</span>
-                        </Link>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                                onClick={() => setShowPayVatModal(true)}
+                                className="inline-flex items-center gap-1.5 rounded border border-amber-400 bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 transition"
+                            >
+                                <Landmark className="h-3.5 w-3.5" />
+                                <span>Bayar PPN ke Negara</span>
+                            </button>
+                            <Link
+                                href={route('accounting.reports.general-ledger', { ...pq, account: '2200' })}
+                                className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                            >
+                                <Scale className="h-3.5 w-3.5 text-slate-500" />
+                                <span>Buku Besar Pajak</span>
+                            </Link>
+                        </div>
+                    </div>
+                    <div className="border-t border-slate-100 px-4 py-2.5">
+                        <PeriodFilter period={period} routeName="accounting.reports.tax" />
                     </div>
                 </div>
 
@@ -101,7 +108,7 @@ export default function TaxReport({ report, flash }) {
                                 PPN Keluaran (Total)
                             </p>
                             <Link
-                                href={route('accounting.reports.general-ledger', { account: '2200' })}
+                                href={route('accounting.reports.general-ledger', { ...pq, account: '2200' })}
                                 className="text-[11px] font-semibold text-amber-700 hover:underline flex items-center gap-0.5"
                             >
                                 <span>GL 2200</span>
@@ -112,7 +119,7 @@ export default function TaxReport({ report, flash }) {
                             {formatRp(summary.output_vat_total)}
                         </p>
                         <p className="mt-1 text-[11px] text-amber-700">
-                            Faktur: {formatRp(summary.invoice_tax_total)}{summary.credit_note_tax > 0 ? ` • Retur: -${formatRp(summary.credit_note_tax)}` : ''}
+                            Faktur: {formatRp(summary.invoice_tax_total)}{summary.pos_output_tax > 0 ? ` • POS: ${formatRp(summary.pos_output_tax)}` : ''}{summary.credit_note_tax > 0 ? ` • Retur: -${formatRp(summary.credit_note_tax)}` : ''}
                         </p>
                     </div>
 
@@ -155,7 +162,7 @@ export default function TaxReport({ report, flash }) {
                                 PPN Masukan (Akun 1300)
                             </p>
                             <Link
-                                href={route('accounting.reports.general-ledger', { account: '1300' })}
+                                href={route('accounting.reports.general-ledger', { ...pq, account: '1300' })}
                                 className="text-[11px] font-semibold text-emerald-700 hover:underline flex items-center gap-0.5"
                             >
                                 <span>GL 1300</span>

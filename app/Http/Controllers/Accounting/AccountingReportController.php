@@ -8,6 +8,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\GeneralLedgerService;
+use App\Support\ReportPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,40 +34,52 @@ class AccountingReportController extends Controller
     /**
      * 1. Laporan Neraca Keuangan (Balance Sheet).
      */
-    public function balanceSheet(): Response
+    public function balanceSheet(Request $request): Response
     {
+        $period = ReportPeriod::fromRequest($request);
+
         return Inertia::render('Accounting/Reports/BalanceSheet', [
-            'report' => $this->reportService->getBalanceSheet(),
+            'report' => $this->reportService->getBalanceSheet($period),
+            'period' => $period->toArray(),
         ]);
     }
 
     /**
      * 2. Laporan Laba dan Rugi (Profit & Loss).
      */
-    public function profitLoss(): Response
+    public function profitLoss(Request $request): Response
     {
+        $period = ReportPeriod::fromRequest($request);
+
         return Inertia::render('Accounting/Reports/ProfitLoss', [
-            'report' => $this->reportService->getProfitAndLoss(),
+            'report' => $this->reportService->getProfitAndLoss($period),
+            'period' => $period->toArray(),
         ]);
     }
 
     /**
      * 3. Laporan Arus Kas (Cash Flow Statement).
      */
-    public function cashFlow(): Response
+    public function cashFlow(Request $request): Response
     {
+        $period = ReportPeriod::fromRequest($request);
+
         return Inertia::render('Accounting/Reports/CashFlow', [
-            'report' => $this->reportService->getCashFlow(),
+            'report' => $this->reportService->getCashFlow($period),
+            'period' => $period->toArray(),
         ]);
     }
 
     /**
      * 4. Laporan Neraca Saldo (Trial Balance).
      */
-    public function trialBalance(): Response
+    public function trialBalance(Request $request): Response
     {
+        $period = ReportPeriod::fromRequest($request);
+
         return Inertia::render('Accounting/Reports/TrialBalance', [
-            'report' => $this->reportService->getTrialBalance(),
+            'report' => $this->reportService->getTrialBalance($period),
+            'period' => $period->toArray(),
         ]);
     }
 
@@ -78,9 +91,17 @@ class AccountingReportController extends Controller
         $accountCode = $request->query('account', 'all');
         $entryType   = $request->query('entry_type', 'all');
 
-        $data = $this->glService->getAccountLedger($accountCode, $entryType);
+        $period      = ReportPeriod::fromRequest($request);
+
+        $data = $this->glService->getAccountLedger(
+            $accountCode,
+            $entryType,
+            $period->startDate(),
+            $period->endDate()
+        );
 
         return Inertia::render('Accounting/GeneralLedger/Index', [
+            'period'          => $period->toArray(),
             'summary'         => $data['summary'],
             'selectedAccount' => $data['selected_account'],
             'ledgerRows'      => $data['ledger_rows'],
@@ -95,10 +116,13 @@ class AccountingReportController extends Controller
     /**
      * 6. Laporan Pajak (Tax Report — PPN Keluaran vs PPN Masukan).
      */
-    public function taxReport(): Response
+    public function taxReport(Request $request): Response
     {
+        $period = ReportPeriod::fromRequest($request);
+
         return Inertia::render('Accounting/Reports/TaxReport', [
-            'report' => $this->reportService->getTaxReport(),
+            'report' => $this->reportService->getTaxReport($period),
+            'period' => $period->toArray(),
         ]);
     }
 
@@ -180,7 +204,10 @@ class AccountingReportController extends Controller
             );
         });
 
-        return redirect()->route('accounting.reports.tax')
+        // Kembali ke masa pajak sesuai tanggal pembayaran agar pembayaran langsung terlihat
+        $paidOn = \Carbon\Carbon::parse($request->payment_date);
+
+        return redirect()->route('accounting.reports.tax', ['year' => $paidOn->year, 'month' => $paidOn->month])
             ->with('success', 'Pembayaran PPN Keluaran ke negara berhasil dicatat.');
     }
 }

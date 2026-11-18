@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AccountingLayout from '@/Layouts/AccountingLayout';
+import PeriodFilter, { periodQuery } from '@/Components/Accounting/PeriodFilter';
 import {
     TrendingUp,
     ArrowUpRight,
@@ -10,7 +11,8 @@ import {
 
 const formatRp = (val) => 'Rp ' + Number(val || 0).toLocaleString('id-ID');
 
-export default function ProfitLoss({ report }) {
+export default function ProfitLoss({ report, period }) {
+    const pq = periodQuery(period);
     const revenues = report?.revenues || [];
     const expenses = report?.expenses || [];
     const recentLines = report?.recent_lines || [];
@@ -28,30 +30,35 @@ export default function ProfitLoss({ report }) {
 
             <div className="space-y-6">
                 {/* Header */}
-                <div className="flex flex-col justify-between gap-4 rounded-sm border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-emerald-600" />
-                            <h1 className="text-lg font-bold text-slate-900">
-                                Laporan Laba dan Rugi (Profit &amp; Loss)
-                            </h1>
+                <div className="rounded-sm border border-slate-200 bg-white shadow-xs">
+                    <div className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <TrendingUp className="h-5 w-5 text-emerald-600" />
+                                <h1 className="text-lg font-bold text-slate-900">
+                                    Laporan Laba dan Rugi (Profit &amp; Loss)
+                                </h1>
+                            </div>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                                Kinerja Operasional PT Bara Ritel Nusantara —{' '}
+                                <span className="font-semibold text-slate-700">
+                                    {report?.period_label}
+                                </span>
+                            </p>
                         </div>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                            Kinerja Operasional PT Bara Ritel Nusantara —{' '}
-                            <span className="font-semibold text-slate-700">
-                                {report?.period_label}
-                            </span>
-                        </p>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                        <Link
-                            href={route('accounting.reports.balance-sheet')}
-                            className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                        >
-                            <Landmark className="h-3.5 w-3.5 text-slate-500" />
-                            <span>Lihat Neraca Keuangan</span>
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href={route('accounting.reports.balance-sheet', pq)}
+                                className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                            >
+                                <Landmark className="h-3.5 w-3.5 text-slate-500" />
+                                <span>Lihat Neraca Keuangan</span>
+                            </Link>
+                        </div>
+                    </div>
+                    <div className="border-t border-slate-100 px-4 py-2.5">
+                        <PeriodFilter period={period} routeName="accounting.reports.profit-loss" />
                     </div>
                 </div>
 
@@ -83,7 +90,7 @@ export default function ProfitLoss({ report }) {
 
                     <div className="rounded-sm border border-slate-200 bg-white p-4 shadow-xs">
                         <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                            Laba Bersih Tahun Berjalan
+                            Laba Bersih Periode Ini
                         </p>
                         <p
                             className={`mt-1.5 font-mono text-xl font-extrabold ${
@@ -148,6 +155,7 @@ export default function ProfitLoss({ report }) {
                                         <td className="px-5 py-3 font-mono font-bold text-emerald-700">
                                             <Link
                                                 href={route('accounting.reports.general-ledger', {
+                                                    ...pq,
                                                     account: rev.code,
                                                 })}
                                                 className="inline-flex items-center gap-1 hover:underline"
@@ -192,6 +200,7 @@ export default function ProfitLoss({ report }) {
                                         <td className="px-5 py-3 font-mono font-bold text-rose-700">
                                             <Link
                                                 href={route('accounting.reports.general-ledger', {
+                                                    ...pq,
                                                     account: exp.code,
                                                 })}
                                                 className="inline-flex items-center gap-1 hover:underline"

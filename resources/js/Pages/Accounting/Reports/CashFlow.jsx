@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AccountingLayout from '@/Layouts/AccountingLayout';
+import PeriodFilter, { periodQuery } from '@/Components/Accounting/PeriodFilter';
 import {
     ArrowLeftRight,
     Wallet,
@@ -10,7 +11,8 @@ import {
 
 const formatRp = (val) => 'Rp ' + Number(val || 0).toLocaleString('id-ID');
 
-export default function CashFlow({ report }) {
+export default function CashFlow({ report, period }) {
+    const pq = periodQuery(period);
     const movements = report?.movements || [];
 
     return (
@@ -26,30 +28,35 @@ export default function CashFlow({ report }) {
 
             <div className="space-y-6">
                 {/* Header */}
-                <div className="flex flex-col justify-between gap-4 rounded-sm border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <ArrowLeftRight className="h-5 w-5 text-emerald-600" />
-                            <h1 className="text-lg font-bold text-slate-900">
-                                Laporan Arus Kas (Cash Flow Statement)
-                            </h1>
+                <div className="rounded-sm border border-slate-200 bg-white shadow-xs">
+                    <div className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <ArrowLeftRight className="h-5 w-5 text-emerald-600" />
+                                <h1 className="text-lg font-bold text-slate-900">
+                                    Laporan Arus Kas (Cash Flow Statement)
+                                </h1>
+                            </div>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                                Mutasi Likuiditas Akun Kas (1010) &amp; Bank (1020) —{' '}
+                                <span className="font-semibold text-slate-700">
+                                    {report?.period_label}
+                                </span>
+                            </p>
                         </div>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                            Mutasi Likuiditas Akun Kas (1010) &amp; Bank (1020) —{' '}
-                            <span className="font-semibold text-slate-700">
-                                {report?.period_label}
-                            </span>
-                        </p>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                        <Link
-                            href={route('accounting.payments.index')}
-                            className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                        >
-                            <Wallet className="h-3.5 w-3.5 text-slate-500" />
-                            <span>Buka Menu Pembayaran</span>
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href={route('accounting.payments.index')}
+                                className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                            >
+                                <Wallet className="h-3.5 w-3.5 text-slate-500" />
+                                <span>Buka Menu Pembayaran</span>
+                            </Link>
+                        </div>
+                    </div>
+                    <div className="border-t border-slate-100 px-4 py-2.5">
+                        <PeriodFilter period={period} routeName="accounting.reports.cash-flow" />
                     </div>
                 </div>
 
@@ -63,7 +70,7 @@ export default function CashFlow({ report }) {
                             {formatRp(report?.opening_balance)}
                         </p>
                         <p className="mt-1 text-[11px] text-slate-500">
-                            Posisi Saldo Pembukaan (OPENING)
+                            Posisi kas &amp; bank di awal periode
                         </p>
                     </div>
 

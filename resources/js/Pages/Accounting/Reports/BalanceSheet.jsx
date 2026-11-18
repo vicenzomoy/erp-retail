@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AccountingLayout from '@/Layouts/AccountingLayout';
+import PeriodFilter, { periodQuery } from '@/Components/Accounting/PeriodFilter';
 import {
     Landmark,
     CheckCircle2,
@@ -11,7 +12,8 @@ import {
 
 const formatRp = (val) => 'Rp ' + Number(val || 0).toLocaleString('id-ID');
 
-export default function BalanceSheet({ report }) {
+export default function BalanceSheet({ report, period }) {
+    const pq = periodQuery(period);
     const assets = report?.assets || [];
     const liabilities = report?.liabilities || [];
     const equityAccounts = report?.equity_accounts || [];
@@ -29,42 +31,47 @@ export default function BalanceSheet({ report }) {
 
             <div className="space-y-6">
                 {/* Control Bar Header */}
-                <div className="flex flex-col justify-between gap-4 rounded-sm border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <Landmark className="h-5 w-5 text-emerald-600" />
-                            <h1 className="text-lg font-bold text-slate-900">
-                                Laporan Neraca Keuangan (Balance Sheet)
-                            </h1>
+                <div className="rounded-sm border border-slate-200 bg-white shadow-xs">
+                    <div className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <Landmark className="h-5 w-5 text-emerald-600" />
+                                <h1 className="text-lg font-bold text-slate-900">
+                                    Laporan Neraca Keuangan (Balance Sheet)
+                                </h1>
+                            </div>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                                Posisi Keuangan PT Bara Ritel Nusantara per{' '}
+                                <span className="font-semibold text-slate-700">
+                                    {report?.as_of_date}
+                                </span>
+                            </p>
                         </div>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                            Posisi Keuangan PT Bara Ritel Nusantara per{' '}
-                            <span className="font-semibold text-slate-700">
-                                {report?.as_of_date}
-                            </span>
-                        </p>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            {report?.is_balanced ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                    Aset = Liabilitas + Ekuitas (Seimbang)
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-800">
+                                    <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
+                                    Tidak Seimbang
+                                </span>
+                            )}
+
+                            <Link
+                                href={route('accounting.reports.trial-balance', pq)}
+                                className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                            >
+                                <Scale className="h-3.5 w-3.5 text-slate-500" />
+                                <span>Lihat Neraca Saldo</span>
+                            </Link>
+                        </div>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                        {report?.is_balanced ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                                Aset = Liabilitas + Ekuitas (Seimbang)
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-800">
-                                <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
-                                Tidak Seimbang
-                            </span>
-                        )}
-
-                        <Link
-                            href={route('accounting.reports.trial-balance')}
-                            className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                        >
-                            <Scale className="h-3.5 w-3.5 text-slate-500" />
-                            <span>Lihat Neraca Saldo</span>
-                        </Link>
+                    <div className="border-t border-slate-100 px-4 py-2.5">
+                        <PeriodFilter period={period} routeName="accounting.reports.balance-sheet" />
                     </div>
                 </div>
 
@@ -138,6 +145,7 @@ export default function BalanceSheet({ report }) {
                                             <td className="px-4 py-3 font-mono font-bold text-emerald-700">
                                                 <Link
                                                     href={route('accounting.reports.general-ledger', {
+                                                        ...pq,
                                                         account: acc.code,
                                                     })}
                                                     className="inline-flex items-center gap-1 hover:underline"
@@ -211,6 +219,7 @@ export default function BalanceSheet({ report }) {
                                             <td className="px-4 py-2.5 font-mono font-bold text-amber-700">
                                                 <Link
                                                     href={route('accounting.reports.general-ledger', {
+                                                        ...pq,
                                                         account: acc.code,
                                                     })}
                                                     className="inline-flex items-center gap-1 hover:underline"
@@ -253,6 +262,7 @@ export default function BalanceSheet({ report }) {
                                             <td className="px-4 py-2.5 font-mono font-bold text-indigo-700">
                                                 <Link
                                                     href={route('accounting.reports.general-ledger', {
+                                                        ...pq,
                                                         account: acc.code,
                                                     })}
                                                     className="inline-flex items-center gap-1 hover:underline"
@@ -269,11 +279,23 @@ export default function BalanceSheet({ report }) {
                                             </td>
                                         </tr>
                                     ))}
+                                    {/* Laba ditahan dari tahun-tahun sebelumnya (hanya tampil bila ada) */}
+                                    {Number(report?.retained_earnings || 0) !== 0 && (
+                                        <tr className="hover:bg-slate-50 transition">
+                                            <td className="px-4 py-2.5 font-mono font-bold text-indigo-700">—</td>
+                                            <td className="px-4 py-2.5 font-semibold text-slate-900">
+                                                Laba Ditahan (Tahun Sebelumnya)
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
+                                                {formatRp(report?.retained_earnings)}
+                                            </td>
+                                        </tr>
+                                    )}
                                     {/* Baris Laba / (Rugi) Tahun Berjalan */}
                                     <tr className="hover:bg-slate-50 transition">
                                         <td className="px-4 py-2.5 font-mono font-bold text-emerald-700">
                                             <Link
-                                                href={route('accounting.reports.profit-loss')}
+                                                href={route('accounting.reports.profit-loss', pq)}
                                                 className="inline-flex items-center gap-1 hover:underline"
                                             >
                                                 <span>L/R</span>

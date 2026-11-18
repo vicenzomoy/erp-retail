@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             RetailDatasetSeeder::class,
             AppInitialSeeder::class,
             LegacySalesSeeder::class,
+            LegacyAccountingSeeder::class, // jurnal untuk data historis (harus setelah LegacySalesSeeder)
         ]);
     }
 }

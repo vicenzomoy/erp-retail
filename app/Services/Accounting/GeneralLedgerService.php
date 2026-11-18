@@ -6,6 +6,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\Master\ChartOfAccount;
 use App\Models\StockMove;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -36,22 +37,21 @@ class GeneralLedgerService
      *   is_balanced: bool
      * }
      */
-    public function getAccountsSummary(): array
+    public function getAccountsSummary(?string $from = null, ?string $to = null, bool $excludeClosing = false): array
     {
         $accounts = ChartOfAccount::orderBy('code')->get();
 
-        $aggregates = DB::table('journal_lines')
-            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
-            ->where('journal_entries.status', 'posted')
-            ->selectRaw('
-                journal_lines.account_code,
-                COALESCE(SUM(journal_lines.debit), 0) AS sum_debit,
-                COALESCE(SUM(journal_lines.credit), 0) AS sum_credit,
-                COUNT(journal_lines.id) AS lines_count
-            ')
-            ->groupBy('journal_lines.account_code')
-            ->get()
-            ->keyBy('account_code');
+        $aggregates = $this->aggregateLines(function ($q) use ($from, $to, $excludeClosing) {
+            if ($from) {
+                $q->where('journal_entries.entry_date', '>=', $from);
+            }
+            if ($to) {
+                $q->where('journal_entries.entry_date', '<=', $to);
+            }
+            if ($excludeClosing) {
+                $q->whereNotIn('journal_entries.entry_type', self::CLOSING_TYPES);
+            }
+        });
 
         $grandDebit  = '0.00';
         $grandCredit = '0.00';
@@ -91,11 +91,93 @@ class GeneralLedgerService
     }
 
     /**
-     * Ambil mutasi buku besar (General Ledger lines) dengan perhitungan Running Balance per akun.
+     * Agregasi debit/kredit per akun dari jurnal berstatus posted.
+     * $scope menerima query builder (journal_lines JOIN journal_entries) untuk filter tambahan.
      */
-    public function getAccountLedger(?string $accountCode = null, ?string $entryType = null): array
+    public function aggregateLines(?callable $scope = null)
     {
-        $summary = $this->getAccountsSummary();
+        $query = DB::table('journal_lines')
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->where('journal_entries.status', 'posted');
+
+        if ($scope) {
+            $scope($query);
+        }
+
+        return $query
+            ->selectRaw('
+                journal_lines.account_code,
+                COALESCE(SUM(journal_lines.debit), 0) AS sum_debit,
+                COALESCE(SUM(journal_lines.credit), 0) AS sum_credit,
+                COUNT(journal_lines.id) AS lines_count
+            ')
+            ->groupBy('journal_lines.account_code')
+            ->get()
+            ->keyBy('account_code');
+    }
+
+    /** Tipe jurnal saldo awal. */
+    public const OPENING_TYPES = ['opening', 'opening_balance'];
+
+    /** Jurnal penutup sistem lama (memindahkan saldo historis ke Saldo Awal go-live). */
+    public const CLOSING_TYPES = ['legacy_closing'];
+
+    /** Saldo awal & penutup: bukan transaksi operasional periode berjalan. */
+    public static function isOpeningOrClosing(?string $entryType, ?string $sourceDocumentId): bool
+    {
+        return $sourceDocumentId === 'OPENING'
+            || in_array($entryType, [...self::OPENING_TYPES, ...self::CLOSING_TYPES], true);
+    }
+
+    /**
+     * Filter untuk jurnal Saldo Awal (OPENING) dan jurnal penutup sistem lama.
+     */
+    public static function whereOpening($q, bool $isOpening = true): void
+    {
+        $types = [...self::OPENING_TYPES, ...self::CLOSING_TYPES];
+
+        if ($isOpening) {
+            $q->where(function ($w) use ($types) {
+                $w->where('journal_entries.source_document_id', 'OPENING')
+                  ->orWhereIn('journal_entries.entry_type', $types);
+            });
+        } else {
+            $q->where(function ($w) {
+                $w->whereNull('journal_entries.source_document_id')
+                  ->orWhere('journal_entries.source_document_id', '!=', 'OPENING');
+            })->where(function ($w) use ($types) {
+                $w->whereNull('journal_entries.entry_type')
+                  ->orWhereNotIn('journal_entries.entry_type', $types);
+            });
+        }
+    }
+
+    /**
+     * Ambil mutasi buku besar (General Ledger lines) dengan perhitungan Running Balance per akun.
+     *
+     * Bila $from/$to diisi (filter periode), ringkasan akun berisi:
+     *   opening_balance = saldo sebelum $from, total_debit/total_credit = mutasi periode,
+     *   balance = saldo akhir per $to. Saldo berjalan dimulai dari saldo awal tersebut.
+     */
+    public function getAccountLedger(
+        ?string $accountCode = null,
+        ?string $entryType = null,
+        ?string $from = null,
+        ?string $to = null
+    ): array {
+        $summary = $this->getAccountsSummary($from, $to);
+
+        $openingByCode = $from
+            ? collect($this->getAccountsSummary(null, Carbon::parse($from)->subDay()->toDateString())['accounts'])->keyBy('code')
+            : collect();
+
+        foreach ($summary['accounts'] as &$acc) {
+            $openingBalance         = (float) ($openingByCode[$acc['code']]['balance'] ?? 0);
+            $acc['opening_balance'] = $openingBalance;
+            $acc['balance']         = round($openingBalance + $acc['balance'], 2);
+        }
+        unset($acc);
+
         $accountsByCode = collect($summary['accounts'])->keyBy('code');
 
         $query = JournalLine::query()
@@ -115,6 +197,12 @@ class GeneralLedgerService
         if ($accountCode && $accountCode !== 'all') {
             $query->where('journal_lines.account_code', $accountCode);
         }
+        if ($from) {
+            $query->where('journal_entries.entry_date', '>=', $from);
+        }
+        if ($to) {
+            $query->where('journal_entries.entry_date', '<=', $to);
+        }
 
         $lines = $query->get();
 
@@ -128,7 +216,7 @@ class GeneralLedgerService
             $normalSide = $accInfo['normal_side'] ?? 'debit';
 
             if (! isset($runningByAccount[$code])) {
-                $runningByAccount[$code] = '0.00';
+                $runningByAccount[$code] = number_format((float) ($accInfo['opening_balance'] ?? 0), 2, '.', '');
             }
 
             $delta = $normalSide === 'debit'
@@ -162,6 +250,8 @@ class GeneralLedgerService
 
         // Ambil Stock Moves yang terhubung ke jurnal COGS / Persediaan untuk bukti T-27
         $stockMoves = StockMove::with(['product', 'journalEntry'])
+            ->when($from, fn ($q) => $q->where('done_at', '>=', $from . ' 00:00:00'))
+            ->when($to, fn ($q) => $q->where('done_at', '<=', $to . ' 23:59:59'))
             ->orderByDesc('id')
             ->limit(25)
             ->get()
