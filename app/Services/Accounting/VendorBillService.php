@@ -83,7 +83,7 @@ class VendorBillService
             // Hitung qty yang sudah ditagihkan pada Vendor Bill aktif (draft/posted/paid) selain bill ini
             $alreadyBilledQuery = VendorBillLine::whereHas('vendorBill', function ($q) use ($po, $excludeBillId) {
                 $q->where('purchase_order_id', $po->id)
-                  ->whereIn('status', ['posted', 'paid']);
+                  ->whereIn('status', ['draft', 'posted', 'paid']);
                 if ($excludeBillId) {
                     $q->where('id', '!=', $excludeBillId);
                 }

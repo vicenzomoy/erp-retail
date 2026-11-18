@@ -32,16 +32,12 @@ class CustomerInvoiceController extends Controller
         $status = $request->query('status', 'all');
         $search = $request->query('search', '');
 
-        $query = CustomerInvoice::with(['customer', 'salesOrder', 'journalEntry'])
+        $baseQuery = CustomerInvoice::with(['customer', 'salesOrder', 'journalEntry'])
             ->orderByDesc('created_at')
             ->orderByDesc('id');
 
-        if ($status !== 'all' && $status !== 'to_invoice') {
-            $query->where('status', $status);
-        }
-
         if ($search) {
-            $query->where(function ($q) use ($search) {
+            $baseQuery->where(function ($q) use ($search) {
                 $q->where('id', 'ilike', "%{$search}%")
                   ->orWhere('sales_order_id', 'ilike', "%{$search}%")
                   ->orWhereHas('customer', function ($cq) use ($search) {
@@ -50,7 +46,7 @@ class CustomerInvoiceController extends Controller
             });
         }
 
-        $invoices = $query->paginate(15)->through(fn (CustomerInvoice $inv) => [
+        $mapInvoice = fn (CustomerInvoice $inv) => [
             'id'                  => $inv->id,
             'sales_order_id'      => $inv->sales_order_id,
             'customer_id'         => $inv->customer_id,
@@ -65,10 +61,23 @@ class CustomerInvoiceController extends Controller
             'amount_paid'         => (float) $inv->amount_paid,
             'amount_residual'     => (float) $inv->amount_residual,
             'journal_entry_no'    => $inv->journalEntry?->entry_no,
-        ])->withQueryString();
+        ];
 
-        // Daftar Sales Order yang sudah dikirim gudang namun belum selesai difakturkan
-        $pendingOrders = [];
+        $query = clone $baseQuery;
+        if ($status !== 'all' && $status !== 'to_invoice') {
+            $query->where('status', $status);
+        }
+
+        $invoices = $query->paginate(15)->through($mapInvoice)->withQueryString();
+
+        $groupedInvoices = [
+            'draft'  => (clone $baseQuery)->where('status', 'draft')->get()->map($mapInvoice)->values(),
+            'posted' => (clone $baseQuery)->where('status', 'posted')->get()->map($mapInvoice)->values(),
+            'paid'   => (clone $baseQuery)->where('status', 'paid')->get()->map($mapInvoice)->values(),
+        ];
+
+        // Daftar Sales Order yang sudah dikirim gudang namun belum dibuatkan faktur
+        $allPendingOrders = [];
         $confirmedSos = SalesOrder::with(['customer', 'lines.product', 'deliveryOrders.lines'])
             ->whereIn('status', ['confirmed', 'done'])
             ->orderByDesc('id')
@@ -77,22 +86,33 @@ class CustomerInvoiceController extends Controller
         foreach ($confirmedSos as $so) {
             $matrix = $this->invoiceService->getBillableMatrixForSo($so);
             if ($matrix['has_done_delivery'] && (float) $matrix['total_invoiceable'] > 0) {
-                $pendingOrders[] = $matrix;
+                $allPendingOrders[] = $matrix;
             }
+        }
+
+        $pendingOrders = $allPendingOrders;
+        if ($search) {
+            $needle = mb_strtolower($search);
+            $pendingOrders = array_values(array_filter($allPendingOrders, function (array $m) use ($needle) {
+                return str_contains(mb_strtolower((string) ($m['sales_order_id'] ?? '')), $needle)
+                    || str_contains(mb_strtolower((string) ($m['customer_name'] ?? '')), $needle)
+                    || str_contains(mb_strtolower((string) ($m['primary_delivery_id'] ?? '')), $needle);
+            }));
         }
 
         $arLedger = $this->glService->getAccountLedger('1100');
 
         return Inertia::render('Accounting/Invoices/Index', [
-            'invoices'      => $invoices,
-            'pendingOrders' => $pendingOrders,
-            'filters'       => [
+            'invoices'        => $invoices,
+            'groupedInvoices' => $groupedInvoices,
+            'pendingOrders'   => $pendingOrders,
+            'filters'         => [
                 'status' => $status,
                 'search' => $search,
             ],
-            'counts'        => [
+            'counts'          => [
                 'all'        => CustomerInvoice::count(),
-                'to_invoice' => count($pendingOrders),
+                'to_invoice' => count($allPendingOrders),
                 'draft'      => CustomerInvoice::where('status', 'draft')->count(),
                 'posted'     => CustomerInvoice::where('status', 'posted')->count(),
                 'paid'       => CustomerInvoice::where('status', 'paid')->count(),
