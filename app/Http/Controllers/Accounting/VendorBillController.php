@@ -32,16 +32,12 @@ class VendorBillController extends Controller
         $status = $request->query('status', 'all');
         $search = $request->query('search', '');
 
-        $query = VendorBill::with(['vendor', 'purchaseOrder', 'receipt', 'journalEntry'])
+        $baseQuery = VendorBill::with(['vendor', 'purchaseOrder', 'receipt', 'journalEntry'])
             ->orderByDesc('created_at')
             ->orderByDesc('id');
 
-        if ($status !== 'all' && $status !== 'to_bill') {
-            $query->where('status', $status);
-        }
-
         if ($search) {
-            $query->where(function ($q) use ($search) {
+            $baseQuery->where(function ($q) use ($search) {
                 $q->where('id', 'ilike', "%{$search}%")
                   ->orWhere('purchase_order_id', 'ilike', "%{$search}%")
                   ->orWhere('receipt_id', 'ilike', "%{$search}%")
@@ -51,7 +47,7 @@ class VendorBillController extends Controller
             });
         }
 
-        $bills = $query->paginate(15)->through(fn (VendorBill $b) => [
+        $mapBill = fn (VendorBill $b) => [
             'id'                  => $b->id,
             'purchase_order_id'   => $b->purchase_order_id,
             'receipt_id'          => $b->receipt_id,
@@ -67,10 +63,23 @@ class VendorBillController extends Controller
             'amount_paid'         => (float) $b->amount_paid,
             'amount_residual'     => (float) $b->amount_residual,
             'journal_entry_no'    => $b->journalEntry?->entry_no,
-        ])->withQueryString();
+        ];
+
+        $query = clone $baseQuery;
+        if ($status !== 'all' && $status !== 'to_bill') {
+            $query->where('status', $status);
+        }
+
+        $bills = $query->paginate(15)->through($mapBill)->withQueryString();
+
+        $groupedBills = [
+            'draft'  => (clone $baseQuery)->where('status', 'draft')->get()->map($mapBill)->values(),
+            'posted' => (clone $baseQuery)->where('status', 'posted')->get()->map($mapBill)->values(),
+            'paid'   => (clone $baseQuery)->where('status', 'paid')->get()->map($mapBill)->values(),
+        ];
 
         // Daftar Purchase Order yang sudah ada Receipt QC gudang namun belum selesai ditagih
-        $pendingOrders = [];
+        $allPendingOrders = [];
         $confirmedPos = PurchaseOrder::with(['vendor', 'lines.product', 'receipts.lines'])
             ->whereIn('status', ['confirmed', 'done'])
             ->orderByDesc('id')
@@ -79,14 +88,25 @@ class VendorBillController extends Controller
         foreach ($confirmedPos as $po) {
             $matrix = $this->billService->getThreeWayMatchForPo($po);
             if ($matrix['has_validated_receipt'] && (float) $matrix['total_billable'] > 0) {
-                $pendingOrders[] = $matrix;
+                $allPendingOrders[] = $matrix;
             }
+        }
+
+        $pendingOrders = $allPendingOrders;
+        if ($search) {
+            $needle = mb_strtolower($search);
+            $pendingOrders = array_values(array_filter($allPendingOrders, function (array $m) use ($needle) {
+                return str_contains(mb_strtolower((string) ($m['purchase_order_id'] ?? '')), $needle)
+                    || str_contains(mb_strtolower((string) ($m['vendor_name'] ?? '')), $needle)
+                    || str_contains(mb_strtolower((string) ($m['primary_receipt_id'] ?? '')), $needle);
+            }));
         }
 
         $apLedger = $this->glService->getAccountLedger('2100');
 
         return Inertia::render('Accounting/Bills/Index', [
             'bills'         => $bills,
+            'groupedBills'  => $groupedBills,
             'pendingOrders' => $pendingOrders,
             'filters'       => [
                 'status' => $status,
@@ -94,7 +114,7 @@ class VendorBillController extends Controller
             ],
             'counts'        => [
                 'all'        => VendorBill::count(),
-                'to_bill'    => count($pendingOrders),
+                'to_bill'    => count($allPendingOrders),
                 'draft'      => VendorBill::where('status', 'draft')->count(),
                 'posted'     => VendorBill::where('status', 'posted')->count(),
                 'paid'       => VendorBill::where('status', 'paid')->count(),

@@ -75,10 +75,10 @@ class CustomerInvoiceService
                 $qtyDelivered = (float) $soLine->qty_delivered;
             }
 
-            // Hitung qty_invoiced pada invoice aktif (posted/paid) selain invoice ini
+            // Hitung qty_invoiced pada invoice aktif (draft/posted/paid) selain invoice ini
             $alreadyInvoicedQuery = CustomerInvoiceLine::whereHas('invoice', function ($q) use ($so, $excludeInvoiceId) {
                 $q->where('sales_order_id', $so->id)
-                  ->whereIn('status', ['posted', 'paid']);
+                  ->whereIn('status', ['draft', 'posted', 'paid']);
                 if ($excludeInvoiceId) {
                     $q->where('id', '!=', $excludeInvoiceId);
                 }
