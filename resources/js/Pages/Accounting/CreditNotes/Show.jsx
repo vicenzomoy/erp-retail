@@ -226,9 +226,18 @@ export default function Show({ creditNote }) {
                                                 {l.product_name}
                                             </td>
                                             <td className="px-4 py-3 text-center">
-                                                <span className="inline-block px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                    {l.condition}
-                                                </span>
+                                                {l.condition === 'damaged' ? (
+                                                    <span
+                                                        className="inline-block px-1.5 py-0.2 rounded text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200"
+                                                        title="Nilai pokok barang rusak dicatat sebagai Beban Kerusakan Barang Retur (6500)"
+                                                    >
+                                                        Rusak (Beban)
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-block px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                        Layak (Masuk Stok)
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 text-center font-bold text-slate-900">
                                                 {l.qty_returned} pcs
@@ -333,7 +342,7 @@ export default function Show({ creditNote }) {
                 rows={(creditNote.lines || []).map((l) => ({
                     sku: l.variant_sku || '-',
                     name: l.product_name || '-',
-                    condition: l.condition || '-',
+                    condition: l.condition === 'damaged' ? 'Rusak' : 'Layak',
                     qty: `${l.qty_returned} pcs`,
                     price: formatRp(l.unit_price),
                     subtotal: formatRp(l.subtotal_before_tax),

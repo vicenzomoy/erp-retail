@@ -246,8 +246,9 @@ class CustomerReturnService
                 $input = $linesData->get($line->id, []);
                 $qtyInspected = isset($input['qty_inspected']) ? (float) $input['qty_inspected'] : (float) $line->qty_requested;
                 $qtyAccepted  = isset($input['qty_accepted']) ? (float) $input['qty_accepted'] : $qtyInspected;
-                $qtyDamaged   = isset($input['qty_damaged']) ? (float) $input['qty_damaged'] : max(0.0, $qtyInspected - $qtyAccepted);
-                $condition    = $input['condition'] ?? ($qtyDamaged > 0 ? 'damaged' : 'saleable');
+                // Rusak = diterima fisik - layak stok (dihitung server, nilai ini menentukan isi Nota Kredit)
+                $qtyDamaged   = max(0.0, $qtyInspected - $qtyAccepted);
+                $condition    = $qtyDamaged > 0 ? 'damaged' : 'saleable';
 
                 $line->update([
                     'qty_inspected' => $qtyInspected,
@@ -321,9 +322,10 @@ class CustomerReturnService
 
             $freshReturn = $return->fresh(['lines.product', 'customer', 'customerInvoice', 'inspectedBy']);
 
-            // Otomatis generate draf Nota Kredit setelah gudang selesai QC (jika ada barang layak jual / accepted)
-            $hasAccepted = $freshReturn->lines->sum(fn ($l) => (float) $l->qty_accepted) > 0;
-            if ($hasAccepted && !$freshReturn->credit_note_id) {
+            // Otomatis generate draf Nota Kredit setelah gudang selesai QC, untuk semua barang yang
+            // diterima (layak stok maupun rusak)
+            $hasReturnedGoods = $freshReturn->lines->sum(fn ($l) => (float) $l->qty_accepted + (float) $l->qty_damaged) > 0;
+            if ($hasReturnedGoods && !$freshReturn->credit_note_id) {
                 $this->createDraftCreditNoteForReturn($freshReturn, $actor);
             }
 
@@ -364,34 +366,45 @@ class CustomerReturnService
                 'created_by'          => $actor->id,
             ]);
 
+            // Nota Kredit mencakup SELURUH barang retur yang diterima gudang (layak stok + rusak),
+            // karena perusahaan mengganti semua barang yang diretur. Dipisah per kondisi agar saat
+            // posting: barang layak -> kembali ke Persediaan, barang rusak -> dibebankan (akun 6500).
             foreach ($return->lines as $retLine) {
-                $qtyAccepted = (float) $retLine->qty_accepted;
-                if ($qtyAccepted <= 0) {
-                    continue;
-                }
-
-                $calc = $this->taxService->calculateLine($qtyAccepted, (string) $retLine->unit_price);
                 $product = Product::where('variant_sku', $retLine->variant_sku)->first();
                 $cogsUnit = $product ? (float) $product->cost : 0.0;
-                $cogsReversal = bcmul((string) $qtyAccepted, (string) $cogsUnit, 2);
 
-                CreditNoteLine::create([
-                    'credit_note_id'           => $creditNoteId,
-                    'original_invoice_line_id' => $retLine->customer_invoice_line_id ?? $invoice->lines->first()?->id ?? 1,
-                    'variant_sku'              => $retLine->variant_sku,
-                    'condition'                => $retLine->condition,
-                    'qty_returned'             => $qtyAccepted,
-                    'unit_price'               => $retLine->unit_price,
-                    'tax_id'                   => TaxCalculationService::DEFAULT_TAX_ID,
-                    'subtotal_before_tax'      => $calc['subtotal_before_tax'],
-                    'tax_amount'               => $calc['tax_amount'],
-                    'line_total'               => $calc['line_total'],
-                    'cogs_reversal'            => $cogsReversal,
-                ]);
+                $parts = [
+                    CreditNoteLine::CONDITION_SALEABLE => (float) $retLine->qty_accepted,
+                    CreditNoteLine::CONDITION_DAMAGED  => (float) $retLine->qty_damaged,
+                ];
 
-                $subtotalBeforeTax = bcadd($subtotalBeforeTax, $calc['subtotal_before_tax'], 2);
-                $totalTax          = bcadd($totalTax, $calc['tax_amount'], 2);
-                $grandTotal        = bcadd($grandTotal, $calc['line_total'], 2);
+                foreach ($parts as $condition => $qty) {
+                    if ($qty <= 0) {
+                        continue;
+                    }
+
+                    // PPN dihitung per baris & dibulatkan ke rupiah
+                    $calc = $this->taxService->calculateLine($qty, (string) $retLine->unit_price);
+                    $cogsReversal = bcmul((string) $qty, (string) $cogsUnit, 2);
+
+                    CreditNoteLine::create([
+                        'credit_note_id'           => $creditNoteId,
+                        'original_invoice_line_id' => $retLine->customer_invoice_line_id ?? $invoice->lines->first()?->id ?? 1,
+                        'variant_sku'              => $retLine->variant_sku,
+                        'condition'                => $condition,
+                        'qty_returned'             => $qty,
+                        'unit_price'               => $retLine->unit_price,
+                        'tax_id'                   => TaxCalculationService::DEFAULT_TAX_ID,
+                        'subtotal_before_tax'      => $calc['subtotal_before_tax'],
+                        'tax_amount'               => $calc['tax_amount'],
+                        'line_total'               => $calc['line_total'],
+                        'cogs_reversal'            => $cogsReversal,
+                    ]);
+
+                    $subtotalBeforeTax = bcadd($subtotalBeforeTax, $calc['subtotal_before_tax'], 2);
+                    $totalTax          = bcadd($totalTax, $calc['tax_amount'], 2);
+                    $grandTotal        = bcadd($grandTotal, $calc['line_total'], 2);
+                }
             }
 
             $creditNote->update([
@@ -450,12 +463,20 @@ class CustomerReturnService
             $totalTax = '0.00';
             $grandTotal = '0.00';
             $totalCogsReversal = '0.00';
+            $cogsSaleable = '0.00'; // nilai pokok barang layak -> kembali ke Persediaan
+            $cogsDamaged = '0.00';  // nilai pokok barang rusak -> dibebankan
 
             foreach ($cn->lines as $cnLine) {
                 $subtotalBeforeTax = bcadd($subtotalBeforeTax, (string) $cnLine->subtotal_before_tax, 2);
                 $totalTax          = bcadd($totalTax, (string) $cnLine->tax_amount, 2);
                 $grandTotal        = bcadd($grandTotal, (string) $cnLine->line_total, 2);
                 $totalCogsReversal = bcadd($totalCogsReversal, (string) $cnLine->cogs_reversal, 2);
+
+                if ($cnLine->condition === CreditNoteLine::CONDITION_DAMAGED) {
+                    $cogsDamaged = bcadd($cogsDamaged, (string) $cnLine->cogs_reversal, 2);
+                } else {
+                    $cogsSaleable = bcadd($cogsSaleable, (string) $cnLine->cogs_reversal, 2);
+                }
             }
 
             // Buat Journal Entry untuk Nota Kredit (credit_note):
@@ -471,8 +492,9 @@ class CustomerReturnService
                 'description'          => "Nota Kredit {$cn->id} atas Retur {$cn->customer_return_id} (Faktur {$invoice->id})",
                 'status'               => 'posted',
                 'is_balanced'          => true,
-                'total_debit'          => $grandTotal,
-                'total_credit'         => $grandTotal,
+                // Total = pembalikan penjualan + PPN (= piutang) ditambah baris pembalikan HPP
+                'total_debit'          => bcadd($grandTotal, $totalCogsReversal, 2),
+                'total_credit'         => bcadd($grandTotal, $totalCogsReversal, 2),
                 'posted_at'            => now(),
                 'posted_by'            => $actor->id,
                 'created_by'           => $actor->id,
@@ -510,16 +532,29 @@ class CustomerReturnService
                 'created_at'       => now(),
             ]);
 
-            // Jurnal Pembalikan COGS & Persediaan jika ada nilai pokok
+            // Jurnal Pembalikan HPP: barang layak kembali ke Persediaan, barang rusak dibebankan
             if (bccomp($totalCogsReversal, '0.00', 2) > 0) {
-                JournalLine::create([
-                    'journal_entry_id' => $journalEntry->id,
-                    'account_code'     => '1200',
-                    'description'      => "Pemulihan Nilai Persediaan Retur - {$cn->id}",
-                    'debit'            => $totalCogsReversal,
-                    'credit'           => 0,
-                    'created_at'       => now(),
-                ]);
+                if (bccomp($cogsSaleable, '0.00', 2) > 0) {
+                    JournalLine::create([
+                        'journal_entry_id' => $journalEntry->id,
+                        'account_code'     => '1200',
+                        'description'      => "Pemulihan Nilai Persediaan Retur (barang layak) - {$cn->id}",
+                        'debit'            => $cogsSaleable,
+                        'credit'           => 0,
+                        'created_at'       => now(),
+                    ]);
+                }
+
+                if (bccomp($cogsDamaged, '0.00', 2) > 0) {
+                    JournalLine::create([
+                        'journal_entry_id' => $journalEntry->id,
+                        'account_code'     => CreditNoteLine::DAMAGED_EXPENSE_ACCOUNT,
+                        'description'      => "Beban Kerusakan Barang Retur (barang rusak) - {$cn->id}",
+                        'debit'            => $cogsDamaged,
+                        'credit'           => 0,
+                        'created_at'       => now(),
+                    ]);
+                }
 
                 JournalLine::create([
                     'journal_entry_id' => $journalEntry->id,

@@ -88,14 +88,20 @@ class CreditNoteController extends Controller
                 'customer_name'       => $r->customer?->name,
                 'return_date'         => $r->return_date?->format('d/m/Y'),
                 'inspection_notes'    => $r->inspection_notes,
-                'lines'               => $r->lines->where('qty_accepted', '>', 0)->values()->map(fn ($l) => [
-                    'id'           => $l->id,
-                    'variant_sku'  => $l->variant_sku,
-                    'product_name' => $l->product?->name ?? $l->variant_sku,
-                    'qty_accepted' => (float) $l->qty_accepted,
-                    'unit_price'   => (float) $l->unit_price,
-                    'line_total'   => (float) bcmul((string) $l->qty_accepted, (string) $l->unit_price, 2),
-                ]),
+                // Semua barang yang diterima gudang (layak stok + rusak) ikut dikreditkan
+                'lines'               => $r->lines
+                    ->filter(fn ($l) => (float) $l->qty_accepted + (float) $l->qty_damaged > 0)
+                    ->values()
+                    ->map(fn ($l) => [
+                        'id'           => $l->id,
+                        'variant_sku'  => $l->variant_sku,
+                        'product_name' => $l->product?->name ?? $l->variant_sku,
+                        'qty_accepted' => (float) $l->qty_accepted,
+                        'qty_damaged'  => (float) $l->qty_damaged,
+                        'qty_returned' => (float) $l->qty_accepted + (float) $l->qty_damaged,
+                        'unit_price'   => (float) $l->unit_price,
+                        'line_total'   => (float) bcmul((string) ((float) $l->qty_accepted + (float) $l->qty_damaged), (string) $l->unit_price, 2),
+                    ]),
             ]),
             'selectedReturnId' => $selectedReturnId,
         ]);

@@ -189,8 +189,11 @@ export default function Show({ customerReturn }) {
                             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                                 Item Barang Retur &amp; Hasil Pemeriksaan Fisik
                             </h3>
-                            <span className="text-[11px] text-slate-500">
-                                Hanya kuantitas yang berstatus "Layak Masuk Stok" yang akan ditambahkan ke On-Hand gudang
+                            <span className="text-[11px] text-slate-500 text-right">
+                                Hanya barang "Layak Masuk Stok" yang menambah On-Hand gudang.
+                                <span className="block">
+                                    Nota Kredit tetap dibuat untuk <strong>semua</strong> barang yang diterima; barang rusak dicatat sebagai beban.
+                                </span>
                             </span>
                         </div>
 

@@ -185,10 +185,10 @@ export default function Create({ inspectedReturns = [], selectedReturnId = '' })
                         <div className="rounded border border-slate-200 bg-white shadow-2xs overflow-hidden">
                             <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
                                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                                    Barang Retur Yang Diterima Gudang (Accepted QC)
+                                    Barang Retur Yang Diterima Gudang (Layak + Rusak)
                                 </h3>
                                 <span className="text-[11px] text-emerald-700 font-semibold">
-                                    ✓ Nilai kredit dihitung otomatis berdasarkan kuantitas yang lolos inspeksi
+                                    ✓ Seluruh barang retur dikreditkan; nilai pokok barang rusak dicatat sebagai beban
                                 </span>
                             </div>
 
@@ -207,8 +207,13 @@ export default function Create({ inspectedReturns = [], selectedReturnId = '' })
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
                                         {(activeReturn?.lines || []).map((l) => {
-                                            const subtotal = Math.round(l.qty_accepted * l.unit_price);
-                                            const tax = Math.round(subtotal * 0.11);
+                                            // Sama seperti server: baris layak & rusak dihitung terpisah, PPN dibulatkan per baris
+                                            const parts = [l.qty_accepted, l.qty_damaged].filter((q) => q > 0).map((q) => {
+                                                const st = Math.round(q * l.unit_price);
+                                                return { st, tx: Math.round(st * 0.11) };
+                                            });
+                                            const subtotal = parts.reduce((s, p) => s + p.st, 0);
+                                            const tax = parts.reduce((s, p) => s + p.tx, 0);
                                             const total = subtotal + tax;
 
                                             return (
@@ -219,8 +224,14 @@ export default function Create({ inspectedReturns = [], selectedReturnId = '' })
                                                     <td className="px-4 py-3 font-medium text-slate-700">
                                                         {l.product_name}
                                                     </td>
-                                                    <td className="px-4 py-3 text-center font-bold text-emerald-700">
-                                                        {l.qty_accepted} pcs
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className="font-bold text-slate-900">{l.qty_returned} pcs</span>
+                                                        <span className="block text-[10px] text-slate-500">
+                                                            {l.qty_accepted} layak
+                                                            {l.qty_damaged > 0 && (
+                                                                <span className="text-rose-600"> • {l.qty_damaged} rusak</span>
+                                                            )}
+                                                        </span>
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-slate-700">
                                                         {formatRp(l.unit_price)}

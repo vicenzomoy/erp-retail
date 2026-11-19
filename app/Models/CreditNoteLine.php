@@ -13,6 +13,14 @@ class CreditNoteLine extends Model
     public $timestamps = false;
     const CREATED_AT = 'created_at';
 
+    /** Barang retur layak jual: nilai pokoknya kembali ke Persediaan (1200). */
+    public const CONDITION_SALEABLE = 'saleable';
+
+    /** Barang retur rusak: nilai pokoknya dibebankan ke Beban Kerusakan Barang Retur. */
+    public const CONDITION_DAMAGED = 'damaged';
+
+    public const DAMAGED_EXPENSE_ACCOUNT = '6500';
+
     protected $fillable = [
         'credit_note_id',
         'original_invoice_line_id',
