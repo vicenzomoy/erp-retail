@@ -22,7 +22,7 @@ class SalesOverviewController extends Controller
                 SUM(CASE WHEN status = 'draft'     THEN 1 ELSE 0 END) AS draft_orders,
                 SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) AS confirmed_orders,
                 SUM(CASE WHEN status = 'done'      THEN 1 ELSE 0 END) AS done_orders,
-                SUM(CASE WHEN credit_hold IS TRUE THEN 1 ELSE 0 END) AS credit_hold_orders,
+                SUM(CASE WHEN credit_hold IS TRUE AND status = 'draft' THEN 1 ELSE 0 END) AS credit_hold_orders,
                 SUM(CASE WHEN status = 'confirmed' THEN grand_total ELSE 0 END) AS total_confirmed_value
             ")
             ->first();

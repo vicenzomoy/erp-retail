@@ -62,6 +62,7 @@ class SalesCustomerController extends Controller
                 'name'               => $c->name,
                 'type'               => $c->type ?? null,
                 'city'               => $c->city ?? null,
+                'address'            => $c->address,
                 'credit_limit'       => $creditLimit,
                 'payment_terms'      => $c->payment_terms,
                 'open_ar'            => $openAr,
@@ -103,6 +104,7 @@ class SalesCustomerController extends Controller
             'name'          => ['required', 'string', 'max:255'],
             'type'          => ['required', 'string', 'max:50'],
             'city'          => ['required', 'string', 'max:100'],
+            'address'       => ['nullable', 'string', 'max:500'],
             'credit_limit'  => ['required', 'integer', 'min:0'],
             'payment_terms' => ['required', 'string', 'exists:payment_terms,term_id'],
         ], [
@@ -121,6 +123,7 @@ class SalesCustomerController extends Controller
                 'name'          => $validated['name'],
                 'type'          => $validated['type'],
                 'city'          => $validated['city'],
+                'address'       => $validated['address'] ?? null,
                 'credit_limit'  => $validated['credit_limit'],
                 'payment_terms' => $validated['payment_terms'],
             ]);
@@ -192,6 +195,7 @@ class SalesCustomerController extends Controller
                 'name'               => $customer->name,
                 'type'               => $customer->type ?? null,
                 'city'               => $customer->city ?? null,
+                'address'            => $customer->address,
                 'credit_limit'       => $creditLimit,
                 'payment_terms'      => $customer->payment_terms,
                 'open_ar'            => $openAr,
@@ -217,6 +221,7 @@ class SalesCustomerController extends Controller
             'name'          => ['sometimes', 'required', 'string', 'max:255'],
             'type'          => ['sometimes', 'required', 'string', 'max:50'],
             'city'          => ['sometimes', 'required', 'string', 'max:100'],
+            'address'       => ['sometimes', 'nullable', 'string', 'max:500'],
             'credit_limit'  => ['required', 'integer', 'min:0'],
             'payment_terms' => ['nullable', 'string', 'exists:payment_terms,term_id'],
         ]);
@@ -225,6 +230,7 @@ class SalesCustomerController extends Controller
             'name'          => $customer->name,
             'type'          => $customer->type,
             'city'          => $customer->city,
+            'address'       => $customer->address,
             'credit_limit'  => $customer->credit_limit,
             'payment_terms' => $customer->payment_terms,
         ];
@@ -233,6 +239,7 @@ class SalesCustomerController extends Controller
             'name'          => $validated['name'] ?? $customer->name,
             'type'          => $validated['type'] ?? $customer->type,
             'city'          => $validated['city'] ?? $customer->city,
+            'address'       => array_key_exists('address', $validated) ? $validated['address'] : $customer->address,
             'credit_limit'  => $validated['credit_limit'],
             'payment_terms' => $validated['payment_terms'] ?? $customer->payment_terms,
         ];

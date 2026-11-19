@@ -22,6 +22,7 @@ class ContactCustomer extends Model
         'name',
         'type',
         'city',
+        'address',
         'credit_limit',
         'payment_terms',
     ];

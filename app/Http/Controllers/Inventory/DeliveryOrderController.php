@@ -207,6 +207,7 @@ class DeliveryOrderController extends Controller
                 'sales_order_id' => $do->sales_order_id,
                 'customer_name' => $do->salesOrder?->customer?->name ?? 'Pelanggan',
                 'customer_city' => $do->salesOrder?->customer?->city,
+                'customer_address' => $do->salesOrder?->customer?->address,
                 'parent_delivery_id' => $do->parent_delivery_id,
                 'is_backorder' => $do->is_backorder,
                 'status' => $do->status,

@@ -146,9 +146,11 @@ class CrmLeadService
                 $quotationList = $l->quotationLinks
                     ->filter(fn ($link) => $link->salesOrder)
                     ->map(fn ($link) => [
-                        'id'          => $link->salesOrder->id,
-                        'status'      => $link->salesOrder->status,
-                        'grand_total' => (float) $link->salesOrder->grand_total,
+                        'id'            => $link->salesOrder->id,
+                        'status'        => $link->salesOrder->status,
+                        'credit_hold'   => (bool) $link->salesOrder->credit_hold,
+                        'discount_hold' => (bool) $link->salesOrder->discount_hold,
+                        'grand_total'   => (float) $link->salesOrder->grand_total,
                     ])
                     ->values()
                     ->all();

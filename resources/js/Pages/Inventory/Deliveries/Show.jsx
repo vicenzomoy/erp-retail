@@ -5,6 +5,7 @@ import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
 import OdooBadge from '@/Components/Odoo/OdooBadge';
 import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
+import SuratJalanPrint from '@/Components/Inventory/SuratJalanPrint';
 import {
     ArrowLeft,
     CheckCircle2,
@@ -26,7 +27,7 @@ export default function Show({
     relatedDocs = [],
     auditLogs = [],
 }) {
-    const { auth } = usePage().props;
+    const { auth, company } = usePage().props;
     const isReadOnlyRole = ['procurement', 'sales'].includes(auth?.user?.role_id);
     // Form for partial or full delivery validation
     const { data, setData, post, processing, errors } = useForm({
@@ -65,6 +66,12 @@ export default function Show({
     const totalDone = delivery.lines.reduce((acc, l) => acc + l.qty_done, 0);
     const totalCogs = delivery.lines.reduce((acc, l) => acc + l.cogs_total, 0);
 
+    // Kuantitas di Surat Jalan: terkirim (jika sudah validasi) atau yang sedang diisi untuk dikirim
+    const printLines = delivery.lines.map((l) => {
+        const input = data.lines.find((x) => x.id === l.id);
+        return { ...l, qty: isDone ? l.qty_done : Number(input?.qty_done ?? l.qty_demand) };
+    });
+
     return (
         <InventoryLayout
             title={`Pengiriman ${delivery.id}`}
@@ -75,6 +82,12 @@ export default function Show({
             ]}
         >
             <Head title={`Pengiriman ${delivery.id} — Bara Wear`} />
+
+            {/* Lembar Surat Jalan (hanya tampil saat dicetak) */}
+            <SuratJalanPrint delivery={delivery} lines={printLines} companyName={company?.name} />
+
+            {/* Tampilan layar (disembunyikan saat dicetak) */}
+            <div className="print:hidden">
 
             {/* Error Banner */}
             {Object.keys(errors).length > 0 && (
@@ -213,7 +226,17 @@ export default function Show({
                             </div>
                         </div>
                         <div className="flex items-baseline">
-                            <span className="w-32 font-semibold text-slate-500">Alamat Tujuan:</span>
+                            <span className="w-32 shrink-0 font-semibold text-slate-500">Alamat Pelanggan:</span>
+                            <span className="text-slate-700">
+                                {delivery.customer_address || (
+                                    <span className="italic text-amber-700">
+                                        Belum diisi di data pelanggan (Surat Jalan memakai Alamat Tujuan)
+                                    </span>
+                                )}
+                            </span>
+                        </div>
+                        <div className="flex items-baseline">
+                            <span className="w-32 shrink-0 font-semibold text-slate-500">Alamat Tujuan:</span>
                             <span className="text-slate-700">{delivery.location_to || '-'}</span>
                         </div>
                     </div>
@@ -385,6 +408,7 @@ export default function Show({
                 relatedDocs={relatedDocs}
                 auditLogs={auditLogs}
             />
+            </div>
         </InventoryLayout>
     );
 }

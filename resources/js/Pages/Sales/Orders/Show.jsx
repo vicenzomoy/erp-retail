@@ -30,8 +30,10 @@ const formatRp = (value) =>
     }).format(value ?? 0);
 
 function getStatusBadge(status, creditHold, discountHold) {
-    if (creditHold) return { cls: 'bg-amber-100 text-amber-700', label: '⚠ Kredit Hold' };
-    if (discountHold) return { cls: 'bg-rose-100 text-rose-700', label: '⚠ Menunggu Approval Diskon' };
+    // Hold hanya relevan selama quotation masih draft; status akhir (batal/konfirmasi) selalu diutamakan
+    const isDraft = status === 'draft';
+    if (isDraft && creditHold) return { cls: 'bg-amber-100 text-amber-700', label: '⚠ Kredit Hold' };
+    if (isDraft && discountHold) return { cls: 'bg-rose-100 text-rose-700', label: '⚠ Menunggu Approval Diskon' };
     const map = {
         draft: { cls: 'bg-slate-100 text-slate-600', label: 'Quotation (Draft)' },
         confirmed: { cls: 'bg-blue-100 text-blue-700', label: 'Sales Order' },
@@ -281,7 +283,7 @@ export default function SalesOrderShow({ order, products = [], relatedDocs = [],
                 </div>
 
                 {/* Credit Hold Warning */}
-                {order.credit_hold && (
+                {order.credit_hold && order.status === 'draft' && (
                     <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-800">
                         <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                         <span>
@@ -291,7 +293,7 @@ export default function SalesOrderShow({ order, products = [], relatedDocs = [],
                 )}
 
                 {/* Discount Hold Warning & Actions */}
-                {order.discount_hold && (
+                {order.discount_hold && order.status === 'draft' && (
                     <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-800">
                         <div className="flex items-start gap-2.5">
                             <ShieldAlert className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />

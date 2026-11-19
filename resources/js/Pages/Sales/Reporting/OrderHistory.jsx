@@ -31,7 +31,7 @@ const formatRp = (value) =>
     }).format(value ?? 0);
 
 function getStatusBadge(status, creditHold) {
-    if (creditHold) {
+    if (creditHold && status === 'draft') {
         return {
             cls: 'bg-amber-100 text-amber-800 border border-amber-300',
             label: 'Kredit Hold',
@@ -373,7 +373,7 @@ export default function OrderHistory({ orders, customers = [], summary = {}, fil
                                             <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
                                                 <div className="flex items-center gap-1.5">
                                                     <span className="font-mono text-slate-900">{so.id}</span>
-                                                    {so.credit_hold && (
+                                                    {so.credit_hold && so.status === 'draft' && (
                                                         <span
                                                             title="Kredit Hold Aktif"
                                                             className="inline-block h-2 w-2 rounded-full bg-amber-500"

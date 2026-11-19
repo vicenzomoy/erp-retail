@@ -21,6 +21,7 @@ import OdooSmartButton from '@/Components/Odoo/OdooSmartButton';
 import OdooStatusBar from '@/Components/Odoo/OdooStatusBar';
 import OdooFormFooter from '@/Components/Odoo/OdooFormFooter';
 import AutoDismissAlert from '@/Components/Odoo/AutoDismissAlert';
+import QuotationStatusBadge from '@/Components/Sales/QuotationStatusBadge';
 
 const formatRp = (value) =>
     new Intl.NumberFormat('id-ID', {
@@ -636,17 +637,7 @@ export default function LeadShow({ lead, customers = [], products = [], users = 
                                                 {quo.id}
                                             </td>
                                             <td className="px-4 py-2.5">
-                                                <span
-                                                    className={`inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
-                                                        quo.status === 'confirmed'
-                                                            ? 'bg-blue-100 text-blue-800'
-                                                            : quo.status === 'done'
-                                                            ? 'bg-emerald-100 text-emerald-800'
-                                                            : 'bg-slate-100 text-slate-700'
-                                                    }`}
-                                                >
-                                                    {quo.status}
-                                                </span>
+                                                <QuotationStatusBadge quotation={quo} />
                                             </td>
                                             <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
                                                 {formatRp(quo.grand_total)}

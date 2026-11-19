@@ -54,6 +54,7 @@ export default function SalesCustomerShow({ customer, sales_orders = [], invoice
         name: customer.name || '',
         type: customer.type || 'Umum',
         city: customer.city || '',
+        address: customer.address || '',
         credit_limit: customer.credit_limit,
         payment_terms: customer.payment_terms || 'NET14',
     });
@@ -127,6 +128,9 @@ export default function SalesCustomerShow({ customer, sales_orders = [], invoice
                                 <span>Kota: {customer.city || '—'}</span>
                                 <span>•</span>
                                 <span>ID: <span className="font-mono font-semibold">{customer.id}</span></span>
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                Alamat: {customer.address || <span className="italic text-slate-400">belum diisi</span>}
                             </p>
                         </div>
                     </div>
@@ -212,6 +216,19 @@ export default function SalesCustomerShow({ customer, sales_orders = [], invoice
                                 className="w-full rounded border border-slate-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                             />
                             {errors.city && <p className="mt-1 text-[11px] text-rose-600 font-medium">{errors.city}</p>}
+                        </div>
+                        <div className="sm:col-span-2 lg:col-span-3">
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Alamat Lengkap (untuk Surat Jalan)
+                            </label>
+                            <textarea
+                                rows={2}
+                                value={data.address}
+                                onChange={(e) => setData('address', e.target.value)}
+                                placeholder="Jl. Riau No. 45, Kel. Padang Terubuk, Kec. Senapelan"
+                                className="w-full rounded border border-slate-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            />
+                            {errors.address && <p className="mt-1 text-[11px] text-rose-600 font-medium">{errors.address}</p>}
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -359,11 +376,11 @@ export default function SalesCustomerShow({ customer, sales_orders = [], invoice
                                         </td>
                                         <td className="px-4 py-2.5">
                                             <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                                so.credit_hold
+                                                so.credit_hold && so.status === 'draft'
                                                     ? 'bg-amber-100 text-amber-700'
                                                     : SO_STATUS_BADGE[so.status] || 'bg-slate-100'
                                             }`}>
-                                                {so.credit_hold ? '⚠ Kredit Hold' : so.status}
+                                                {so.credit_hold && so.status === 'draft' ? '⚠ Kredit Hold' : so.status}
                                             </span>
                                         </td>
                                         <td className="px-4 py-2.5 text-slate-600">

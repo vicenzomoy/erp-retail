@@ -13,8 +13,10 @@ const formatRp = (value) =>
     }).format(value ?? 0);
 
 function getStatusBadge(status, creditHold, discountHold) {
-    if (creditHold) return { cls: 'bg-amber-100 text-amber-700', label: '⚠ Kredit Hold' };
-    if (discountHold) return { cls: 'bg-rose-100 text-rose-700', label: '⚠ Diskon Hold' };
+    // Hold hanya relevan selama quotation masih draft; status akhir (batal/konfirmasi) selalu diutamakan
+    const isDraft = status === 'draft';
+    if (isDraft && creditHold) return { cls: 'bg-amber-100 text-amber-700', label: '⚠ Kredit Hold' };
+    if (isDraft && discountHold) return { cls: 'bg-rose-100 text-rose-700', label: '⚠ Diskon Hold' };
     const map = {
         draft: { cls: 'bg-slate-100 text-slate-600', label: 'Draft' },
         confirmed: { cls: 'bg-blue-100 text-blue-700', label: 'Terkonfirmasi' },

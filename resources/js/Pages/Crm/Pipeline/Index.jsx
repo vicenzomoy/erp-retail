@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import CrmLayout from '@/Layouts/CrmLayout';
 import AutoDismissAlert from '@/Components/Odoo/AutoDismissAlert';
+import QuotationStatusBadge from '@/Components/Sales/QuotationStatusBadge';
 
 const formatRp = (value) =>
     new Intl.NumberFormat('id-ID', {
@@ -829,9 +830,7 @@ export default function PipelineIndex({
                                     className="w-full flex items-center justify-between px-5 py-3 text-xs hover:bg-slate-50 transition text-left"
                                 >
                                     <span className="font-mono font-bold text-slate-900">{q.id}</span>
-                                    <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-700">
-                                        {q.status === 'draft' ? 'Draft' : q.status === 'confirmed' ? 'Terkonfirmasi' : q.status === 'done' ? 'Selesai' : q.status}
-                                    </span>
+                                    <QuotationStatusBadge quotation={q} />
                                     <span className="font-mono font-semibold text-slate-800">{formatRp(q.grand_total)}</span>
                                 </button>
                             ))}

@@ -52,6 +52,7 @@ export default function SalesCustomerIndex({
         name: '',
         type: 'Umum',
         city: '',
+        address: '',
         credit_limit: 0,
         payment_terms: paymentTerms[0]?.term_id ?? 'CASH',
         from_index: true,
@@ -64,6 +65,7 @@ export default function SalesCustomerIndex({
             name: '',
             type: 'Umum',
             city: '',
+            address: '',
             credit_limit: 0,
             payment_terms: paymentTerms[0]?.term_id ?? 'CASH',
             from_index: true,
@@ -78,6 +80,7 @@ export default function SalesCustomerIndex({
             name: cust.name ?? '',
             type: cust.type ?? 'Umum',
             city: cust.city ?? '',
+            address: cust.address ?? '',
             credit_limit: parseInt(cust.credit_limit, 10) || 0,
             payment_terms: cust.payment_terms ?? (paymentTerms[0]?.term_id ?? 'CASH'),
             from_index: true,
@@ -414,6 +417,19 @@ export default function SalesCustomerIndex({
                                     />
                                     {errors.city && <p className="mt-1 text-[11px] text-rose-600">{errors.city}</p>}
                                 </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">Alamat Lengkap</label>
+                                <textarea
+                                    rows={2}
+                                    value={data.address}
+                                    onChange={(e) => setData('address', e.target.value)}
+                                    placeholder="Jl. Riau No. 45, Kel. Padang Terubuk, Kec. Senapelan"
+                                    className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 focus:border-slate-500 focus:outline-none"
+                                />
+                                <p className="mt-0.5 text-[10px] text-slate-400">Dipakai sebagai alamat pengiriman di Surat Jalan.</p>
+                                {errors.address && <p className="mt-1 text-[11px] text-rose-600">{errors.address}</p>}
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">

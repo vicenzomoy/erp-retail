@@ -38,7 +38,7 @@ const STATUS_LABEL = {
 };
 
 function getStatusBadge(status, creditHold) {
-    if (creditHold) {
+    if (creditHold && status === 'draft') {
         return { cls: STATUS_BADGE.credit_hold, label: '⚠ Kredit Hold' };
     }
     return { cls: STATUS_BADGE[status] ?? STATUS_BADGE.draft, label: STATUS_LABEL[status] ?? status };

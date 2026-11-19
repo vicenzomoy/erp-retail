@@ -424,14 +424,20 @@ class SalesOrderService
                     );
                 }
 
-                // Quotation lain milik prospek yang sama (masih draft) dibatalkan otomatis
+                // Quotation lain milik prospek yang sama yang belum dikonfirmasi (draft biasa,
+                // Kredit Hold, maupun Diskon Hold) dibatalkan otomatis.
                 if ($lead) {
                     $siblingIds = \App\Models\CrmLeadQuotationLink::where('lead_id', $lead->id)
                         ->where('sales_order_id', '!=', $so->id)
                         ->pluck('sales_order_id');
-                    $drafts = SalesOrder::whereIn('id', $siblingIds)->where('status', 'draft')->pluck('id');
-                    foreach ($drafts as $draftId) {
-                        $this->cancelOrder($draftId, $actor);
+                    $drafts = SalesOrder::whereIn('id', $siblingIds)->where('status', 'draft')->get(['id', 'credit_hold', 'discount_hold']);
+                    foreach ($drafts as $draft) {
+                        $holdLabel = $draft->credit_hold ? ' (Kredit Hold)' : ($draft->discount_hold ? ' (Diskon Hold)' : '');
+                        $this->cancelOrder(
+                            $draft->id,
+                            $actor,
+                            "Dibatalkan otomatis{$holdLabel}: penawaran lain {$so->id} untuk prospek {$lead->id} telah dikonfirmasi."
+                        );
                     }
                 }
             }
@@ -461,9 +467,9 @@ class SalesOrderService
     /**
      * Cancel a draft or held SO, releasing any active stock reservations.
      */
-    public function cancelOrder(string $soId, User $actor): SalesOrder
+    public function cancelOrder(string $soId, User $actor, ?string $reason = null): SalesOrder
     {
-        return DB::transaction(function () use ($soId, $actor) {
+        return DB::transaction(function () use ($soId, $actor, $reason) {
 
             /** @var SalesOrder $so */
             $so = SalesOrder::lockForUpdate()->findOrFail($soId);
@@ -475,6 +481,8 @@ class SalesOrderService
             }
 
             $oldStatus = $so->status;
+            $wasCreditHold = (bool) $so->credit_hold;
+            $wasDiscountHold = (bool) $so->discount_hold;
 
             // Release all active stock reservations for this SO
             StockReservation::where('sales_order_id', $soId)
@@ -484,7 +492,13 @@ class SalesOrderService
                     'released_at' => now(),
                 ]);
 
-            $so->update(['status' => 'cancelled']);
+            // Penahanan (Kredit / Diskon Hold) tidak relevan lagi setelah dibatalkan,
+            // sehingga status yang tampil di riwayat adalah "Dibatalkan".
+            $so->update([
+                'status'        => 'cancelled',
+                'credit_hold'   => false,
+                'discount_hold' => false,
+            ]);
 
             // Pindahkan lead CRM ke 'lost' hanya jika tidak ada quotation lain yang masih aktif
             // dan prospek belum Menang (Won).
@@ -531,8 +545,13 @@ class SalesOrderService
                 actorRole: $actor->role_id ?? 'user',
                 documentType: 'sales_order',
                 documentId: $soId,
-                oldValue: ['status' => $oldStatus],
+                oldValue: [
+                    'status'        => $oldStatus,
+                    'credit_hold'   => $wasCreditHold,
+                    'discount_hold' => $wasDiscountHold,
+                ],
                 newValue: ['status' => 'cancelled'],
+                notes: $reason,
             );
 
             return $so->fresh();
@@ -732,7 +751,12 @@ class SalesOrderService
             ->withCount('lines');
 
         if (! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+            if ($filters['status'] === 'credit_hold') {
+                // Kredit Hold bukan status tersendiri: quotation draft yang ditahan credit limit
+                $query->where('status', 'draft')->where('credit_hold', true);
+            } else {
+                $query->where('status', $filters['status']);
+            }
         }
 
         if (! empty($filters['customer_id'])) {

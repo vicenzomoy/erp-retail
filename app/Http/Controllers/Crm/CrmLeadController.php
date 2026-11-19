@@ -283,10 +283,12 @@ class CrmLeadController extends Controller
                 'quotations'       => $lead->quotationLinks->map(function ($link) {
                     $so = $link->salesOrder;
                     return [
-                        'id'          => $so->id,
-                        'status'      => $so->status,
-                        'grand_total' => (float) $so->grand_total,
-                        'created_at'  => $so->created_at?->format('d/m/Y H:i'),
+                        'id'            => $so->id,
+                        'status'        => $so->status,
+                        'credit_hold'   => (bool) $so->credit_hold,
+                        'discount_hold' => (bool) $so->discount_hold,
+                        'grand_total'   => (float) $so->grand_total,
+                        'created_at'    => $so->created_at?->format('d/m/Y H:i'),
                         'link_date'   => $link->created_at?->format('d/m/Y H:i'),
                     ];
                 }),
