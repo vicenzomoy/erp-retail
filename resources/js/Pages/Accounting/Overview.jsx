@@ -17,6 +17,7 @@ import {
     ArrowDownLeft,
     AlertCircle,
     ReceiptText,
+    ShieldAlert,
 } from 'lucide-react';
 
 const formatRp = (val) =>
@@ -29,6 +30,8 @@ const formatRp = (val) =>
 export default function Overview({
     kpis = {},
     pendingBills = [],
+    pendingPoApprovals = [],
+    poApprovalThreshold = 5000000,
     pendingInvoices = [],
     draftCreditNotes = [],
     unpaidInvoices = [],
@@ -44,6 +47,51 @@ export default function Overview({
             breadcrumbs={[{ label: 'Ringkasan Operasi' }]}
         >
             <Head title="Accounting Overview — Bara Wear" />
+
+            {/* Antrean Persetujuan PO bernilai besar */}
+            {pendingPoApprovals.length > 0 && (
+                <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50/60 shadow-xs overflow-hidden">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b border-amber-200">
+                        <div className="flex items-center gap-2">
+                            <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0" />
+                            <div>
+                                <h2 className="text-sm font-bold text-amber-900">
+                                    {pendingPoApprovals.length} Purchase Order Menunggu Persetujuan Finance
+                                </h2>
+                                <p className="text-[11px] text-amber-800">
+                                    PO di atas {formatRp(poApprovalThreshold)} baru bisa dikonfirmasi setelah disetujui.
+                                </p>
+                            </div>
+                        </div>
+                        <Link
+                            href={route('accounting.purchase-approvals.index')}
+                            className="inline-flex items-center gap-1 self-start sm:self-auto rounded bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 transition"
+                        >
+                            Tinjau Pengajuan
+                            <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                    </div>
+                    <div className="divide-y divide-amber-100 bg-white">
+                        {pendingPoApprovals.slice(0, 5).map((po) => (
+                            <Link
+                                key={po.id}
+                                href={route('accounting.purchase-approvals.index')}
+                                className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-xs hover:bg-amber-50/50 transition"
+                            >
+                                <span className="flex items-center gap-2 min-w-0">
+                                    <span className="font-mono font-bold text-slate-900">{po.id}</span>
+                                    <span className="text-slate-600 truncate">{po.vendor_name}</span>
+                                    <span className="text-slate-400">• oleh {po.requested_by || '-'}</span>
+                                </span>
+                                <span className="flex items-center gap-3">
+                                    <span className="text-slate-400">{po.waiting_for}</span>
+                                    <span className="font-mono font-bold text-slate-900">{formatRp(po.grand_total)}</span>
+                                </span>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Top Operational KPI Cards Bar (Senada dengan Modul Inventaris) */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mb-6">

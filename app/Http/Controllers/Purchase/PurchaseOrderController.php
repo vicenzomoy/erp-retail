@@ -107,9 +107,11 @@ class PurchaseOrderController extends Controller
 
         $po = $this->service->createRfq($validated, $request->user());
 
-        $msg = $po->status === 'confirmed'
-            ? "Pesanan Pembelian {$po->id} berhasil dibuat dan dikonfirmasi."
-            : "Permintaan Penawaran (RFQ) {$po->id} berhasil disimpan sebagai Draft.";
+        $msg = match ($po->status) {
+            'confirmed' => "Pesanan Pembelian {$po->id} berhasil dibuat dan dikonfirmasi.",
+            'to_approve' => "Pesanan Pembelian {$po->id} dibuat dan diajukan ke Finance untuk persetujuan.",
+            default => "Permintaan Penawaran (RFQ) {$po->id} berhasil disimpan sebagai Draft.",
+        };
 
         return redirect()->route('purchase.orders.show', $po->id)->with('success', $msg);
     }
@@ -124,7 +126,15 @@ class PurchaseOrderController extends Controller
             'vendorBills.lines',
             'creator',
             'confirmedBy',
+            'approvalRequestedBy',
+            'approvedBy',
+            'rejectedBy',
         ])->findOrFail($id);
+
+        // Membuka PO = membaca notifikasi penolakannya (hilang dari lonceng untuk pengguna ini)
+        if (auth()->user()) {
+            $this->service->markRejectionRead($po, auth()->user());
+        }
 
         $lines = $po->lines->map(function ($line) use ($po) {
             // Hitung aktual received dari receipts yang berstatus validated
@@ -259,6 +269,17 @@ class PurchaseOrderController extends Controller
                 'created_at' => $po->created_at?->format('d/m/Y H:i'),
                 'notes' => $po->notes,
                 'lines' => $lines,
+                'approval' => [
+                    'threshold' => PurchaseOrder::APPROVAL_THRESHOLD,
+                    'required' => $po->requiresApproval(),
+                    'requested_at' => $po->approval_requested_at?->format('d/m/Y H:i'),
+                    'requested_by' => $po->approvalRequestedBy?->name,
+                    'approved_at' => $po->approved_at?->format('d/m/Y H:i'),
+                    'approved_by' => $po->approvedBy?->name,
+                    'rejected_at' => $po->rejected_at?->format('d/m/Y H:i'),
+                    'rejected_by' => $po->rejectedBy?->name,
+                    'notes' => $po->approval_notes,
+                ],
             ],
             'receipts' => $po->receipts->map(fn (Receipt $r) => [
                 'id' => $r->id,
@@ -282,10 +303,26 @@ class PurchaseOrderController extends Controller
         $po = PurchaseOrder::findOrFail($id);
         $idempotencyKey = $request->header('X-Idempotency-Key') ?? $request->input('idempotency_key');
 
-        $this->service->confirmOrder($po, $request->user(), $idempotencyKey);
+        $po = $this->service->confirmOrder($po, $request->user(), $idempotencyKey);
+
+        if ($po->isToApprove()) {
+            return redirect()->route('purchase.orders.show', $po->id)
+                ->with('info', "Nilai {$po->id} melebihi Rp " . number_format(PurchaseOrder::APPROVAL_THRESHOLD, 0, ',', '.')
+                    . ". PO telah diajukan ke Finance dan akan dikonfirmasi setelah disetujui.");
+        }
 
         return redirect()->route('purchase.orders.show', $po->id)
             ->with('success', "Purchase Order {$po->id} berhasil dikonfirmasi. Dokumen Penerimaan Gudang telah disiapkan.");
+    }
+
+    /**
+     * Tandai semua notifikasi PO ditolak sebagai sudah dibaca untuk pengguna saat ini.
+     */
+    public function markNotificationsRead(Request $request): RedirectResponse
+    {
+        $this->service->markAllRejectionsRead($request->user());
+
+        return back();
     }
 
     public function cancel(Request $request, string $id): RedirectResponse

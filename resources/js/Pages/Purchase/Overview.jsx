@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import PurchaseLayout from '@/Layouts/PurchaseLayout';
 import OdooBadge from '@/Components/Odoo/OdooBadge';
 import {
@@ -14,9 +14,13 @@ import {
     ArrowRight,
     Building2,
     DollarSign,
+    XCircle,
+    CheckCheck,
 } from 'lucide-react';
+import { markAllPoNotificationsRead } from '@/Components/Purchase/RejectedPoBell';
 
 export default function Overview({ kpis = {}, recentOrders = [], topVendors = [] }) {
+    const { rejectedPoNotifications = [], auth } = usePage().props;
     const formatRp = (num) => {
         return new Intl.NumberFormat('id-ID', {
             style: 'currency',
@@ -63,6 +67,56 @@ export default function Overview({ kpis = {}, recentOrders = [], topVendors = []
                     </Link>
                 </div>
             </div>
+
+            {/* Notifikasi: PO ditolak Finance */}
+            {rejectedPoNotifications.length > 0 && (
+                <div className="mb-6 rounded-lg border border-rose-300 bg-rose-50/60 shadow-xs overflow-hidden">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b border-rose-200">
+                        <div className="flex items-center gap-2">
+                            <XCircle className="h-5 w-5 text-rose-600 shrink-0" />
+                            <div>
+                                <h2 className="text-sm font-bold text-rose-900">
+                                    {rejectedPoNotifications.length} Pengajuan PO Ditolak Finance
+                                </h2>
+                                <p className="text-[11px] text-rose-800">
+                                    Klik PO untuk melihat detailnya. Notifikasi hilang setelah dibuka.
+                                </p>
+                            </div>
+                        </div>
+                        {!auth?.user?.is_auditor && (
+                            <button
+                                type="button"
+                                onClick={() => markAllPoNotificationsRead()}
+                                className="inline-flex items-center gap-1 self-start sm:self-auto rounded border border-rose-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 transition cursor-pointer"
+                            >
+                                <CheckCheck className="h-3.5 w-3.5" />
+                                Tandai semua dibaca
+                            </button>
+                        )}
+                    </div>
+                    <div className="divide-y divide-rose-100 bg-white">
+                        {rejectedPoNotifications.map((n) => (
+                            <Link
+                                key={n.id}
+                                href={route('purchase.orders.show', n.id)}
+                                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 px-4 py-2.5 text-xs hover:bg-rose-50/50 transition"
+                            >
+                                <span className="min-w-0">
+                                    <span className="font-mono font-bold text-slate-900">{n.id}</span>
+                                    <span className="text-slate-600"> • {n.vendor_name} • {formatRp(n.grand_total)}</span>
+                                    {n.reason && (
+                                        <span className="block italic text-rose-700 truncate">Alasan: "{n.reason}"</span>
+                                    )}
+                                </span>
+                                <span className="flex items-center gap-2 shrink-0 text-slate-500">
+                                    Ditolak {n.rejected_by} • {n.time_ago}
+                                    <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+                                </span>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* KPI Cards Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

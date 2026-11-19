@@ -28,16 +28,51 @@ class PurchaseOrder extends Model
         'idempotency_key',
         'notes',
         'created_by',
+        'approval_requested_at',
+        'approval_requested_by',
+        'approved_at',
+        'approved_by',
+        'rejected_at',
+        'rejected_by',
+        'approval_notes',
     ];
+
+    /**
+     * PO dengan total (termasuk PPN) di atas nilai ini wajib disetujui Finance sebelum dikonfirmasi.
+     */
+    public const APPROVAL_THRESHOLD = 5_000_000;
+
+    /**
+     * Peran yang berwenang menyetujui / menolak PO bernilai besar.
+     */
+    public const APPROVER_ROLES = ['finance', 'owner'];
 
     protected function casts(): array
     {
         return [
-            'subtotal_before_tax' => 'decimal:2',
-            'total_tax'           => 'decimal:2',
-            'grand_total'         => 'decimal:2',
-            'confirmed_at'        => 'datetime',
+            'subtotal_before_tax'   => 'decimal:2',
+            'total_tax'             => 'decimal:2',
+            'grand_total'           => 'decimal:2',
+            'confirmed_at'          => 'datetime',
+            'approval_requested_at' => 'datetime',
+            'approved_at'           => 'datetime',
+            'rejected_at'           => 'datetime',
         ];
+    }
+
+    public function approvalRequestedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approval_requested_by');
+    }
+
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function rejectedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
     }
 
     public function vendor(): BelongsTo
@@ -78,6 +113,15 @@ class PurchaseOrder extends Model
     public function isRfq(): bool       { return $this->status === 'rfq'; }
     public function isConfirmed(): bool { return $this->status === 'confirmed'; }
     public function isDone(): bool      { return $this->status === 'done'; }
+    public function isToApprove(): bool { return $this->status === 'to_approve'; }
+
+    /**
+     * Apakah PO ini wajib melewati persetujuan Finance sebelum menjadi confirmed.
+     */
+    public function requiresApproval(): bool
+    {
+        return (float) $this->grand_total > self::APPROVAL_THRESHOLD;
+    }
 
     /**
      * Check if any validated receipt exists for this PO (required before creating bill).

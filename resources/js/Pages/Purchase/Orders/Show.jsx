@@ -34,13 +34,22 @@ export default function Show({
     const [cancelReason, setCancelReason] = useState('');
 
     const isRfq = order.status === 'rfq';
+    const isToApprove = order.status === 'to_approve';
     const isConfirmed = order.status === 'confirmed';
     const isDone = order.status === 'done';
     const isCancelled = order.status === 'cancelled';
 
-    // Status pipeline untuk OdooStatusBar (Draft -> Confirmed -> Done)
+    const approval = order.approval || {};
+    const needsApproval = Boolean(approval.required);
+    const wasApproved = Boolean(approval.approved_at);
+    const wasRejected = isRfq && Boolean(approval.rejected_at);
+
+    // Status pipeline untuk OdooStatusBar (Draft -> [To Approve] -> Confirmed -> Done)
     const statusSteps = [
         { key: ['rfq', 'draft'], label: 'Draft' },
+        ...(needsApproval || isToApprove || wasApproved
+            ? [{ key: 'to_approve', label: 'To Approve' }]
+            : []),
         { key: 'confirmed', label: 'Confirmed' },
         { key: 'done', label: 'Done' },
     ];
@@ -93,11 +102,24 @@ export default function Show({
                         <button
                             type="button"
                             onClick={handleConfirm}
+                            title={
+                                needsApproval
+                                    ? `Nilai PO di atas ${formatRp(approval.threshold)}: akan diajukan ke Finance untuk persetujuan`
+                                    : undefined
+                            }
                             className="inline-flex items-center gap-1.5 rounded bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition cursor-pointer"
                         >
                             <CheckCircle2 className="h-4 w-4" />
                             Konfirmasi Order (PO)
                         </button>
+                    )}
+
+                    {/* Status menunggu Finance */}
+                    {isToApprove && (
+                        <span className="inline-flex items-center gap-1.5 rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
+                            <Clock className="h-3.5 w-3.5" />
+                            Menunggu Persetujuan Finance
+                        </span>
                     )}
 
                     {/* Tombol Batalkan (jika belum done & belum cancelled) */}
@@ -138,17 +160,54 @@ export default function Show({
                 </div>
             </div>
 
+            {/* Banner status persetujuan Finance */}
+            {isRfq && needsApproval && !wasRejected && (
+                <div className="mb-4 flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-900">
+                    <Shield className="h-4 w-4 mt-0.5 shrink-0 text-blue-600" />
+                    <span>
+                        Total PO ini <strong>{formatRp(order.grand_total)}</strong> melebihi batas{' '}
+                        <strong>{formatRp(approval.threshold)}</strong>. Saat Anda klik <strong>Konfirmasi Order</strong>, PO
+                        akan diajukan ke Finance dan baru dikonfirmasi setelah disetujui.
+                    </span>
+                </div>
+            )}
+            {isToApprove && (
+                <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                    <Clock className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+                    <span>
+                        Diajukan ke Finance oleh <strong>{approval.requested_by || '-'}</strong> pada{' '}
+                        <strong>{approval.requested_at}</strong>. Dokumen penerimaan gudang akan dibuat otomatis setelah PO
+                        disetujui.
+                    </span>
+                </div>
+            )}
+            {wasRejected && (
+                <div className="mb-4 flex items-start gap-2 rounded-md border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-900">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-rose-600" />
+                    <span>
+                        Pengajuan ditolak oleh <strong>{approval.rejected_by || 'Finance'}</strong> pada{' '}
+                        <strong>{approval.rejected_at}</strong>. Alasan: <em>{approval.notes || '-'}</em>
+                        <span className="block mt-0.5 text-rose-700">
+                            Anda dapat mengajukan ulang dengan klik Konfirmasi Order, atau membatalkan PO ini.
+                        </span>
+                    </span>
+                </div>
+            )}
+
             {/* Form Sheet Card */}
             <div className="rounded-lg border border-slate-200 bg-white shadow-xs p-6">
                 {/* Top Section: Smart Buttons & Document Header */}
                 <div className="flex flex-col-reverse md:flex-row justify-between items-start gap-4 mb-6 pb-4 border-b border-slate-200">
                     <div>
                         <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">
-                            {isRfq ? 'Permintaan Penawaran (RFQ)' : 'Pesanan Pembelian (Purchase Order)'}
+                            {isRfq || isToApprove ? 'Permintaan Penawaran (RFQ)' : 'Pesanan Pembelian (Purchase Order)'}
                         </span>
                         <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2 mt-0.5">
                             {order.id}
-                            <OdooBadge status={order.status} />
+                            <OdooBadge
+                                status={order.status}
+                                label={isToApprove ? 'menunggu persetujuan' : undefined}
+                            />
                         </h1>
                         {order.source_doc_no && (
                             <p className="text-xs text-slate-500 font-mono mt-0.5">
@@ -233,6 +292,12 @@ export default function Show({
                         {order.confirmed_at && (
                             <div className="text-emerald-700 mt-0.5">
                                 Dikonfirmasi: <span className="font-semibold">{order.confirmed_at}</span>
+                            </div>
+                        )}
+                        {wasApproved && (
+                            <div className="text-emerald-700 mt-0.5 text-[11px]">
+                                Disetujui Finance: <span className="font-semibold">{approval.approved_by}</span>
+                                {approval.notes && <span className="block italic text-slate-500">"{approval.notes}"</span>}
                             </div>
                         )}
                         <div className="text-slate-500 text-[11px] mt-0.5">

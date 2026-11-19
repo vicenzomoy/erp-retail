@@ -7,6 +7,7 @@ use App\Models\Master\ContactVendor;
 use App\Models\Master\PaymentTerm;
 use App\Models\Master\Product;
 use App\Models\Master\TaxRate;
+use App\Models\NotificationRead;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Receipt;
@@ -82,6 +83,8 @@ class PurchaseOrderService
         if ($status && $status !== 'all') {
             if ($status === 'rfq') {
                 $query->where('status', 'rfq');
+            } elseif ($status === 'to_approve') {
+                $query->where('status', 'to_approve');
             } elseif ($status === 'confirmed') {
                 $query->where('status', 'confirmed');
             } elseif ($status === 'done') {
@@ -143,6 +146,7 @@ class PurchaseOrderService
         return [
             'all' => PurchaseOrder::count(),
             'rfq' => PurchaseOrder::where('status', 'rfq')->count(),
+            'to_approve' => PurchaseOrder::where('status', 'to_approve')->count(),
             'confirmed' => PurchaseOrder::where('status', 'confirmed')->count(),
             'done' => PurchaseOrder::where('status', 'done')->count(),
             'cancelled' => PurchaseOrder::where('status', 'cancelled')->count(),
@@ -230,9 +234,15 @@ class PurchaseOrderService
                 ];
             }
 
-            $status = !empty($data['auto_confirm']) ? 'confirmed' : 'rfq';
+            $status = 'rfq';
+            if (!empty($data['auto_confirm'])) {
+                // Auto-confirm tetap tunduk pada ambang persetujuan Finance
+                $status = $grandTotal > PurchaseOrder::APPROVAL_THRESHOLD ? 'to_approve' : 'confirmed';
+            }
             $confirmedAt = ($status === 'confirmed') ? now() : null;
             $confirmedBy = ($status === 'confirmed') ? $actor->id : null;
+            $approvalRequestedAt = ($status === 'to_approve') ? now() : null;
+            $approvalRequestedBy = ($status === 'to_approve') ? $actor->id : null;
 
             $po = PurchaseOrder::create([
                 'id' => $poId,
@@ -245,6 +255,8 @@ class PurchaseOrderService
                 'grand_total' => $grandTotal,
                 'confirmed_at' => $confirmedAt,
                 'confirmed_by' => $confirmedBy,
+                'approval_requested_at' => $approvalRequestedAt,
+                'approval_requested_by' => $approvalRequestedBy,
                 'idempotency_key' => $data['idempotency_key'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'created_by' => $actor->id,
@@ -286,6 +298,315 @@ class PurchaseOrderService
      * Melindungi dari request ganda (idempotent).
      */
     public function confirmOrder(PurchaseOrder $po, User $actor, ?string $idempotencyKey = null): PurchaseOrder
+    {
+        // PO sudah diajukan & masih menunggu Finance: klik ulang tidak mengubah apa pun (idempotent)
+        if ($po->isToApprove()) {
+            return $po->fresh(['lines.product', 'vendor', 'receipts.lines', 'vendorBills']);
+        }
+
+        // PO bernilai besar wajib disetujui Finance terlebih dahulu
+        if ($po->isRfq() && $po->requiresApproval()) {
+            return $this->submitForApproval($po, $actor);
+        }
+
+        return $this->performConfirmation($po, $actor, $idempotencyKey);
+    }
+
+    /**
+     * Ajukan RFQ bernilai besar ke Finance (status: to_approve). Belum ada Receipt yang dibuat.
+     */
+    public function submitForApproval(PurchaseOrder $po, User $actor): PurchaseOrder
+    {
+        return DB::transaction(function () use ($po, $actor) {
+            $locked = PurchaseOrder::whereKey($po->id)->lockForUpdate()->firstOrFail();
+
+            if (! $locked->isRfq()) {
+                return $locked->fresh(['lines.product', 'vendor', 'receipts.lines', 'vendorBills']);
+            }
+
+            $locked->update([
+                'status' => 'to_approve',
+                'approval_requested_at' => now(),
+                'approval_requested_by' => $actor->id,
+                'rejected_at' => null,
+                'rejected_by' => null,
+                'approval_notes' => null,
+            ]);
+
+            AuditLog::record(
+                action: 'SUBMIT_PURCHASE_ORDER_APPROVAL',
+                status: 'SUCCESS',
+                actorUserId: $actor->id,
+                actorUsername: $actor->name,
+                actorRole: $actor->role_id ?? 'procurement',
+                documentType: 'purchase_order',
+                documentId: $locked->id,
+                notes: "RFQ {$locked->id} senilai Rp " . number_format((float) $locked->grand_total, 0, ',', '.')
+                    . " melebihi batas Rp " . number_format(PurchaseOrder::APPROVAL_THRESHOLD, 0, ',', '.')
+                    . " dan diajukan ke Finance untuk persetujuan.",
+                oldValue: ['status' => 'rfq'],
+                newValue: ['status' => 'to_approve']
+            );
+
+            return $locked->fresh(['lines.product', 'vendor', 'receipts.lines', 'vendorBills']);
+        });
+    }
+
+    /**
+     * Finance menyetujui PO bernilai besar: status langsung menjadi confirmed dan Receipt gudang disiapkan.
+     * Idempotent: menyetujui PO yang sudah confirmed hanya mengembalikan PO tersebut.
+     */
+    public function approveOrder(PurchaseOrder $po, User $actor, ?string $notes = null): PurchaseOrder
+    {
+        $this->ensureApprover($actor);
+
+        return DB::transaction(function () use ($po, $actor, $notes) {
+            $locked = PurchaseOrder::whereKey($po->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->isConfirmed() || $locked->isDone()) {
+                return $locked->fresh(['lines.product', 'vendor', 'receipts.lines', 'vendorBills']);
+            }
+
+            if (! $locked->isToApprove()) {
+                throw ValidationException::withMessages([
+                    'status' => "Purchase Order {$locked->id} tidak sedang menunggu persetujuan Finance.",
+                ]);
+            }
+
+            $locked->update([
+                'status' => 'confirmed',
+                'confirmed_at' => now(),
+                'confirmed_by' => $actor->id,
+                'approved_at' => now(),
+                'approved_by' => $actor->id,
+                'approval_notes' => $notes,
+            ]);
+
+            AuditLog::record(
+                action: 'APPROVE_PURCHASE_ORDER',
+                status: 'SUCCESS',
+                actorUserId: $actor->id,
+                actorUsername: $actor->name,
+                actorRole: $actor->role_id,
+                documentType: 'purchase_order',
+                documentId: $locked->id,
+                notes: "Purchase Order {$locked->id} disetujui oleh {$actor->name} dan dikonfirmasi. Dokumen penerimaan gudang (Receipt) telah disiapkan."
+                    . ($notes ? " Catatan: {$notes}" : ''),
+                oldValue: ['status' => 'to_approve'],
+                newValue: ['status' => 'confirmed']
+            );
+
+            $this->ensureReceiptCreated($locked->load(['lines', 'vendor']), $actor);
+
+            return $locked->fresh(['lines.product', 'vendor', 'receipts.lines', 'vendorBills']);
+        });
+    }
+
+    /**
+     * Finance menolak PO bernilai besar: dikembalikan ke Draft (rfq) beserta alasannya,
+     * sehingga Procurement dapat mengajukan ulang atau membatalkannya.
+     */
+    public function rejectOrder(PurchaseOrder $po, User $actor, string $reason): PurchaseOrder
+    {
+        $this->ensureApprover($actor);
+
+        return DB::transaction(function () use ($po, $actor, $reason) {
+            $locked = PurchaseOrder::whereKey($po->id)->lockForUpdate()->firstOrFail();
+
+            if (! $locked->isToApprove()) {
+                throw ValidationException::withMessages([
+                    'status' => "Purchase Order {$locked->id} tidak sedang menunggu persetujuan Finance.",
+                ]);
+            }
+
+            $locked->update([
+                'status' => 'rfq',
+                'rejected_at' => now(),
+                'rejected_by' => $actor->id,
+                'approval_notes' => $reason,
+            ]);
+
+            AuditLog::record(
+                action: 'REJECT_PURCHASE_ORDER',
+                status: 'SUCCESS',
+                actorUserId: $actor->id,
+                actorUsername: $actor->name,
+                actorRole: $actor->role_id,
+                documentType: 'purchase_order',
+                documentId: $locked->id,
+                notes: "Pengajuan Purchase Order {$locked->id} ditolak oleh {$actor->name} dan dikembalikan ke Draft. Alasan: {$reason}",
+                oldValue: ['status' => 'to_approve'],
+                newValue: ['status' => 'rfq']
+            );
+
+            return $locked->fresh(['lines.product', 'vendor', 'receipts.lines', 'vendorBills']);
+        });
+    }
+
+    protected function ensureApprover(User $actor): void
+    {
+        if (! in_array($actor->role_id, PurchaseOrder::APPROVER_ROLES, true)) {
+            throw ValidationException::withMessages([
+                'status' => 'Hanya Finance atau Owner yang berwenang menyetujui / menolak Purchase Order.',
+            ]);
+        }
+    }
+
+    /**
+     * Daftar PO yang menunggu persetujuan Finance (untuk dashboard Accounting).
+     */
+    public function getPendingApprovals(): array
+    {
+        return PurchaseOrder::with(['vendor', 'lines.product', 'approvalRequestedBy', 'creator'])
+            ->where('status', 'to_approve')
+            ->orderBy('approval_requested_at')
+            ->get()
+            ->map(fn (PurchaseOrder $po) => [
+                'id' => $po->id,
+                'vendor_id' => $po->vendor_id,
+                'vendor_name' => $po->vendor?->name ?? $po->vendor_id,
+                'vendor_city' => $po->vendor?->city,
+                'payment_terms' => $po->payment_terms,
+                'subtotal_before_tax' => (float) $po->subtotal_before_tax,
+                'total_tax' => (float) $po->total_tax,
+                'grand_total' => (float) $po->grand_total,
+                'notes' => $po->notes,
+                'requested_by' => $po->approvalRequestedBy?->name ?? $po->creator?->name,
+                'requested_at' => $po->approval_requested_at?->format('d/m/Y H:i'),
+                'waiting_for' => $po->approval_requested_at?->diffForHumans(),
+                'lines' => $po->lines->map(fn ($l) => [
+                    'variant_sku' => $l->variant_sku,
+                    'product_name' => $l->product?->name ?? $l->variant_sku,
+                    'size' => $l->product?->size,
+                    'color' => $l->product?->color,
+                    'unit' => $l->product?->unit ?? 'pcs',
+                    'qty_ordered' => (float) $l->qty_ordered,
+                    'unit_price' => (float) $l->unit_price,
+                    'line_total' => (float) $l->line_total,
+                ])->values(),
+            ])
+            ->all();
+    }
+
+    /**
+     * Query dasar PO yang ditolak Finance dan belum ditindaklanjuti (belum diajukan ulang / dibatalkan).
+     */
+    protected function unhandledRejectionsQuery()
+    {
+        return PurchaseOrder::where('status', 'rfq')->whereNotNull('rejected_at');
+    }
+
+    /**
+     * Notifikasi modul Purchase untuk satu pengguna: PO yang ditolak Finance dan belum dibaca
+     * oleh pengguna tersebut. Hilang setelah dibuka (dibaca), diajukan ulang, atau dibatalkan.
+     */
+    public function getRejectedNotifications(User $user, int $limit = 20): array
+    {
+        return $this->unhandledRejectionsQuery()
+            ->with(['vendor', 'rejectedBy'])
+            ->whereNotExists(function ($q) use ($user) {
+                $q->select(DB::raw(1))
+                    ->from('notification_reads')
+                    ->where('notification_reads.user_id', $user->id)
+                    ->where('notification_reads.type', NotificationRead::TYPE_PO_REJECTED)
+                    ->whereColumn('notification_reads.document_id', 'purchase_orders.id')
+                    ->whereColumn('notification_reads.event_at', 'purchase_orders.rejected_at');
+            })
+            ->orderByDesc('rejected_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (PurchaseOrder $po) => [
+                'id' => $po->id,
+                'vendor_name' => $po->vendor?->name ?? $po->vendor_id,
+                'grand_total' => (float) $po->grand_total,
+                'rejected_by' => $po->rejectedBy?->name ?? 'Finance',
+                'rejected_at' => $po->rejected_at?->format('d/m/Y H:i'),
+                'time_ago' => $po->rejected_at?->diffForHumans(),
+                'reason' => $po->approval_notes,
+            ])
+            ->all();
+    }
+
+    /**
+     * Tandai notifikasi penolakan sebuah PO sebagai sudah dibaca oleh pengguna (idempotent).
+     */
+    public function markRejectionRead(PurchaseOrder $po, User $user): void
+    {
+        if (! $po->isRfq() || ! $po->rejected_at) {
+            return;
+        }
+
+        NotificationRead::firstOrCreate(
+            [
+                'user_id' => $user->id,
+                'type' => NotificationRead::TYPE_PO_REJECTED,
+                'document_id' => $po->id,
+                'event_at' => $po->rejected_at,
+            ],
+            ['read_at' => now()]
+        );
+    }
+
+    /**
+     * Tandai semua notifikasi penolakan PO yang masih aktif sebagai sudah dibaca oleh pengguna.
+     */
+    public function markAllRejectionsRead(User $user): int
+    {
+        return DB::transaction(function () use ($user) {
+            $count = 0;
+            foreach ($this->unhandledRejectionsQuery()->get() as $po) {
+                $read = NotificationRead::firstOrCreate(
+                    [
+                        'user_id' => $user->id,
+                        'type' => NotificationRead::TYPE_PO_REJECTED,
+                        'document_id' => $po->id,
+                        'event_at' => $po->rejected_at,
+                    ],
+                    ['read_at' => now()]
+                );
+                $count += $read->wasRecentlyCreated ? 1 : 0;
+            }
+
+            return $count;
+        });
+    }
+
+    /**
+     * Riwayat keputusan persetujuan PO (disetujui / ditolak) terbaru.
+     */
+    public function getApprovalHistory(int $limit = 30): array
+    {
+        return PurchaseOrder::with(['vendor', 'approvedBy', 'rejectedBy', 'approvalRequestedBy'])
+            ->where(fn ($q) => $q->whereNotNull('approved_at')->orWhereNotNull('rejected_at'))
+            ->get()
+            ->map(function (PurchaseOrder $po) {
+                // Keputusan terakhir: persetujuan jika approved_at ada (setelah persetujuan PO tidak bisa ditolak lagi)
+                $approved = $po->approved_at !== null;
+                $decidedAt = $approved ? $po->approved_at : $po->rejected_at;
+
+                return [
+                    'id' => $po->id,
+                    'decision' => $approved ? 'approved' : 'rejected',
+                    'status' => $po->status,
+                    'vendor_name' => $po->vendor?->name ?? $po->vendor_id,
+                    'grand_total' => (float) $po->grand_total,
+                    'requested_by' => $po->approvalRequestedBy?->name,
+                    'decided_by' => $approved ? $po->approvedBy?->name : $po->rejectedBy?->name,
+                    'decided_at_ts' => $decidedAt?->timestamp,
+                    'decided_at' => $decidedAt?->format('d/m/Y H:i'),
+                    'notes' => $po->approval_notes,
+                ];
+            })
+            ->sortByDesc('decided_at_ts')
+            ->take($limit)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Konfirmasi langsung RFQ menjadi PO (tanpa / setelah lolos ambang persetujuan).
+     */
+    protected function performConfirmation(PurchaseOrder $po, User $actor, ?string $idempotencyKey = null): PurchaseOrder
     {
         // Idempotency check: jika sudah confirmed atau done, kembalikan tanpa error atau duplikasi receipt
         if ($po->isConfirmed() || $po->isDone()) {
@@ -520,6 +841,7 @@ class PurchaseOrderService
             ->sum('grand_total');
 
         $rfqCount = PurchaseOrder::where('status', 'rfq')->count();
+        $toApproveCount = PurchaseOrder::where('status', 'to_approve')->count();
 
         // PO confirmed tapi belum ada receipt validated atau penerimaan belum selesai
         $waitingReceiptsCount = PurchaseOrder::where('status', 'confirmed')
@@ -538,6 +860,7 @@ class PurchaseOrderService
         return [
             'total_purchases_month' => (float) $totalPurchasesMonth,
             'rfq_count' => $rfqCount,
+            'to_approve_count' => $toApproveCount,
             'waiting_receipts_count' => $waitingReceiptsCount,
             'waiting_bill_count' => $waitingBillCount,
         ];

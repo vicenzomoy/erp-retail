@@ -21,9 +21,10 @@ import {
 } from 'lucide-react';
 import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
 import FlashBanner from '@/Components/Odoo/FlashBanner';
+import RejectedPoBell from '@/Components/Purchase/RejectedPoBell';
 
 export default function PurchaseLayout({ title, breadcrumbs = [], children }) {
-    const { auth, company, flash } = usePage().props;
+    const { auth, company, flash, rejectedPoNotifications = [] } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
     const [visibleFlash, setVisibleFlash] = useState({ success: null, error: null, info: null });
@@ -66,6 +67,8 @@ export default function PurchaseLayout({ title, breadcrumbs = [], children }) {
                     route: 'purchase.orders.index',
                     icon: ShoppingBag,
                     active: route().current('purchase.orders.index') || route().current('purchase.orders.show'),
+                    badge: rejectedPoNotifications.length,
+                    badgeTitle: 'PO ditolak Finance',
                 },
                 {
                     name: 'Buat RFQ Baru',
@@ -185,8 +188,14 @@ export default function PurchaseLayout({ title, breadcrumbs = [], children }) {
                     )}
                 </div>
 
-                {/* Sisi Kanan: Company & User profile */}
-                <TopBarUserMenu />
+                {/* Sisi Kanan: Notifikasi PO ditolak, Company & User profile */}
+                <div className="flex items-center gap-1 sm:gap-2">
+                    <RejectedPoBell
+                        notifications={rejectedPoNotifications}
+                        canMarkRead={!auth?.user?.is_auditor}
+                    />
+                    <TopBarUserMenu />
+                </div>
             </header>
 
             {/* ========================================================= */}
@@ -227,6 +236,14 @@ export default function PurchaseLayout({ title, breadcrumbs = [], children }) {
                                                         }`}
                                                     />
                                                     <span className="truncate">{item.name}</span>
+                                                    {item.badge > 0 && (
+                                                        <span
+                                                            title={item.badgeTitle}
+                                                            className="ml-auto rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white"
+                                                        >
+                                                            {item.badge}
+                                                        </span>
+                                                    )}
                                                 </Link>
                                             );
                                         })}

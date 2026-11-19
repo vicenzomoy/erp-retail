@@ -136,6 +136,16 @@ export default function Index({ orders, filters = {}, counts = {}, vendors = [] 
                     RFQ / Draft ({counts.rfq || 0})
                 </button>
                 <button
+                    onClick={() => handleStatusFilter('to_approve')}
+                    className={`rounded px-2.5 py-1 font-medium transition cursor-pointer ${
+                        filters.status === 'to_approve'
+                            ? 'bg-slate-900 text-white font-semibold'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                    }`}
+                >
+                    Menunggu Persetujuan ({counts.to_approve || 0})
+                </button>
+                <button
                     onClick={() => handleStatusFilter('confirmed')}
                     className={`rounded px-2.5 py-1 font-medium transition cursor-pointer ${
                         filters.status === 'confirmed'
@@ -246,7 +256,10 @@ export default function Index({ orders, filters = {}, counts = {}, vendors = [] 
                                             {formatRp(po.grand_total)}
                                         </td>
                                         <td className="py-3 px-4 text-center">
-                                            <OdooBadge status={po.status} />
+                                            <OdooBadge
+                                                status={po.status}
+                                                label={po.status === 'to_approve' ? 'menunggu persetujuan' : undefined}
+                                            />
                                         </td>
                                         <td className="py-3 px-4 text-center">
                                             <Link

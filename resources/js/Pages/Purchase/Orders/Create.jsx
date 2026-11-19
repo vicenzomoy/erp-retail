@@ -79,7 +79,6 @@ export default function Create({
         id: nextId,
         vendor_id: initialVendor?.id || '',
         payment_terms: initialVendor?.payment_terms || '',
-        source_doc_no: '',
         notes: defaultNotes || '',
         lines: prefilledLines.length > 0
             ? prefilledLines
@@ -355,22 +354,8 @@ export default function Create({
                         </select>
                     </div>
 
-                    {/* Referensi Dokumen Sumber */}
-                    <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                            Referensi Dokumen Sumber (Opsional)
-                        </label>
-                        <input
-                            type="text"
-                            value={data.source_doc_no}
-                            onChange={(e) => setData('source_doc_no', e.target.value)}
-                            placeholder="Contoh: SO000X"
-                            className="w-full rounded border border-slate-300 bg-white py-1.5 px-3 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-                        />
-                    </div>
-
                     {/* Catatan Internal */}
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-2 lg:col-span-3">
                         <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
                             Catatan Pengadaan / Instruksi Pengiriman
                         </label>

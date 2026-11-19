@@ -17,12 +17,13 @@ import {
     ArrowLeftRight,
     TableProperties,
     Percent,
+    ShieldCheck,
 } from 'lucide-react';
 import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
 import FlashBanner from '@/Components/Odoo/FlashBanner';
 
 export default function AccountingLayout({ title, breadcrumbs = [], children }) {
-    const { flash } = usePage().props;
+    const { flash, pendingPoApprovalsCount = 0 } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     // Struktur Menu Odoo 17 Accounting (Bersih, Rapi, Terintegrasi AR + AP + Kas + GL + Laporan)
@@ -64,6 +65,13 @@ export default function AccountingLayout({ title, breadcrumbs = [], children }) 
         {
             group: 'Pemasok (Vendors)',
             items: [
+                {
+                    name: 'Persetujuan PO',
+                    route: 'accounting.purchase-approvals.index',
+                    icon: ShieldCheck,
+                    active: route().current('accounting.purchase-approvals.*'),
+                    badge: pendingPoApprovalsCount,
+                },
                 {
                     name: 'Tagihan Pemasok (Bills)',
                     route: 'accounting.bills.index',
@@ -267,6 +275,11 @@ export default function AccountingLayout({ title, breadcrumbs = [], children }) 
                                                         }`}
                                                     />
                                                     <span className="truncate">{item.name}</span>
+                                                    {item.badge > 0 && (
+                                                        <span className="ml-auto rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
+                                                            {item.badge}
+                                                        </span>
+                                                    )}
                                                 </Link>
                                             );
                                         })}

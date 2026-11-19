@@ -12,8 +12,6 @@ import {
     Store,
     ShoppingCart,
     Info,
-    ArrowUpRight,
-    ArrowDownRight,
     Layers,
 } from 'lucide-react';
 
@@ -198,7 +196,7 @@ export default function GrossProfit({ kpiSummary, report }) {
                                 Analisis Laba Kotor per Produk & Perbandingan HPP
                             </h2>
                             <p className="text-[11px] text-slate-500 mt-0.5">
-                                HPP diambil dari data Biaya Pokok Inventory. Selisih margin dihitung dari (Rata-rata Harga Jual - HPP).
+                                HPP diambil dari data Biaya Pokok Inventory. Laba Kotor dihitung dari (Total Penjualan - Total HPP).
                             </p>
                         </div>
                         <span className="text-xs font-bold text-slate-600">
@@ -214,11 +212,10 @@ export default function GrossProfit({ kpiSummary, report }) {
                                     <th className="py-2.5 px-3">Nama Produk</th>
                                     <th className="py-2.5 px-2 text-center">Ukuran / Warna</th>
                                     <th className="py-2.5 px-3 text-right">Qty Terjual</th>
-                                    <th className="py-2.5 px-3 text-right">Rata-rata Harga Jual</th>
                                     <th className="py-2.5 px-3 text-right text-rose-800 bg-rose-50/50">HPP (Modal Inventory)</th>
-                                    <th className="py-2.5 px-3 text-right font-bold text-emerald-800 bg-emerald-50/50">Selisih Margin/Unit</th>
-                                    <th className="py-2.5 px-3 text-right">Total Penjualan</th>
+                                    <th className="py-2.5 px-3 text-right">Rata-rata Harga Jual</th>
                                     <th className="py-2.5 px-3 text-right text-rose-700">Total HPP</th>
+                                    <th className="py-2.5 px-3 text-right">Total Penjualan</th>
                                     <th className="py-2.5 px-4 text-right font-bold text-amber-900 bg-amber-50">Laba Kotor (Rp)</th>
                                     <th className="py-2.5 px-2 text-right">Margin %</th>
                                     <th className="py-2.5 px-3 text-center">Modul Inventory</th>
@@ -227,7 +224,6 @@ export default function GrossProfit({ kpiSummary, report }) {
                             <tbody className="divide-y divide-slate-100 text-slate-700">
                                 {filteredProducts.length > 0 ? (
                                     filteredProducts.map((p) => {
-                                        const isPositive = p.unit_margin >= 0;
                                         return (
                                             <tr key={p.sku} className="hover:bg-slate-50 transition">
                                                 <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-slate-900">
@@ -244,29 +240,17 @@ export default function GrossProfit({ kpiSummary, report }) {
                                                 <td className="py-2.5 px-3 text-right font-semibold text-slate-800">
                                                     {p.qty_sold.toLocaleString('id-ID')} {p.unit}
                                                 </td>
-                                                <td className="py-2.5 px-3 text-right text-slate-700">
-                                                    {formatRp(p.avg_sales_price)}
-                                                </td>
                                                 <td className="py-2.5 px-3 text-right font-medium text-rose-800 bg-rose-50/20">
                                                     {formatRp(p.cost_price)}
                                                 </td>
-                                                <td className={`py-2.5 px-3 text-right font-bold bg-emerald-50/20 ${
-                                                    isPositive ? 'text-emerald-700' : 'text-rose-700'
-                                                }`}>
-                                                    <div className="flex items-center justify-end gap-0.5">
-                                                        {isPositive ? (
-                                                            <ArrowUpRight className="h-3 w-3 text-emerald-600 inline" />
-                                                        ) : (
-                                                            <ArrowDownRight className="h-3 w-3 text-rose-600 inline" />
-                                                        )}
-                                                        <span>{formatRp(p.unit_margin)}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="py-2.5 px-3 text-right text-slate-800 font-medium">
-                                                    {formatRp(p.total_revenue)}
+                                                <td className="py-2.5 px-3 text-right text-slate-700">
+                                                    {formatRp(p.avg_sales_price)}
                                                 </td>
                                                 <td className="py-2.5 px-3 text-right text-rose-700">
                                                     {formatRp(p.total_cogs)}
+                                                </td>
+                                                <td className="py-2.5 px-3 text-right text-slate-800 font-medium">
+                                                    {formatRp(p.total_revenue)}
                                                 </td>
                                                 <td className="py-2.5 px-4 text-right font-bold text-amber-900 bg-amber-50/50">
                                                     {formatRp(p.gross_profit)}
@@ -289,7 +273,7 @@ export default function GrossProfit({ kpiSummary, report }) {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan={12} className="py-8 text-center text-slate-400">
+                                        <td colSpan={11} className="py-8 text-center text-slate-400">
                                             Tidak ada data produk pada periode ini.
                                         </td>
                                     </tr>
@@ -305,12 +289,11 @@ export default function GrossProfit({ kpiSummary, report }) {
                                     </td>
                                     <td></td>
                                     <td></td>
-                                    <td></td>
-                                    <td className="py-3 px-3 text-right text-slate-900 font-black">
-                                        {formatRp(filteredProducts.reduce((sum, p) => sum + p.total_revenue, 0))}
-                                    </td>
                                     <td className="py-3 px-3 text-right text-rose-800 font-black">
                                         {formatRp(filteredProducts.reduce((sum, p) => sum + p.total_cogs, 0))}
+                                    </td>
+                                    <td className="py-3 px-3 text-right text-slate-900 font-black">
+                                        {formatRp(filteredProducts.reduce((sum, p) => sum + p.total_revenue, 0))}
                                     </td>
                                     <td className="py-3 px-4 text-right text-amber-900 bg-amber-100 font-black">
                                         {formatRp(filteredProducts.reduce((sum, p) => sum + p.gross_profit, 0))}
@@ -353,11 +336,10 @@ export default function GrossProfit({ kpiSummary, report }) {
                                     <th className="py-2.5 px-3">Pelanggan</th>
                                     <th className="py-2.5 px-3">Barang / SKU</th>
                                     <th className="py-2.5 px-2 text-right">Qty</th>
-                                    <th className="py-2.5 px-3 text-right">Harga Jual</th>
                                     <th className="py-2.5 px-3 text-right text-rose-800">HPP Unit</th>
-                                    <th className="py-2.5 px-3 text-right font-bold text-emerald-800">Margin/Unit</th>
-                                    <th className="py-2.5 px-3 text-right">Subtotal Omset</th>
+                                    <th className="py-2.5 px-3 text-right">Harga Jual</th>
                                     <th className="py-2.5 px-3 text-right text-rose-700">Subtotal HPP</th>
+                                    <th className="py-2.5 px-3 text-right">Subtotal Omset</th>
                                     <th className="py-2.5 px-3 text-right font-bold text-amber-900 bg-amber-50">Laba Baris</th>
                                     <th className="py-2.5 px-3 text-center">Aksi</th>
                                 </tr>
@@ -398,20 +380,17 @@ export default function GrossProfit({ kpiSummary, report }) {
                                             <td className="py-2.5 px-2 text-right font-bold text-slate-800">
                                                 {t.qty}
                                             </td>
+                                            <td className="py-2.5 px-3 text-right text-rose-700">
+                                                {formatRp(t.cost_price)}
+                                            </td>
                                             <td className="py-2.5 px-3 text-right text-slate-700">
                                                 {formatRp(t.sales_price)}
                                             </td>
                                             <td className="py-2.5 px-3 text-right text-rose-700">
-                                                {formatRp(t.cost_price)}
-                                            </td>
-                                            <td className="py-2.5 px-3 text-right font-bold text-emerald-700">
-                                                {formatRp(t.unit_margin)}
+                                                {formatRp(t.line_cogs)}
                                             </td>
                                             <td className="py-2.5 px-3 text-right text-slate-900 font-medium">
                                                 {formatRp(t.line_revenue)}
-                                            </td>
-                                            <td className="py-2.5 px-3 text-right text-rose-700">
-                                                {formatRp(t.line_cogs)}
                                             </td>
                                             <td className="py-2.5 px-3 text-right font-bold text-amber-900 bg-amber-50/50">
                                                 {formatRp(t.line_profit)}
@@ -429,7 +408,7 @@ export default function GrossProfit({ kpiSummary, report }) {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={13} className="py-8 text-center text-slate-400">
+                                        <td colSpan={12} className="py-8 text-center text-slate-400">
                                             Tidak ada data transaksi ditemukan.
                                         </td>
                                     </tr>

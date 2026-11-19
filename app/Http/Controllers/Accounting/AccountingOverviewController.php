@@ -14,6 +14,7 @@ use App\Models\VendorBill;
 use App\Services\Accounting\CustomerInvoiceService;
 use App\Services\Accounting\GeneralLedgerService;
 use App\Services\Accounting\VendorBillService;
+use App\Services\Purchase\PurchaseOrderService;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,7 +23,8 @@ class AccountingOverviewController extends Controller
     public function __construct(
         protected GeneralLedgerService $glService,
         protected VendorBillService $billService,
-        protected CustomerInvoiceService $invoiceService
+        protected CustomerInvoiceService $invoiceService,
+        protected PurchaseOrderService $purchaseOrderService
     ) {}
 
     /**
@@ -237,6 +239,8 @@ class AccountingOverviewController extends Controller
                 'pending_returns_count'    => count($pendingReturns),
             ],
             'pendingBills'     => $pendingBills,
+            'pendingPoApprovals' => $this->purchaseOrderService->getPendingApprovals(),
+            'poApprovalThreshold' => PurchaseOrder::APPROVAL_THRESHOLD,
             'pendingInvoices'  => $pendingInvoices,
             'pendingReturns'   => $pendingReturns,
             'draftCreditNotes' => $draftCreditNotes,

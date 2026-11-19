@@ -6,6 +6,7 @@ use App\Http\Controllers\Accounting\CreditNoteController;
 use App\Http\Controllers\Accounting\CustomerInvoiceController;
 use App\Http\Controllers\Accounting\JournalEntryController;
 use App\Http\Controllers\Accounting\PaymentController;
+use App\Http\Controllers\Accounting\PurchaseApprovalController;
 use App\Http\Controllers\Accounting\VendorBillController;
 use App\Http\Controllers\Auditor\AuditorController;
 use App\Http\Controllers\Crm\CrmLeadController;
@@ -78,6 +79,8 @@ Route::middleware('auth')->group(function () {
     // ==========================================
     Route::prefix('purchase')->name('purchase.')->middleware('app.access:purchase')->group(function () {
         Route::get('/', [PurchaseOverviewController::class, 'index'])->name('overview');
+        Route::post('/notifications/read-all', [PurchaseOrderController::class, 'markNotificationsRead'])
+            ->name('notifications.read-all');
 
         // Orders / RFQ
         Route::get('/orders', [PurchaseOrderController::class, 'index'])->name('orders.index');
@@ -187,6 +190,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/bills/{id}', [VendorBillController::class, 'show'])
             ->where('id', '.+')
             ->name('bills.show');
+
+        // Pemasok: Persetujuan Purchase Order bernilai besar (> Rp 5.000.000)
+        Route::get('/purchase-approvals', [PurchaseApprovalController::class, 'index'])->name('purchase-approvals.index');
+        Route::post('/purchase-approvals/{id}/approve', [PurchaseApprovalController::class, 'approve'])
+            ->where('id', '.+')
+            ->name('purchase-approvals.approve');
+        Route::post('/purchase-approvals/{id}/reject', [PurchaseApprovalController::class, 'reject'])
+            ->where('id', '.+')
+            ->name('purchase-approvals.reject');
 
         // Kas & Pembayaran: Payments
         Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');

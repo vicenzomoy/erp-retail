@@ -50,6 +50,7 @@ class SettingsController extends Controller
                     ['module' => 'Accounting', 'action' => 'Buat & Posting Faktur Pelanggan (Customer Invoice berbasis barang terkirim)', 'allowed' => true],
                     ['module' => 'Accounting', 'action' => 'Buat & Posting Tagihan Pemasok (Vendor Bill berbasis hasil lolos QC gudang)', 'allowed' => true],
                     ['module' => 'Accounting', 'action' => 'Catat Pembayaran Kas/Bank (Register Payment Inbound AR & Outbound AP)', 'allowed' => true],
+                    ['module' => 'Accounting', 'action' => 'Setujui / Tolak Purchase Order bernilai di atas Rp 5.000.000', 'allowed' => true],
                     ['module' => 'Accounting', 'action' => 'Terbitkan Nota Kredit (Credit Note) & Akses Jurnal Umum / Buku Besar (GL)', 'allowed' => true],
                     ['module' => 'Sales', 'action' => 'Ubah Batas Kredit (Credit Limit) Pelanggan & Pantau Pesanan Penjualan', 'allowed' => true],
                     ['module' => 'Settings', 'action' => 'Lihat Daftar Pengguna, Matriks Hak Akses Seluruh Peran, & Audit Percobaan Akses', 'allowed' => true],
@@ -97,7 +98,8 @@ class SettingsController extends Controller
                 'tagline'      => 'Pengadaan Barang & Manajemen Pemasok (Purchasing)',
                 'summary'      => 'Mengelola pengadaan barang dagang ke pemasok (RFQ & Purchase Order) serta memantau ketersediaan stok dan status penerimaan barang di gudang secara Read-Only.',
                 'capabilities' => [
-                    ['module' => 'Purchase', 'action' => 'Buat & Konfirmasi Request for Quotation (RFQ) dan Purchase Order (PO)', 'allowed' => true],
+                    ['module' => 'Purchase', 'action' => 'Buat & Konfirmasi Request for Quotation (RFQ) dan Purchase Order (PO) hingga Rp 5.000.000', 'allowed' => true],
+                    ['module' => 'Purchase', 'action' => 'Mengonfirmasi PO di atas Rp 5.000.000 tanpa Persetujuan Finance (Otomatis Diajukan)', 'allowed' => false],
                     ['module' => 'Purchase', 'action' => 'Kelola Data Master Pemasok (Vendors) dan Laporan Pembelian', 'allowed' => true],
                     ['module' => 'Inventory (Read-Only)', 'action' => 'Lihat Overview, Status Penerimaan (WH/IN), Produk, Perkiraan ATP, dan Pergerakan Stok', 'allowed' => true],
                     ['module' => 'Inventory', 'action' => 'Memvalidasi Penerimaan Barang (WH/IN) atau Mengubah Stok Gudang', 'allowed' => false],

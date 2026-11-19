@@ -11,6 +11,7 @@ export default function OdooBadge({ status, label, children }) {
             break;
         case 'ready':
         case 'waiting':
+        case 'to_approve':
             colorClass = 'bg-amber-50 text-amber-800 border-amber-300';
             break;
         case 'done':
