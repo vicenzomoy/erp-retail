@@ -18,12 +18,13 @@ import {
     TableProperties,
     Percent,
     ShieldCheck,
+    Banknote,
 } from 'lucide-react';
 import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
 import FlashBanner from '@/Components/Odoo/FlashBanner';
 
 export default function AccountingLayout({ title, breadcrumbs = [], children }) {
-    const { flash, pendingPoApprovalsCount = 0 } = usePage().props;
+    const { flash, pendingPoApprovalsCount = 0, pendingPosShortagesCount = 0 } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     // Struktur Menu Odoo 17 Accounting (Bersih, Rapi, Terintegrasi AR + AP + Kas + GL + Laporan)
@@ -85,6 +86,13 @@ export default function AccountingLayout({ title, breadcrumbs = [], children }) 
         {
             group: 'Kas & Pembayaran',
             items: [
+                {
+                    name: 'Selisih Kas POS',
+                    route: 'accounting.pos-cash-shortages.index',
+                    icon: Banknote,
+                    active: route().current('accounting.pos-cash-shortages.*'),
+                    badge: pendingPosShortagesCount,
+                },
                 {
                     name: 'Pembayaran (Payments)',
                     route: 'accounting.payments.index',

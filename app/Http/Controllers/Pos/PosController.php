@@ -167,6 +167,7 @@ class PosController extends Controller
     {
         $session = PosSession::with([
             'cashier',
+            'shortageSettledBy',
             'orders' => fn ($q) => $q->with('lines.product', 'customer')->orderByDesc('paid_at'),
         ])->findOrFail($id);
 
@@ -237,6 +238,10 @@ class PosController extends Controller
                 'opened_at'                => $session->opened_at?->format('d/m/Y H:i:s'),
                 'closed_at'                => $session->closed_at?->format('d/m/Y H:i:s'),
                 'closing_journal_entry_id' => $session->closing_journal_entry_id,
+                'shortage_status'          => $session->shortage_status,
+                'shortage_amount'          => $session->shortageAmount(),
+                'shortage_settled_at'      => $session->shortage_settled_at?->format('d/m/Y H:i'),
+                'shortage_settled_by'      => $session->shortageSettledBy?->name,
             ],
             'orders'      => $orders,
             'relatedDocs' => $relatedDocs,
@@ -265,8 +270,15 @@ class PosController extends Controller
                 ->with('info', "Sesi {$id} sudah ditutup sebelumnya (Idempotent – tidak ada pencatatan ganda).");
         }
 
+        $closed = $result['session'];
+        if ($closed->shortageAmount() > 0) {
+            return redirect()->route('pos.sessions.show', $id)
+                ->with('info', "Sesi {$id} ditutup. Kas fisik kurang Rp " . number_format($closed->shortageAmount(), 0, ',', '.')
+                    . " dari kas seharusnya. Selisih ini dilaporkan ke Finance dan harus diganti oleh kasir.");
+        }
+
         return redirect()->route('pos.sessions.show', $id)
-            ->with('success', "Sesi {$id} berhasil ditutup. Variance: Rp " . number_format($result['session']->cash_variance, 0, ',', '.'));
+            ->with('success', "Sesi {$id} berhasil ditutup. Variance: Rp " . number_format($closed->cash_variance, 0, ',', '.'));
     }
 
     // =========================================================================

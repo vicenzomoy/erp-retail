@@ -18,6 +18,7 @@ import {
     AlertCircle,
     ReceiptText,
     ShieldAlert,
+    Banknote,
 } from 'lucide-react';
 
 const formatRp = (val) =>
@@ -32,6 +33,7 @@ export default function Overview({
     pendingBills = [],
     pendingPoApprovals = [],
     poApprovalThreshold = 5000000,
+    posCashShortages = [],
     pendingInvoices = [],
     draftCreditNotes = [],
     unpaidInvoices = [],
@@ -47,6 +49,49 @@ export default function Overview({
             breadcrumbs={[{ label: 'Ringkasan Operasi' }]}
         >
             <Head title="Accounting Overview — Bara Wear" />
+
+            {/* Notifikasi selisih kurang kas POS */}
+            {posCashShortages.length > 0 && (
+                <div className="mb-6 rounded-lg border border-rose-300 bg-rose-50/60 shadow-xs overflow-hidden">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b border-rose-200">
+                        <div className="flex items-center gap-2">
+                            <Banknote className="h-5 w-5 text-rose-600 shrink-0" />
+                            <div>
+                                <h2 className="text-sm font-bold text-rose-900">
+                                    {posCashShortages.length} Sesi POS dengan Selisih Kurang Kas
+                                </h2>
+                                <p className="text-[11px] text-rose-800">
+                                    Kas fisik lebih sedikit dari kas perkiraan sistem. Total{' '}
+                                    {formatRp(posCashShortages.reduce((sum, s) => sum + s.shortage, 0))} belum diganti kasir.
+                                </p>
+                            </div>
+                        </div>
+                        <Link
+                            href={route('accounting.pos-cash-shortages.index')}
+                            className="inline-flex items-center gap-1 self-start sm:self-auto rounded bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition"
+                        >
+                            Tinjau Selisih
+                            <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                    </div>
+                    <div className="divide-y divide-rose-100 bg-white">
+                        {posCashShortages.slice(0, 5).map((s) => (
+                            <Link
+                                key={s.id}
+                                href={route('accounting.pos-cash-shortages.index')}
+                                className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-xs hover:bg-rose-50/50 transition"
+                            >
+                                <span className="flex items-center gap-2 min-w-0">
+                                    <span className="font-mono font-bold text-slate-900">{s.id}</span>
+                                    <span className="text-slate-600 truncate">Kasir: {s.cashier_name}</span>
+                                    <span className="text-slate-400">• ditutup {s.closed_at}</span>
+                                </span>
+                                <span className="font-mono font-bold text-rose-700">-{formatRp(s.shortage)}</span>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Antrean Persetujuan PO bernilai besar */}
             {pendingPoApprovals.length > 0 && (

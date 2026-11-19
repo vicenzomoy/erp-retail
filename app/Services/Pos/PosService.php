@@ -17,10 +17,26 @@ use Illuminate\Support\Facades\DB;
 class PosService
 {
     protected StockService $stockService;
+    protected PosCashShortageService $shortageService;
 
-    public function __construct(StockService $stockService)
+    public function __construct(StockService $stockService, PosCashShortageService $shortageService)
     {
         $this->stockService = $stockService;
+        $this->shortageService = $shortageService;
+    }
+
+    /**
+     * Kas yang seharusnya ada di laci: kas awal + penjualan TUNAI saja.
+     * Pembayaran QRIS / kartu tidak masuk ke laci kasir.
+     */
+    public function computeExpectedCash(PosSession $session): float
+    {
+        $cashSales = (float) $session->orders()
+            ->where('status', 'paid')
+            ->where('payment_method', 'cash')
+            ->sum('grand_total');
+
+        return (float) $session->opening_cash_float + $cashSales;
     }
 
     // =========================================================================
@@ -110,8 +126,8 @@ class PosService
                 ->where('status', 'paid')
                 ->sum('grand_total');
 
-            $expectedCash = (float) $session->opening_cash_float + $totalSales;
-            $cashVariance = $countedCash - $expectedCash;
+            $expectedCash = $this->computeExpectedCash($session);
+            $cashVariance = round($countedCash - $expectedCash, 2);
 
             // Create closing journal entry: Dr Kas / Cr Penjualan POS (summary)
             $journalEntry = $this->createSessionClosingJournal($session, $totalSales, $actorUserId, $actorName);
@@ -140,6 +156,11 @@ class PosService
                        " | Counted: Rp " . number_format($countedCash, 0, ',', '.') .
                        " | Selisih: Rp " . number_format($cashVariance, 0, ',', '.')
             );
+
+            // Kas fisik kurang dari seharusnya: catat sebagai piutang kasir & laporkan ke Finance
+            if ($cashVariance < 0) {
+                $this->shortageService->recordShortage($session->fresh('cashier'), $actorUserId, $actorName, $actorRole);
+            }
 
             return ['already_closed' => false, 'session' => $session->fresh()];
         });
@@ -280,8 +301,7 @@ class PosService
 
             // Update session totals
             $session->increment('total_sales', $grandTotal);
-            $newExpected = (float) $session->opening_cash_float + (float) $session->total_sales;
-            $session->update(['expected_cash' => $newExpected]);
+            $session->update(['expected_cash' => $this->computeExpectedCash($session)]);
 
             AuditLog::record(
                 action: 'POS_CHECKOUT',
@@ -513,7 +533,7 @@ class PosService
         $totalRevenue  = 0;
         $totalTax      = 0;
         $totalCogs     = 0;
-        $totalCash     = 0;
+        $totalCashSales = 0;
         $openingFloats = 0;
         $allOrders     = collect();
 
@@ -523,7 +543,9 @@ class PosService
                 $totalOrders++;
                 $totalRevenue += (float) $order->grand_total;
                 $totalTax     += (float) $order->total_tax;
-                $totalCash    += (float) $order->cash_tendered;
+                if ($order->payment_method === 'cash') {
+                    $totalCashSales += (float) $order->grand_total;
+                }
                 $allOrders->push($order);
 
                 foreach ($order->lines as $line) {
@@ -532,7 +554,8 @@ class PosService
             }
         }
 
-        $expectedCashInDrawer = $openingFloats + $totalRevenue;
+        // Hanya penjualan tunai yang masuk laci (QRIS / kartu tidak)
+        $expectedCashInDrawer = $openingFloats + $totalCashSales;
 
         return [
             'date'                    => $date,

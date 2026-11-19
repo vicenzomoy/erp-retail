@@ -7,6 +7,7 @@ use App\Http\Controllers\Accounting\CustomerInvoiceController;
 use App\Http\Controllers\Accounting\JournalEntryController;
 use App\Http\Controllers\Accounting\PaymentController;
 use App\Http\Controllers\Accounting\PurchaseApprovalController;
+use App\Http\Controllers\Accounting\PosCashShortageController;
 use App\Http\Controllers\Accounting\VendorBillController;
 use App\Http\Controllers\Auditor\AuditorController;
 use App\Http\Controllers\Crm\CrmLeadController;
@@ -199,6 +200,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/purchase-approvals/{id}/reject', [PurchaseApprovalController::class, 'reject'])
             ->where('id', '.+')
             ->name('purchase-approvals.reject');
+
+        // Kas & Pembayaran: Selisih kurang kas POS (penggantian oleh kasir)
+        Route::get('/pos-cash-shortages', [PosCashShortageController::class, 'index'])->name('pos-cash-shortages.index');
+        Route::post('/pos-cash-shortages/{id}/settle', [PosCashShortageController::class, 'settle'])
+            ->where('id', '.+')
+            ->name('pos-cash-shortages.settle');
 
         // Kas & Pembayaran: Payments
         Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');

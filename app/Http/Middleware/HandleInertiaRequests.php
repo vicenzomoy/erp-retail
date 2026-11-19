@@ -54,6 +54,10 @@ class HandleInertiaRequests extends Middleware
             'pendingPoApprovalsCount' => fn () => $user && $request->routeIs('accounting.*')
                 ? \App\Models\PurchaseOrder::where('status', 'to_approve')->count()
                 : 0,
+            // Badge jumlah selisih kurang kas POS yang belum diganti kasir (sidebar Accounting)
+            'pendingPosShortagesCount' => fn () => $user && $request->routeIs('accounting.*')
+                ? app(\App\Services\Pos\PosCashShortageService::class)->countOutstanding()
+                : 0,
             // Notifikasi modul Purchase: PO yang ditolak Finance dan belum ditindaklanjuti
             'rejectedPoNotifications' => fn () => $user && $request->routeIs('purchase.*')
                 ? app(\App\Services\Purchase\PurchaseOrderService::class)->getRejectedNotifications($user)

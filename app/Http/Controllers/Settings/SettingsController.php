@@ -51,6 +51,7 @@ class SettingsController extends Controller
                     ['module' => 'Accounting', 'action' => 'Buat & Posting Tagihan Pemasok (Vendor Bill berbasis hasil lolos QC gudang)', 'allowed' => true],
                     ['module' => 'Accounting', 'action' => 'Catat Pembayaran Kas/Bank (Register Payment Inbound AR & Outbound AP)', 'allowed' => true],
                     ['module' => 'Accounting', 'action' => 'Setujui / Tolak Purchase Order bernilai di atas Rp 5.000.000', 'allowed' => true],
+                    ['module' => 'Accounting', 'action' => 'Pantau Selisih Kurang Kas POS & Tandai Sudah Diganti Kasir', 'allowed' => true],
                     ['module' => 'Accounting', 'action' => 'Terbitkan Nota Kredit (Credit Note) & Akses Jurnal Umum / Buku Besar (GL)', 'allowed' => true],
                     ['module' => 'Sales', 'action' => 'Ubah Batas Kredit (Credit Limit) Pelanggan & Pantau Pesanan Penjualan', 'allowed' => true],
                     ['module' => 'Settings', 'action' => 'Lihat Daftar Pengguna, Matriks Hak Akses Seluruh Peran, & Audit Percobaan Akses', 'allowed' => true],

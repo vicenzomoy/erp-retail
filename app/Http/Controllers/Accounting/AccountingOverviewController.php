@@ -241,6 +241,7 @@ class AccountingOverviewController extends Controller
             'pendingBills'     => $pendingBills,
             'pendingPoApprovals' => $this->purchaseOrderService->getPendingApprovals(),
             'poApprovalThreshold' => PurchaseOrder::APPROVAL_THRESHOLD,
+            'posCashShortages' => app(\App\Services\Pos\PosCashShortageService::class)->getOutstanding(),
             'pendingInvoices'  => $pendingInvoices,
             'pendingReturns'   => $pendingReturns,
             'draftCreditNotes' => $draftCreditNotes,
