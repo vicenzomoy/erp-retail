@@ -63,15 +63,22 @@ class ProductController extends Controller
             $skuLevels = $levels[$p->variant_sku] ?? [];
             $onHand = (float) array_sum(array_column($skuLevels, 'on_hand'));
             $reserved = (float) array_sum(array_column($skuLevels, 'reserved'));
-            $available = $onHand - $reserved;
+            // Stok tersedia tidak pernah ditampilkan minus: reservasi melebihi stok fisik = 0 tersedia
+            $available = (float) array_sum(array_map(fn ($l) => max(0.0, $l['available']), $skuLevels));
 
-            $storeAvailable = $skuLevels[$storeCode]['available'] ?? 0.0;
-            $warehouseAvailable = $skuLevels[$warehouseCode]['available'] ?? 0.0;
+            $store = $skuLevels[$storeCode] ?? ['on_hand' => 0.0, 'reserved' => 0.0, 'available' => 0.0];
+            $warehouse = $skuLevels[$warehouseCode] ?? ['on_hand' => 0.0, 'reserved' => 0.0, 'available' => 0.0];
+            $storeAvailable = max(0.0, $store['available']);
+            $warehouseAvailable = max(0.0, $warehouse['available']);
 
             return [
                 'store_available' => $storeAvailable,
+                'store_reserved' => $store['reserved'],
+                'store_shortfall' => max(0.0, -$store['available']),
                 'store_status' => $this->stockService->stockAlertStatus($storeAvailable, $threshold),
                 'warehouse_available' => $warehouseAvailable,
+                'warehouse_reserved' => $warehouse['reserved'],
+                'warehouse_shortfall' => max(0.0, -$warehouse['available']),
                 'warehouse_status' => $this->stockService->stockAlertStatus($warehouseAvailable, $threshold),
                 'variant_sku' => $p->variant_sku,
                 'name' => $p->name,
@@ -147,7 +154,8 @@ class ProductController extends Controller
         foreach ($locations as $loc) {
             $onHand = (float) $this->stockService->getOnHand($product->variant_sku, $loc->location_code);
             $reserved = (float) $this->stockService->getReserved($product->variant_sku, $loc->location_code);
-            $available = $onHand - $reserved;
+            $net = $onHand - $reserved;
+            $available = max(0.0, $net); // tidak pernah minus
             $val = $onHand * $product->cost;
 
             $locationStock[] = [
@@ -157,6 +165,7 @@ class ProductController extends Controller
                 'on_hand' => $onHand,
                 'reserved' => $reserved,
                 'available' => $available,
+                'shortfall' => max(0.0, -$net),
                 'valuation' => $val,
             ];
 

@@ -72,6 +72,8 @@ class StockService
 
     /**
      * Get full stock matrix: Products x Locations with On Hand, Reserved, Available, Value.
+     * Catatan: 'available' di sini untuk tampilan (min. 0); kekurangan reservasi ada di 'shortfall'.
+     * Validasi stok transaksi tetap memakai getAvailable() (nilai bersih apa adanya).
      */
     public function getStockByLocationMatrix(): array
     {
@@ -90,7 +92,10 @@ class StockService
             foreach ($locations as $loc) {
                 $onHand = $this->getOnHand($p->variant_sku, $loc->location_code);
                 $reserved = $this->getReserved($p->variant_sku, $loc->location_code);
-                $available = bcsub($onHand, $reserved, 3);
+                $net = bcsub($onHand, $reserved, 3);
+                // Untuk tampilan: stok tersedia tidak pernah minus. Kekurangan reservasi dilaporkan terpisah.
+                $available = bccomp($net, '0', 3) < 0 ? '0.000' : $net;
+                $shortfall = bccomp($net, '0', 3) < 0 ? bcmul($net, '-1', 3) : '0.000';
                 $valuation = bcmul($onHand, (string) $p->cost, 2);
 
                 $locData[$loc->location_code] = [
@@ -98,6 +103,7 @@ class StockService
                     'on_hand' => (float) $onHand,
                     'reserved' => (float) $reserved,
                     'available' => (float) $available,
+                    'shortfall' => (float) $shortfall,
                     'valuation' => (float) $valuation,
                 ];
 

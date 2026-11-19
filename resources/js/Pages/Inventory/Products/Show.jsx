@@ -268,6 +268,19 @@ export default function Show({ product, locationStock = [], recentMoves = [], re
                                             </td>
                                             <td className="py-2.5 px-3 text-right font-semibold text-emerald-700">
                                                 {loc.available} {product.unit}
+                                                {loc.reserved > 0 && (
+                                                    <div
+                                                        className="text-[10px] font-normal text-amber-700"
+                                                        title="Stok ini terikat Sales Order dan akan otomatis mengurangi stok saat pengiriman divalidasi"
+                                                    >
+                                                        {loc.reserved} {product.unit} direservasi
+                                                    </div>
+                                                )}
+                                                {loc.shortfall > 0 && (
+                                                    <div className="text-[10px] font-semibold text-rose-700">
+                                                        kurang {loc.shortfall} {product.unit} untuk reservasi
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="py-2.5 px-3 text-right font-medium text-slate-800">
                                                 {formatRp(loc.valuation)}

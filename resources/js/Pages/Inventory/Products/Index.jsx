@@ -41,13 +41,33 @@ const alertQtyClass = (available) =>
 const alertLabel = (status) =>
     status === 'out_of_stock' ? 'Habis' : status === 'critical' ? 'Kritis' : 'Menipis';
 
+// ── Keterangan reservasi di bawah angka stok ──────────────────────
+// Stok yang direservasi SO otomatis berkurang dari stok fisik saat pengiriman divalidasi.
+export function ReservedNote({ reserved = 0, shortfall = 0, unit = 'pcs' }) {
+    if (!(reserved > 0)) return null;
+    return (
+        <div
+            className="text-[10px] leading-tight text-amber-700"
+            title="Stok ini terikat Sales Order dan akan otomatis mengurangi stok saat pengiriman divalidasi"
+        >
+            {fmtQty(reserved)} {unit} direservasi
+            {shortfall > 0 && (
+                <span className="block font-semibold text-rose-700">kurang {fmtQty(shortfall)} {unit} untuk reservasi</span>
+            )}
+        </div>
+    );
+}
+
 // ── Sel stok per lokasi (gerai / gudang) + label stok menipis ─────
-function LocationStockCell({ qty, status, unit }) {
+function LocationStockCell({ qty, status, unit, reserved = 0, shortfall = 0 }) {
     if (!status) {
         return (
-            <span className="font-bold text-slate-900">
-                {fmtQty(qty)} <span className="text-[10px] font-normal text-slate-400">{unit}</span>
-            </span>
+            <div className="inline-flex flex-col items-center gap-0.5">
+                <span className="font-bold text-slate-900">
+                    {fmtQty(qty)} <span className="text-[10px] font-normal text-slate-400">{unit}</span>
+                </span>
+                <ReservedNote reserved={reserved} shortfall={shortfall} unit={unit} />
+            </div>
         );
     }
 
@@ -62,6 +82,7 @@ function LocationStockCell({ qty, status, unit }) {
                 <AlertTriangle className="h-2.5 w-2.5" />
                 {alertLabel(status)}
             </span>
+            <ReservedNote reserved={reserved} shortfall={shortfall} unit={unit} />
         </div>
     );
 }
@@ -242,18 +263,28 @@ function ProductsTab({ products, filters, availableColors, availableSizes, stock
                                         <td className="px-4 py-3 text-right font-medium text-slate-900 whitespace-nowrap">{formatRp(p.sales_price)}</td>
                                         <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">{formatRp(p.cost)}</td>
                                         <td className="px-4 py-3 text-center whitespace-nowrap">
-                                            <LocationStockCell qty={p.store_available} status={p.store_status} unit={p.unit} />
+                                            <LocationStockCell
+                                                qty={p.store_available}
+                                                status={p.store_status}
+                                                unit={p.unit}
+                                                reserved={p.store_reserved}
+                                                shortfall={p.store_shortfall}
+                                            />
                                         </td>
                                         <td className="px-4 py-3 text-center whitespace-nowrap">
-                                            <LocationStockCell qty={p.warehouse_available} status={p.warehouse_status} unit={p.unit} />
+                                            <LocationStockCell
+                                                qty={p.warehouse_available}
+                                                status={p.warehouse_status}
+                                                unit={p.unit}
+                                                reserved={p.warehouse_reserved}
+                                                shortfall={p.warehouse_shortfall}
+                                            />
                                         </td>
                                         <td className="px-4 py-3 text-center whitespace-nowrap">
                                             <span className="font-bold text-slate-900">
                                                 {fmtQty(p.on_hand)} <span className="text-[10px] font-normal text-slate-400">{p.unit}</span>
                                             </span>
-                                            {p.reserved > 0 && (
-                                                <div className="text-[10px] text-amber-700">{fmtQty(p.reserved)} tereservasi</div>
-                                            )}
+                                            <ReservedNote reserved={p.reserved} unit={p.unit} />
                                         </td>
                                         <td className="px-4 py-3 text-right font-semibold text-slate-800 whitespace-nowrap">{formatRp(p.valuation)}</td>
                                         <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -434,6 +465,14 @@ function StockByLocationTab({ matrix = [], locations = [], summary = {} }) {
                                                             </span>
                                                         ) : (
                                                             <span className="font-semibold">{s.available}</span>
+                                                        )}
+                                                        {s.shortfall > 0 && (
+                                                            <div
+                                                                className="text-[9px] font-semibold text-rose-700 whitespace-nowrap"
+                                                                title="Reservasi melebihi stok fisik; akan otomatis mengurangi stok saat pengiriman divalidasi"
+                                                            >
+                                                                kurang {fmtQty(s.shortfall)}
+                                                            </div>
                                                         )}
                                                     </td>
                                                 </React.Fragment>
