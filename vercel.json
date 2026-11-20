@@ -8,6 +8,10 @@
     },
     "routes": [
         {
+            "src": "/build/(.*)",
+            "dest": "/public/build/$1"
+        },
+        {
             "src": "/css/(.*)",
             "dest": "/public/css/$1"
         },
