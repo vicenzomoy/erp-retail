@@ -22,6 +22,7 @@ const ROLE_BADGE_STYLES = {
     procurement: 'bg-orange-50 text-orange-800 border-orange-300',
     cashier: 'bg-rose-50 text-rose-800 border-rose-300',
     superadmin: 'bg-fuchsia-50 text-fuchsia-800 border-fuchsia-300',
+    auditor: 'bg-slate-100 text-slate-800 border-slate-300',
 };
 
 export default function SettingsUsersIndex({
@@ -206,7 +207,7 @@ export default function SettingsUsersIndex({
                             {counts?.total_roles || 6} Peran
                         </p>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                            Sales, Warehouse, Finance, Cashier, Procurement, Owner
+                            Sales, Warehouse, Finance, Cashier, Procurement, Owner, Super Admin, Auditor
                         </p>
                     </div>
                     <div className="h-10 w-10 rounded-lg bg-violet-50 flex items-center justify-center text-violet-600">
@@ -239,6 +240,7 @@ export default function SettingsUsersIndex({
                     { id: 'procurement', label: 'Procurement' },
                     { id: 'owner', label: 'Owner' },
                     { id: 'superadmin', label: 'Super Admin' },
+                    { id: 'auditor', label: 'Auditor' },
                 ].map((r) => {
                     const roleInfo = roles.find((item) => item.id === r.id);
                     const count = roleInfo ? roleInfo.users_count : 0;

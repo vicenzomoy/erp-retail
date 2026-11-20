@@ -137,6 +137,20 @@ class SettingsController extends Controller
                     ['module' => 'Inventory', 'action' => 'Melakukan Transfer Stok atau Validasi Penerimaan/Pengiriman Gudang', 'allowed' => false],
                 ],
             ],
+            'auditor' => [
+                'id'           => 'auditor',
+                'display_name' => 'Auditor',
+                'badge_color'  => 'slate',
+                'tagline'      => 'Audit Internal & Kepatuhan (Read-Only)',
+                'summary'      => 'Memeriksa seluruh jejak aktivitas sistem melalui modul Audit Trail serta menelusuri dokumen lintas modul. Seluruh akses bersifat hanya-baca: setiap percobaan membuat, mengubah, atau memvalidasi data ditolak dan dicatat.',
+                'capabilities' => [
+                    ['module' => 'Audit Trail', 'action' => 'Akses Log Audit seluruh modul & penelusuran relasi dokumen (selalu aktif, dikunci sistem)', 'allowed' => true],
+                    ['module' => 'Semua Modul', 'action' => 'Melihat dokumen Sales, CRM, Inventory, Purchase, Accounting, POS, dan Settings secara Read-Only', 'allowed' => true],
+                    ['module' => 'Settings', 'action' => 'Melihat Matriks Hak Akses & Log Percobaan Akses yang Ditolak', 'allowed' => true],
+                    ['module' => 'Semua Modul', 'action' => 'Membuat, Mengubah, Memvalidasi, atau Menghapus Data (POST/PUT/PATCH/DELETE)', 'allowed' => false],
+                    ['module' => 'Audit Trail', 'action' => 'Mengubah atau Menghapus Catatan Audit Trail', 'allowed' => false],
+                ],
+            ],
         ];
     }
 
@@ -172,7 +186,8 @@ class SettingsController extends Controller
                     $allowedApps[] = [
                         'key'       => $appKey,
                         'name'      => $appMeta['name'],
-                        'read_only' => in_array($u->role_id, ['procurement', 'sales'], true) && $appKey === 'inventory',
+                        'read_only' => (in_array($u->role_id, ['procurement', 'sales'], true) && $appKey === 'inventory')
+                            || ($u->role_id === 'auditor' && $appKey !== 'auditor'),
                     ];
                 }
             }
@@ -193,7 +208,7 @@ class SettingsController extends Controller
             ];
         });
 
-        $roleList = collect(['superadmin', 'owner', 'finance', 'sales', 'warehouse', 'procurement', 'cashier'])
+        $roleList = collect(['superadmin', 'owner', 'finance', 'sales', 'warehouse', 'procurement', 'cashier', 'auditor'])
             ->map(function (string $roleId) use ($roles, $roleDefinitions) {
                 $roleModel = $roles->get($roleId);
                 $def       = $roleDefinitions[$roleId];
@@ -231,7 +246,7 @@ class SettingsController extends Controller
         $definitions  = $this->getRoleAccessDefinitions();
 
         $dbRoles        = Role::with(['users', 'permissions'])->get()->keyBy('id');
-        $orderedRoleIds = ['sales', 'warehouse', 'finance', 'cashier', 'procurement', 'owner', 'superadmin'];
+        $orderedRoleIds = ['sales', 'warehouse', 'finance', 'cashier', 'procurement', 'owner', 'superadmin', 'auditor'];
 
         $appCatalog = collect(AppCatalogService::APPS)->map(fn ($app, $key) => [
             'key'   => $key,
@@ -250,7 +265,8 @@ class SettingsController extends Controller
             $allowedApps = [];
             foreach (AppCatalogService::APPS as $appKey => $appMeta) {
                 $hasAccess  = AppCatalogService::roleHasApp($roleId, $appKey);
-                $isReadOnly = in_array($roleId, ['procurement', 'sales'], true) && $appKey === 'inventory';
+                $isReadOnly = (in_array($roleId, ['procurement', 'sales'], true) && $appKey === 'inventory')
+                    || ($roleId === 'auditor' && $appKey !== 'auditor');
                 $allowedApps[] = [
                     'key'     => $appKey,
                     'name'    => $appMeta['name'],
