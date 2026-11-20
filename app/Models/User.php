@@ -46,6 +46,19 @@ class User extends Authenticatable
         return $this->hasMany(AuditLog::class, 'actor_user_id');
     }
 
+    /** Peran dengan wewenang setara Owner (eksekutif). Super Admin = Owner + Manajemen User. */
+    public const OWNER_LEVEL_ROLES = ['owner', 'superadmin'];
+
+    public function isOwnerLevel(): bool
+    {
+        return in_array($this->role_id, self::OWNER_LEVEL_ROLES, true);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role_id === 'superadmin';
+    }
+
     /**
      * Check if user has permission via their role.
      */

@@ -42,9 +42,13 @@ class HandleInertiaRequests extends Middleware
                     'role_id' => $user->role_id,
                     'role_name' => $user->role?->display_name ?? ucfirst($user->role_id ?? 'User'),
                     'is_auditor' => $user->role_id === 'auditor',
+                    'is_owner_level' => $user->isOwnerLevel(),
+                    'is_superadmin' => $user->isSuperAdmin(),
                 ] : null,
             ],
             'apps' => AppCatalogService::forUser($user),
+            // Peta akses modul pengguna saat ini (dari matriks Hak Akses Modul)
+            'appAccess' => AppCatalogService::accessMapFor($user),
             'company' => [
                 'name' => 'PT Bara Ritel Nusantara',
                 'brand' => 'Bara Wear',

@@ -65,6 +65,11 @@ const MODULE_FAVICONS = {
         '#6d28d9',
         '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'
     ),
+    usermanagement: buildModuleFaviconSvg(
+        '#d946ef',
+        '#a21caf',
+        '<circle cx="18" cy="15" r="3"/><circle cx="9" cy="7" r="4"/><path d="M10 15H6a4 4 0 0 0-4 4v2"/><path d="m21.7 16.4-.9-.3"/><path d="m15.2 13.9-.9-.3"/><path d="m16.6 18.7.3-.9"/><path d="m19.1 12.2.3-.9"/><path d="m19.6 18.7-.4-1"/><path d="m16.8 12.3-.4-1"/><path d="m14.3 16.6 1-.4"/><path d="m20.7 13.8 1-.4"/>'
+    ),
     auth: '/favicon.svg',
     default: '/favicon.svg',
 };
@@ -82,6 +87,7 @@ const applyFaviconForPage = (componentName = '') => {
     else if (prefix === 'accounting' || prefix === 'invoicing') iconHref = MODULE_FAVICONS.accounting;
     else if (prefix === 'pos') iconHref = MODULE_FAVICONS.pos;
     else if (prefix === 'settings') iconHref = MODULE_FAVICONS.settings;
+    else if (prefix === 'usermanagement') iconHref = MODULE_FAVICONS.usermanagement;
     else if (prefix === 'auth') iconHref = MODULE_FAVICONS.auth;
 
     let link = document.getElementById('app-favicon') || document.querySelector("link[rel*='icon']");

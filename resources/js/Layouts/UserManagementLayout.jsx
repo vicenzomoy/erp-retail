@@ -1,0 +1,156 @@
+import React, { useState } from 'react';
+import { Link, router } from '@inertiajs/react';
+import { UserCog, Users, History, Menu, ShieldCheck } from 'lucide-react';
+import TopBarUserMenu from '@/Components/Odoo/TopBarUserMenu';
+import FlashBanner from '@/Components/Odoo/FlashBanner';
+
+export default function UserManagementLayout({ breadcrumbs = [], children }) {
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+
+    const navigation = [
+        {
+            group: 'Manajemen User',
+            items: [
+                {
+                    name: 'Daftar Pengguna',
+                    route: 'user-management.index',
+                    icon: Users,
+                    active: route().current('user-management.index'),
+                },
+                {
+                    name: 'Hak Akses Modul',
+                    route: 'user-management.access',
+                    icon: ShieldCheck,
+                    active: route().current('user-management.access'),
+                },
+                {
+                    name: 'Riwayat Perubahan',
+                    route: 'user-management.audit-log',
+                    icon: History,
+                    active: route().current('user-management.audit-log'),
+                },
+            ],
+        },
+    ];
+
+    return (
+        <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans">
+            {/* TOP NAVBAR (Odoo 17 Style — Konsisten dengan Modul Lain) */}
+            <header className="sticky top-0 z-40 flex h-12 w-full items-center justify-between border-b border-slate-200 bg-slate-900 px-3 sm:px-4 text-white shadow-sm">
+                <div className="flex items-center gap-2 sm:gap-3">
+                    <button
+                        type="button"
+                        onClick={() => router.visit(route('home'))}
+                        title="Beranda (Aplikasi ERP)"
+                        className="flex h-8 w-8 items-center justify-center rounded-sm bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white transition cursor-pointer"
+                    >
+                        <div className="grid grid-cols-3 gap-0.5 p-1">
+                            {Array.from({ length: 9 }).map((_, i) => (
+                                <span key={i} className="h-1 w-1 rounded-full bg-white"></span>
+                            ))}
+                        </div>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                        className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                    >
+                        <Menu className="h-4 w-4" />
+                    </button>
+
+                    <span className="h-4 w-px bg-slate-700"></span>
+
+                    <Link
+                        href={route('user-management.index')}
+                        className="flex items-center gap-1.5 font-bold tracking-tight text-white hover:text-fuchsia-400 transition"
+                    >
+                        <UserCog className="h-4 w-4 text-fuchsia-400" />
+                        <span className="text-sm font-semibold tracking-wide">Manajemen User</span>
+                    </Link>
+
+                    {breadcrumbs.length > 0 && (
+                        <nav className="hidden md:flex items-center gap-1.5 text-xs text-slate-400">
+                            {breadcrumbs.map((crumb, idx) => (
+                                <React.Fragment key={idx}>
+                                    <span className="text-slate-600">/</span>
+                                    {crumb.href ? (
+                                        <Link href={crumb.href} className="hover:text-slate-200 transition font-medium">
+                                            {crumb.label}
+                                        </Link>
+                                    ) : (
+                                        <span className="text-slate-200 font-semibold truncate max-w-[220px]">
+                                            {crumb.label}
+                                        </span>
+                                    )}
+                                </React.Fragment>
+                            ))}
+                        </nav>
+                    )}
+                </div>
+
+                <TopBarUserMenu />
+            </header>
+
+            <div className="flex flex-1 overflow-hidden">
+                <aside
+                    className={`${
+                        sidebarOpen ? 'w-60' : 'w-0 -translate-x-full'
+                    } transition-all duration-200 ease-in-out shrink-0 bg-white border-r border-slate-200 flex flex-col z-30 overflow-y-auto shadow-xs`}
+                >
+                    <div className="p-3">
+                        <nav className="space-y-4">
+                            {navigation.map((section) => (
+                                <div key={section.group} className="space-y-1">
+                                    <div className="px-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                                        {section.group}
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        {section.items.map((item) => {
+                                            const Icon = item.icon;
+                                            return (
+                                                <Link
+                                                    key={item.name}
+                                                    href={route(item.route)}
+                                                    className={`group flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-all ${
+                                                        item.active
+                                                            ? 'bg-slate-900 text-white shadow-xs font-semibold'
+                                                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                                    }`}
+                                                >
+                                                    <Icon
+                                                        className={`h-4 w-4 shrink-0 transition-colors ${
+                                                            item.active
+                                                                ? 'text-fuchsia-400'
+                                                                : 'text-slate-400 group-hover:text-slate-700'
+                                                        }`}
+                                                    />
+                                                    <span className="truncate">{item.name}</span>
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </nav>
+                    </div>
+
+                    <div className="mt-auto border-t border-slate-100 p-3 bg-slate-50/50 text-[11px] text-slate-500">
+                        <div className="flex items-center gap-1.5 text-slate-700 font-medium mb-0.5">
+                            <span className="h-2 w-2 rounded-full bg-fuchsia-500 animate-pulse"></span>
+                            <span>Khusus Super Admin</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                            Setiap perubahan tercatat di Audit Trail
+                        </div>
+                    </div>
+                </aside>
+
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8fafc]">
+                    <FlashBanner />
+                    {children}
+                </main>
+            </div>
+        </div>
+    );
+}

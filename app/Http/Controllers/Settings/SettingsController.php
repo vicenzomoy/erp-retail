@@ -24,6 +24,20 @@ class SettingsController extends Controller
     protected function getRoleAccessDefinitions(): array
     {
         return [
+            'superadmin' => [
+                'id'           => 'superadmin',
+                'display_name' => 'Super Admin',
+                'badge_color'  => 'fuchsia',
+                'tagline'      => 'Administrator Sistem (Owner + Manajemen User)',
+                'summary'      => 'Memiliki seluruh wewenang Owner di semua modul, ditambah modul Manajemen User untuk mengubah username/email, mereset password, serta mengatur peran dan status akun seluruh pengguna. Setiap perubahan tercatat di Audit Trail.',
+                'capabilities' => [
+                    ['module' => 'Semua Modul', 'action' => 'Seluruh wewenang peran Owner (Dashboard, Sales, CRM, Inventory, Purchase, Accounting, POS, Settings)', 'allowed' => true],
+                    ['module' => 'Manajemen User', 'action' => 'Ubah Nama & Username (Email Login) Seluruh Pengguna', 'allowed' => true],
+                    ['module' => 'Manajemen User', 'action' => 'Reset Password Seluruh Pengguna', 'allowed' => true],
+                    ['module' => 'Manajemen User', 'action' => 'Atur Peran (Hak Akses) & Aktif/Nonaktifkan Akun', 'allowed' => true],
+                    ['module' => 'Audit Trail', 'action' => 'Menghapus atau Mengubah Catatan Audit Trail atas Perubahan yang Dilakukan', 'allowed' => false],
+                ],
+            ],
             'owner' => [
                 'id'           => 'owner',
                 'display_name' => 'Owner',
@@ -154,7 +168,7 @@ class SettingsController extends Controller
         $users = $query->get()->map(function (User $u) use ($roleDefinitions) {
             $allowedApps = [];
             foreach (AppCatalogService::APPS as $appKey => $appMeta) {
-                if (in_array($u->role_id, $appMeta['roles'], true)) {
+                if (AppCatalogService::roleHasApp((string) $u->role_id, $appKey)) {
                     $allowedApps[] = [
                         'key'       => $appKey,
                         'name'      => $appMeta['name'],
@@ -179,7 +193,7 @@ class SettingsController extends Controller
             ];
         });
 
-        $roleList = collect(['owner', 'finance', 'sales', 'warehouse', 'procurement', 'cashier'])
+        $roleList = collect(['superadmin', 'owner', 'finance', 'sales', 'warehouse', 'procurement', 'cashier'])
             ->map(function (string $roleId) use ($roles, $roleDefinitions) {
                 $roleModel = $roles->get($roleId);
                 $def       = $roleDefinitions[$roleId];
@@ -217,13 +231,16 @@ class SettingsController extends Controller
         $definitions  = $this->getRoleAccessDefinitions();
 
         $dbRoles        = Role::with(['users', 'permissions'])->get()->keyBy('id');
-        $orderedRoleIds = ['sales', 'warehouse', 'finance', 'cashier', 'procurement', 'owner'];
+        $orderedRoleIds = ['sales', 'warehouse', 'finance', 'cashier', 'procurement', 'owner', 'superadmin'];
 
         $appCatalog = collect(AppCatalogService::APPS)->map(fn ($app, $key) => [
             'key'   => $key,
             'name'  => $app['name'],
             'desc'  => $app['desc'],
-            'roles' => $app['roles'],
+            'roles' => $dbRoles->keys()
+                ->filter(fn ($roleId) => AppCatalogService::roleHasApp((string) $roleId, $key))
+                ->values()
+                ->all(),
         ])->values();
 
         $rolesData = collect($orderedRoleIds)->map(function (string $roleId) use ($dbRoles, $definitions) {
@@ -232,7 +249,7 @@ class SettingsController extends Controller
 
             $allowedApps = [];
             foreach (AppCatalogService::APPS as $appKey => $appMeta) {
-                $hasAccess  = in_array($roleId, $appMeta['roles'], true);
+                $hasAccess  = AppCatalogService::roleHasApp($roleId, $appKey);
                 $isReadOnly = in_array($roleId, ['procurement', 'sales'], true) && $appKey === 'inventory';
                 $allowedApps[] = [
                     'key'     => $appKey,
@@ -308,6 +325,8 @@ class SettingsController extends Controller
      */
     public function storeUser(Request $request): RedirectResponse
     {
+        $this->ensureCanManageUsers($request);
+
         $validated = $request->validate([
             'name'      => ['required', 'string', 'max:120'],
             'email'     => ['required', 'email', 'max:150', 'unique:users,email'],
@@ -353,7 +372,14 @@ class SettingsController extends Controller
      */
     public function updateUser(Request $request, int $id): RedirectResponse
     {
+        $this->ensureCanManageUsers($request);
+
         $targetUser = User::findOrFail($id);
+
+        // Akun Super Admin hanya dapat diubah lewat modul Manajemen User oleh Super Admin.
+        if ($targetUser->isSuperAdmin()) {
+            abort(403, 'Akun Super Admin hanya dapat diubah melalui modul Manajemen User oleh Super Admin.');
+        }
 
         $validated = $request->validate([
             'name'      => ['required', 'string', 'max:120'],
@@ -389,5 +415,33 @@ class SettingsController extends Controller
 
         return redirect()->route('settings.users.index')
             ->with('success', "Hak akses dan profil pengguna '{$targetUser->name}' berhasil diperbarui.");
+    }
+
+    /**
+     * Tambah/ubah pengguna di Settings hanya untuk peran setara Owner (Finance hanya melihat).
+     * Penolakan dicatat ke Audit Log.
+     */
+    protected function ensureCanManageUsers(Request $request): void
+    {
+        $actor = $request->user();
+
+        if ($actor?->isOwnerLevel()) {
+            return;
+        }
+
+        AuditLog::record(
+            action: 'access.denied',
+            status: 'REJECTED',
+            actorUserId: $actor?->id,
+            actorUsername: $actor?->name ?? 'guest',
+            actorRole: $actor?->role_id ?? 'guest',
+            documentType: 'user',
+            documentId: (string) ($request->route('id') ?? 'new'),
+            newValue: ['method' => $request->method(), 'path' => $request->path()],
+            notes: 'Percobaan menambah/mengubah pengguna dari modul Settings ditolak (khusus Owner/Super Admin).',
+            ipAddress: $request->ip(),
+        );
+
+        abort(403, 'Hanya Owner atau Super Admin yang dapat menambah atau mengubah pengguna.');
     }
 }

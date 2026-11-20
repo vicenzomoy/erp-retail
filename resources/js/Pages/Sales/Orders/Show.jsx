@@ -60,7 +60,7 @@ const INVOICE_STATUS = {
 // ─── Component ─────────────────────────────────────────────────────────────
 export default function SalesOrderShow({ order, products = [], relatedDocs = [], auditLogs = [] }) {
     const { auth, flash } = usePage().props;
-    const isOwner = auth?.user?.role_id === 'owner';
+    const isOwner = Boolean(auth?.user?.is_owner_level);
 
     const isDraft = order.status === 'draft';
 

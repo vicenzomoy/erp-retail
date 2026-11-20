@@ -21,6 +21,7 @@ const ROLE_BADGE_STYLES = {
     warehouse: 'bg-teal-50 text-teal-800 border-teal-300',
     procurement: 'bg-orange-50 text-orange-800 border-orange-300',
     cashier: 'bg-rose-50 text-rose-800 border-rose-300',
+    superadmin: 'bg-fuchsia-50 text-fuchsia-800 border-fuchsia-300',
 };
 
 export default function SettingsUsersIndex({
@@ -30,7 +31,7 @@ export default function SettingsUsersIndex({
     counts = {},
 }) {
     const { auth } = usePage().props;
-    const isOwner = auth?.user?.role_id === 'owner';
+    const isOwner = Boolean(auth?.user?.is_owner_level);
 
     const [search, setSearch] = useState(filters?.search || '');
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -237,6 +238,7 @@ export default function SettingsUsersIndex({
                     { id: 'cashier', label: 'Cashier' },
                     { id: 'procurement', label: 'Procurement' },
                     { id: 'owner', label: 'Owner' },
+                    { id: 'superadmin', label: 'Super Admin' },
                 ].map((r) => {
                     const roleInfo = roles.find((item) => item.id === r.id);
                     const count = roleInfo ? roleInfo.users_count : 0;
@@ -355,7 +357,7 @@ export default function SettingsUsersIndex({
                                                         Detail Hak Akses
                                                         <ArrowRight className="h-3 w-3" />
                                                     </Link>
-                                                    {isOwner && (
+                                                    {isOwner && u.role_id !== 'superadmin' && (
                                                         <button
                                                             type="button"
                                                             onClick={() => openEditModal(u)}

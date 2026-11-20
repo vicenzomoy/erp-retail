@@ -70,7 +70,7 @@ class SalesCustomerController extends Controller
             ];
         })->values()->all();
 
-        $isOwner = $request->user()?->role_id === 'owner';
+        $isOwner = (bool) $request->user()?->isOwnerLevel();
         $deletedCustomers = $isOwner
             ? ContactCustomer::onlyTrashed()->orderBy('id')->get()->map(fn (ContactCustomer $c) => [
                 'id'            => $c->id,
@@ -334,7 +334,7 @@ class SalesCustomerController extends Controller
 
     public function restore(Request $request, string $id): RedirectResponse
     {
-        if ($request->user()?->role_id !== 'owner') {
+        if (! $request->user()?->isOwnerLevel()) {
             abort(403, 'Hanya Admin/Owner yang dapat memulihkan pelanggan yang telah dihapus.');
         }
 

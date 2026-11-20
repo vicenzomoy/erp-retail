@@ -50,6 +50,16 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        // Akun yang dinonaktifkan (Manajemen User / Settings) tidak boleh login.
+        if (! Auth::user()?->is_active) {
+            Auth::guard('web')->logout();
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'Akun ini telah dinonaktifkan. Hubungi Super Admin.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

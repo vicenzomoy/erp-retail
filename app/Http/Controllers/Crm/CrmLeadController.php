@@ -37,7 +37,7 @@ class CrmLeadController extends Controller
 
         $customers = ContactCustomer::orderBy('name')->get(['id', 'name']);
         $products  = Product::orderBy('name')->get(['variant_sku', 'name', 'sales_price']);
-        $users     = User::whereIn('role_id', ['sales', 'owner'])
+        $users     = User::whereIn('role_id', ['sales', 'owner', 'superadmin'])
             ->orderBy('name')
             ->get(['id', 'name', 'role_id']);
 
@@ -69,7 +69,7 @@ class CrmLeadController extends Controller
     {
         $customers = ContactCustomer::orderBy('name')->get(['id', 'name', 'payment_terms']);
         $products  = Product::orderBy('name')->get(['variant_sku', 'name', 'sales_price']);
-        $users     = User::whereIn('role_id', ['sales', 'owner'])
+        $users     = User::whereIn('role_id', ['sales', 'owner', 'superadmin'])
             ->orderBy('name')
             ->get(['id', 'name', 'role_id']);
 
@@ -158,7 +158,7 @@ class CrmLeadController extends Controller
 
         $customers = ContactCustomer::orderBy('name')->get(['id', 'name']);
         $products  = Product::orderBy('name')->get(['variant_sku', 'name', 'sales_price']);
-        $users     = User::whereIn('role_id', ['sales', 'owner'])->get(['id', 'name']);
+        $users     = User::whereIn('role_id', ['sales', 'owner', 'superadmin'])->get(['id', 'name']);
 
         // Collect audit logs (hanya untuk Auditor + LOG_NOTE untuk chatter)
         $relatedDocIds = [$lead->id];

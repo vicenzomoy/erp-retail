@@ -33,7 +33,7 @@ export default function SalesCustomerIndex({
     inCrm = false,
 }) {
     const { auth } = usePage().props;
-    const isOwner = auth?.user?.role_id === 'owner';
+    const isOwner = Boolean(auth?.user?.is_owner_level);
     const [search, setSearch] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState(null);

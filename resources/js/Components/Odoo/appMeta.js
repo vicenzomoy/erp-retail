@@ -9,6 +9,7 @@ import {
     Settings,
     LayoutDashboard,
     ShieldCheck,
+    UserCog,
 } from 'lucide-react';
 
 // Ikon & warna tile per app (daftar & hak akses datang dari server: props.apps).
@@ -25,4 +26,5 @@ export const APP_META = {
     accounting: { icon: Scale, color: 'bg-gradient-to-br from-emerald-600 to-teal-800', glow: 'shadow-teal-500/40' },
     pos: { icon: Store, color: 'bg-gradient-to-br from-rose-400 to-rose-600', glow: 'shadow-rose-500/40' },
     settings: { icon: Settings, color: 'bg-gradient-to-br from-violet-400 to-purple-600', glow: 'shadow-purple-500/40' },
+    user_management: { icon: UserCog, color: 'bg-gradient-to-br from-fuchsia-500 to-fuchsia-700', glow: 'shadow-fuchsia-500/40' },
 };

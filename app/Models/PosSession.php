@@ -42,7 +42,7 @@ class PosSession extends Model
     public const SHORTAGE_ACCOUNT = '1150';
 
     /** Peran yang dapat menandai kekurangan kas sudah diganti. */
-    public const SETTLER_ROLES = ['finance', 'owner'];
+    public const SETTLER_ROLES = ['finance', 'owner', 'superadmin'];
 
     protected function casts(): array
     {

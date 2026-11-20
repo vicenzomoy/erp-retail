@@ -42,6 +42,7 @@ class AppInitialSeeder extends Seeder
             ['id' => 'finance', 'display_name' => 'Finance', 'description' => 'Akses ke Faktur, Pembayaran, dan Buku Besar'],
             ['id' => 'cashier', 'display_name' => 'Cashier', 'description' => 'Akses operasional Point of Sale'],
             ['id' => 'procurement', 'display_name' => 'Procurement', 'description' => 'Akses ke Pembelian dan Vendor'],
+            ['id' => 'superadmin', 'display_name' => 'Super Admin', 'description' => 'Akses penuh setara Owner ke seluruh modul, ditambah modul Manajemen User (username, password, dan hak akses seluruh pengguna). Seluruh perubahan dicatat di Audit Trail.'],
         ];
 
         foreach ($roles as $r) {
@@ -128,6 +129,13 @@ class AppInitialSeeder extends Seeder
                 'email' => 'owner.demo@barawear.com',
                 'password' => Hash::make('password'),
                 'role_id' => 'owner',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Super Admin',
+                'email' => 'superadmin.demo@barawear.com',
+                'password' => Hash::make('password'),
+                'role_id' => 'superadmin',
                 'is_active' => true,
             ],
             [

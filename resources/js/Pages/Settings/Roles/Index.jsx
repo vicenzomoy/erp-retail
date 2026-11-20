@@ -37,6 +37,10 @@ const ROLE_HEADER_STYLES = {
         badge: 'bg-amber-50 text-amber-800 border-amber-300',
         border: 'border-t-amber-600',
     },
+    superadmin: {
+        badge: 'bg-fuchsia-50 text-fuchsia-800 border-fuchsia-300',
+        border: 'border-t-fuchsia-600',
+    },
 };
 
 export default function SettingsRolesIndex({
@@ -67,6 +71,7 @@ export default function SettingsRolesIndex({
         { id: 'cashier', label: 'Cashier' },
         { id: 'procurement', label: 'Procurement' },
         { id: 'owner', label: 'Owner' },
+        { id: 'superadmin', label: 'Super Admin' },
     ];
 
     return (

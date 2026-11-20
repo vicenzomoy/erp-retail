@@ -148,7 +148,7 @@ class SalesOrderService
             $discountApprovedAt = null;
 
             if (bccomp($maxDiscount, '10', 2) > 0) {
-                if ($actor->role_id === 'owner') {
+                if ($actor->isOwnerLevel()) {
                     $discountHold = false;
                     $discountApprovedBy = $actor->id;
                     $discountApprovedAt = now();
@@ -337,7 +337,7 @@ class SalesOrderService
         }
 
         if (bccomp($maxDiscount, '10', 2) > 0 && $so->discount_approved_by === null) {
-            if ($actor->role_id === 'owner') {
+            if ($actor->isOwnerLevel()) {
                 $so->update([
                     'discount_hold'        => false,
                     'discount_approved_by' => $actor->id,
@@ -370,7 +370,7 @@ class SalesOrderService
             }
         }
 
-        if ($so->discount_hold && $actor->role_id !== 'owner') {
+        if ($so->discount_hold && ! $actor->isOwnerLevel()) {
             throw ValidationException::withMessages([
                 'discount_hold' => sprintf(
                     'Sales Order %s sedang ditahan menunggu persetujuan diskon oleh Owner.',
@@ -857,7 +857,7 @@ class SalesOrderService
      */
     public function approveDiscount(string $soId, ?string $notes, User $owner): SalesOrder
     {
-        if ($owner->role_id !== 'owner') {
+        if (! $owner->isOwnerLevel()) {
             throw ValidationException::withMessages([
                 'authorization' => 'Hanya Owner yang berhak menyetujui diskon di atas 10%.',
             ]);
@@ -912,7 +912,7 @@ class SalesOrderService
      */
     public function rejectDiscount(string $soId, ?string $reason, ?float $adjustedDiscount, User $owner): SalesOrder
     {
-        if ($owner->role_id !== 'owner') {
+        if (! $owner->isOwnerLevel()) {
             throw ValidationException::withMessages([
                 'authorization' => 'Hanya Owner yang berhak menolak atau menyesuaikan diskon.',
             ]);
@@ -998,7 +998,7 @@ class SalesOrderService
         }
 
         if (bccomp($maxDiscount, '10', 2) > 0) {
-            if ($actor->role_id === 'owner') {
+            if ($actor->isOwnerLevel()) {
                 $so->update([
                     'discount_hold'        => false,
                     'discount_approved_by' => $actor->id,

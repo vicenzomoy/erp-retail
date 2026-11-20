@@ -70,7 +70,7 @@ export default function AccessDenied({
 
     if (
         inInventory &&
-        ['owner', 'warehouse', 'sales', 'procurement'].includes(auth?.user?.role_id)
+        ['owner', 'superadmin', 'warehouse', 'sales', 'procurement'].includes(auth?.user?.role_id)
     ) {
         return (
             <InventoryLayout

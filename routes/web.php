@@ -36,6 +36,7 @@ use App\Http\Controllers\Sales\SalesCustomerController;
 use App\Http\Controllers\Sales\SalesOrderController;
 use App\Http\Controllers\Sales\SalesOverviewController;
 use App\Http\Controllers\Settings\SettingsController;
+use App\Http\Controllers\UserManagement\UserManagementController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -73,6 +74,23 @@ Route::middleware('auth')->group(function () {
             ->where('id', '[0-9]+')
             ->name('users.update');
         Route::get('/roles', [SettingsController::class, 'roles'])->name('roles.index');
+    });
+
+    // ==========================================
+    // MANAJEMEN USER (Khusus Super Admin — setiap perubahan tercatat di Audit Trail)
+    // ==========================================
+    Route::prefix('user-management')->name('user-management.')->middleware('app.access:user_management')->group(function () {
+        Route::get('/', [UserManagementController::class, 'index'])->name('index');
+        Route::get('/audit-log', [UserManagementController::class, 'auditLog'])->name('audit-log');
+        Route::get('/access', [UserManagementController::class, 'accessMatrix'])->name('access');
+        Route::put('/access', [UserManagementController::class, 'updateAccessMatrix'])->name('access.update');
+        Route::post('/users', [UserManagementController::class, 'store'])->name('users.store');
+        Route::put('/users/{id}', [UserManagementController::class, 'update'])
+            ->where('id', '[0-9]+')
+            ->name('users.update');
+        Route::put('/users/{id}/password', [UserManagementController::class, 'updatePassword'])
+            ->where('id', '[0-9]+')
+            ->name('users.password');
     });
 
     // ==========================================

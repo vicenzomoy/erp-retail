@@ -45,7 +45,7 @@ class PurchaseOrder extends Model
     /**
      * Peran yang berwenang menyetujui / menolak PO bernilai besar.
      */
-    public const APPROVER_ROLES = ['finance', 'owner'];
+    public const APPROVER_ROLES = ['finance', 'owner', 'superadmin'];
 
     protected function casts(): array
     {

@@ -22,24 +22,13 @@ export default function OdooFormFooter({
     relatedDocs = [],
     auditLogs = [],
 }) {
-    const { auth } = usePage().props;
+    const { auth, appAccess = {} } = usePage().props;
     const roleId = auth?.user?.role_id || '';
     const isAuditor = Boolean(auth?.user?.is_auditor) || roleId === 'auditor';
-    const isOwner = roleId === 'owner';
     const [activeTab, setActiveTab] = useState('related'); // 'related' | 'notes' | 'audit'
 
-    const MODULE_ROLE_ACCESS = {
-        owner: ['owner', 'auditor'],
-        auditor: ['owner', 'auditor'],
-        sales: ['owner', 'auditor', 'sales', 'finance'],
-        crm: ['owner', 'auditor', 'sales'],
-        inventory: ['owner', 'auditor', 'warehouse', 'sales', 'procurement'],
-        purchase: ['owner', 'auditor', 'procurement'],
-        accounting: ['owner', 'auditor', 'finance'],
-        invoicing: ['owner', 'auditor', 'finance'],
-        pos: ['owner', 'auditor', 'cashier'],
-        settings: ['owner', 'auditor', 'finance'],
-    };
+    // Modul yang dikenali dari segmen URL dokumen terkait; hak akses dicek via props.appAccess
+    const MODULE_KEYS = new Set(['owner', 'auditor', 'sales', 'crm', 'inventory', 'purchase', 'accounting', 'invoicing', 'pos', 'settings']);
 
     const DOC_TYPE_MODULE_MAP = {
         'CUSTOMER INVOICE': 'accounting',
@@ -78,8 +67,8 @@ export default function OdooFormFooter({
         if (!doc?.url || doc.url === '#') return false;
         if (!roleId) return false;
 
-        // Owner & Auditor memiliki hak akses ke seluruh modul dan dokumen terkait
-        if (isOwner || isAuditor) return true;
+        // Auditor memiliki hak baca ke seluruh dokumen terkait
+        if (isAuditor) return true;
 
         let pathname = '';
         try {
@@ -90,15 +79,16 @@ export default function OdooFormFooter({
 
         const firstSegment = pathname.split('/')[0] || '';
         const docTypeUpper = (doc.type || '').toUpperCase().trim();
-        const targetModule = MODULE_ROLE_ACCESS[firstSegment]
+        const targetModule = MODULE_KEYS.has(firstSegment)
             ? firstSegment
             : DOC_TYPE_MODULE_MAP[docTypeUpper] || '';
 
-        if (!targetModule || !MODULE_ROLE_ACCESS[targetModule]) {
+        if (!targetModule || !MODULE_KEYS.has(targetModule)) {
             return false;
         }
 
-        if (!MODULE_ROLE_ACCESS[targetModule].includes(roleId)) {
+        // Akses modul mengikuti matriks Hak Akses Modul dari server (props.appAccess)
+        if (!appAccess[targetModule]) {
             return false;
         }
 
