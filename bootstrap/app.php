@@ -18,7 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\EnsureAuditorReadOnly::class,
+            
         ]);
+        
+        $middleware->trustProxies(at: '*');
 
         $middleware->alias([
             'app.access' => \App\Http\Middleware\EnsureAppAccess::class,
